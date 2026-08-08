@@ -49,6 +49,35 @@ Three requests tracked together since they touch overlapping files (sidebar, sta
 
 Execution order: A -> B -> C -> D (C is the largest; B2/B3 touch files C6 will touch again, doing them first avoids rework).
 
+## Bugfix (2026-08-08, found via live user report on /platform/users): "No plan" shown despite an active subscription
+
+Pre-existing bug (not introduced by Phase 1/2, just newly surfaced by the new User
+Management page hitting the same pattern) — confirmed via a live HTTP call against
+the real dev DB that `Tenant::activeSubscription` serializes to JSON as
+`active_subscription` (Laravel snake_cases relation names on output), but every
+frontend consumer read `.activeSubscription` (camelCase), so it was always
+`undefined` and silently fell back to "No plan" / "—". Audited the whole backend
+for every other camelCase multi-word relation method and fixed each one the same
+way (renamed the frontend type field + every consumption site to match the actual
+wire format, rather than fighting Laravel's default casing):
+- `Tenant::activeSubscription` -> `active_subscription` (Billing page, User
+  Management page, super-admin Libraries page).
+- `Member::activeSubscription` -> `active_subscription` (Members page "Plan" column).
+- `Seat::currentSubscription` -> `current_subscription` (Seats page "occupied by" column).
+- `Tenant::membershipPlans` -> `membership_plans` (User Management drill-down).
+- `SubscriptionPlan::tenantSubscriptions` checked too — unused anywhere, no fix needed.
+- `User::currentTenant` was already correctly handled as `current_tenant` from Phase 1.
+
+**Important distinction**: this only ever affected *display* of plan info — the
+actual access-gating (`EnsureTenantIsActive` backend middleware, `tenantNeedsPlan()`
+frontend redirect) keys off `tenant.status`/`trial_ends_at` directly, never off
+`activeSubscription`, so "no active plan -> blocked from the dashboard" was never
+broken by this.
+
+Verified: `tsc --noEmit` clean (every renamed field's remaining usages would have
+failed to compile otherwise — none did, confirming full coverage), and a direct
+curl against the live dev API confirmed the exact JSON shape.
+
 ### Part D — Subscription-driven Library limit
 
 New request that arrived mid-Phase-2. Confirmed with the user: **"best active plan wins"** — an

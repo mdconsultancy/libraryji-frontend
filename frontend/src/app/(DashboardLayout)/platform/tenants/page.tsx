@@ -264,7 +264,7 @@ export default function TenantsPage() {
                       )}
                     </TableCell>
                     <TableCell>{tenant.email}</TableCell>
-                    <TableCell>{tenant.activeSubscription?.plan?.name || "—"}</TableCell>
+                    <TableCell>{tenant.active_subscription?.plan?.name || "—"}</TableCell>
                     <TableCell>{tenant.halls_count ?? 0}</TableCell>
                     <TableCell>{tenant.members_count ?? 0}</TableCell>
                     <TableCell>

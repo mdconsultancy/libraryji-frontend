@@ -109,7 +109,7 @@ export default function UserManagementPage() {
                       <div className="flex flex-wrap gap-1 max-w-56">
                         {row.tenants.map((t) => (
                           <Badge key={t.id} variant="secondary" className="border-none text-xs">
-                            {t.activeSubscription?.plan?.name ?? "No plan"}
+                            {t.active_subscription?.plan?.name ?? "No plan"}
                           </Badge>
                         ))}
                       </div>
@@ -196,7 +196,7 @@ export default function UserManagementPage() {
                         <p className="text-xs text-darklink">Members</p>
                       </div>
                       <div className="rounded-lg bg-lightprimary py-2">
-                        <p className="text-lg font-semibold">{tenant.membershipPlans?.length ?? 0}</p>
+                        <p className="text-lg font-semibold">{tenant.membership_plans?.length ?? 0}</p>
                         <p className="text-xs text-darklink">Plans</p>
                       </div>
                     </div>

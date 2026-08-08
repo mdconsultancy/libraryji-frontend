@@ -70,7 +70,9 @@ export interface Tenant {
   status: TenantStatus
   trial_ends_at: string | null
   has_active_plan?: boolean
-  activeSubscription?: TenantSubscription | null
+  // Laravel snake_cases relation names in JSON — this is `active_subscription`
+  // on the wire (verified against the live API), not `activeSubscription`.
+  active_subscription?: TenantSubscription | null
   users_count?: number
   halls_count?: number
   seats_count?: number
@@ -134,7 +136,7 @@ export interface Seat {
   position_x: string | number
   position_y: string | number
   hall?: Hall
-  currentSubscription?: MemberSubscription | null
+  current_subscription?: MemberSubscription | null
 }
 
 export interface Shift {
@@ -179,7 +181,7 @@ export interface Member {
   status: MemberStatus
   notes: string | null
   subscriptions?: MemberSubscription[]
-  activeSubscription?: MemberSubscription | null
+  active_subscription?: MemberSubscription | null
   attendances?: Attendance[]
   payments?: Payment[]
   created_at?: string
@@ -341,7 +343,6 @@ export interface UserManagementRow {
   tenants_count: number
   tenants: (Tenant & {
     pivot: { role: 'admin' | 'staff' }
-    activeSubscription?: TenantSubscription | null
     halls_count?: number
     seats_count?: number
     members_count?: number
@@ -351,10 +352,9 @@ export interface UserManagementRow {
 export interface UserManagementDetail extends UserManagementRow {
   tenants: (Tenant & {
     pivot: { role: 'admin' | 'staff' }
-    activeSubscription?: TenantSubscription | null
     halls?: (Hall & { seats_count?: number })[]
     subscriptions?: TenantSubscription[]
-    membershipPlans?: MembershipPlan[]
+    membership_plans?: MembershipPlan[]
     seats_count?: number
     members_count?: number
   })[]

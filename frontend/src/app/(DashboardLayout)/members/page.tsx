@@ -278,7 +278,7 @@ export default function MembersPage() {
                       </div>
                     </TableCell>
                     <TableCell>{member.phone}</TableCell>
-                    <TableCell>{member.activeSubscription?.plan?.name || "—"}</TableCell>
+                    <TableCell>{member.active_subscription?.plan?.name || "—"}</TableCell>
                     <TableCell>
                       <Badge variant="secondary" className={`border-none capitalize ${statusStyles[member.status]}`}>
                         {member.status}

@@ -45,7 +45,7 @@ export default function BillingPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const active = tenant?.activeSubscription;
+  const active = tenant?.active_subscription;
 
   return (
     <>
