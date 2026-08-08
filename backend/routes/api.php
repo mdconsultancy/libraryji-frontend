@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Admin\BillingController;
 use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\ExpenseController;
 use App\Http\Controllers\Api\Admin\HallController;
+use App\Http\Controllers\Api\Admin\LibraryController;
 use App\Http\Controllers\Api\Admin\MemberController;
 use App\Http\Controllers\Api\Admin\MembershipPlanController;
 use App\Http\Controllers\Api\Admin\MemberSubscriptionController;
@@ -47,6 +48,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:admin')->prefix('admin')->group(function () {
         Route::post('select-plan/order', [PlanSelectionController::class, 'createOrder']);
         Route::post('select-plan/verify', [PlanSelectionController::class, 'verify']);
+
+        // Account-wide Library count/limit + adding an additional Library.
+        // Deliberately not behind `tenant.active` — these operate on the
+        // admin's account as a whole, not the currently selected workspace,
+        // so a suspended *current* Library must never block them.
+        Route::get('libraries-summary', [LibraryController::class, 'summary']);
+        Route::post('libraries', [LibraryController::class, 'store']);
     });
 
     // Read-only billing history for the tenant's own SaaS subscription — admin & staff can view.

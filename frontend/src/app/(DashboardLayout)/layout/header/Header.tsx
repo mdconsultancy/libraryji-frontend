@@ -5,6 +5,7 @@ import { useTheme } from 'next-themes'
 import { Icon } from '@iconify/react'
 import Profile from './Profile'
 import LibrarySwitcher from './LibrarySwitcher'
+import LibraryUsage from './LibraryUsage'
 import Notifications from './Notifications'
 import SidebarLayout from '../sidebar/Sidebar'
 import FullLogo from '../shared/logo/FullLogo'
@@ -82,7 +83,8 @@ const Header = () => {
               </div>
             </div>
 
-            {/* Library Switcher (admin, multi-library only) */}
+            {/* Library usage + Library Switcher (admin only) */}
+            <LibraryUsage />
             <LibrarySwitcher />
 
             {/* Profile Dropdown */}

@@ -24,6 +24,9 @@ class SubscriptionPlanController extends Controller
             'max_seats' => 'required|integer|min:1',
             'max_members' => 'required|integer|min:1',
             'max_staff' => 'required|integer|min:1',
+            // How many total Libraries this plan entitles the admin's
+            // account to operate. Null/omitted = unlimited.
+            'max_libraries' => 'nullable|integer|min:1',
             'features' => 'nullable|array',
             'is_active' => 'boolean',
             'sort_order' => 'integer',
@@ -51,6 +54,7 @@ class SubscriptionPlanController extends Controller
             'max_seats' => 'integer|min:1',
             'max_members' => 'integer|min:1',
             'max_staff' => 'integer|min:1',
+            'max_libraries' => 'nullable|integer|min:1',
             'features' => 'nullable|array',
             'is_active' => 'boolean',
             'sort_order' => 'integer',

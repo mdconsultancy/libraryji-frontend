@@ -24,6 +24,8 @@ export interface SubscriptionPlan {
   max_seats: number
   max_members: number
   max_staff: number
+  /** How many total Libraries this plan entitles the admin's account to operate. null = unlimited. */
+  max_libraries: number | null
   features: string[] | null
   is_active: boolean
   sort_order: number
