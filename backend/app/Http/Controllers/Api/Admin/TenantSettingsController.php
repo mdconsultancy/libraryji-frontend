@@ -9,12 +9,12 @@ class TenantSettingsController extends Controller
 {
     public function show(Request $request)
     {
-        return response()->json($request->user()->tenant);
+        return response()->json($request->user()->currentTenant);
     }
 
     public function update(Request $request)
     {
-        $tenant = $request->user()->tenant;
+        $tenant = $request->user()->currentTenant;
 
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',

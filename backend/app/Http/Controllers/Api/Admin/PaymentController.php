@@ -74,7 +74,7 @@ class PaymentController extends Controller
 
     private function generateInvoiceNumber(): string
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = Auth::user()->current_tenant_id;
 
         return sprintf('INV-%d-%s', $tenantId, now()->format('YmdHis').random_int(100, 999));
     }

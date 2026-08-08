@@ -27,7 +27,7 @@ class SeatController extends Controller
 
     public function store(Request $request)
     {
-        $tenant = $request->user()->tenant;
+        $tenant = $request->user()->currentTenant;
 
         if ($limit = $this->planLimits->limit($tenant, 'seats')) {
             if ($this->planLimits->wouldExceed($tenant, 'seats')) {
@@ -57,7 +57,7 @@ class SeatController extends Controller
             'seat_type' => 'in:general,ac,non_ac,cabin,premium',
         ]);
 
-        $tenant = $request->user()->tenant;
+        $tenant = $request->user()->currentTenant;
         $requested = $validated['end'] - $validated['start'] + 1;
 
         if ($limit = $this->planLimits->limit($tenant, 'seats')) {

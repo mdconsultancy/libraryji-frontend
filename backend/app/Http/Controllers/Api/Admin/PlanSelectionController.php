@@ -35,7 +35,7 @@ class PlanSelectionController extends Controller
         }
 
         $plan = SubscriptionPlan::findOrFail($validated['subscription_plan_id']);
-        $tenant = $request->user()->tenant;
+        $tenant = $request->user()->currentTenant;
 
         $receipt = 'tenant-'.$tenant->id.'-'.now()->format('YmdHis');
 
@@ -74,7 +74,7 @@ class PlanSelectionController extends Controller
             return response()->json(['message' => 'Payment verification failed.'], 422);
         }
 
-        $tenant = $request->user()->tenant;
+        $tenant = $request->user()->currentTenant;
 
         // Idempotency: if this order was already verified (double submit,
         // Razorpay handler firing twice, user refreshing mid-request), don't

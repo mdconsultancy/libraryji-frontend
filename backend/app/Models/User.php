@@ -3,12 +3,12 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-use App\Models\Concerns\BelongsToTenant;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -16,14 +16,14 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable([
-    'tenant_id', 'role', 'name', 'email', 'password', 'phone',
+    'current_tenant_id', 'role', 'name', 'email', 'password', 'phone',
     'avatar_path', 'status',
 ])]
 #[Hidden(['password', 'remember_token', 'two_factor_secret'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use BelongsToTenant, HasApiTokens, HasFactory, Notifiable, SoftDeletes;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     protected function casts(): array
     {
@@ -35,9 +35,25 @@ class User extends Authenticatable
         ];
     }
 
-    public function tenant(): BelongsTo
+    /**
+     * The Library workspace this user currently has selected. For staff this
+     * never changes after creation (they belong to exactly one Library). For
+     * an admin it's whichever of their Libraries they last switched to.
+     */
+    public function currentTenant(): BelongsTo
     {
-        return $this->belongsTo(Tenant::class);
+        return $this->belongsTo(Tenant::class, 'current_tenant_id');
+    }
+
+    /**
+     * Every Library this user has access to, with their role in each. Admins
+     * may have many; staff has exactly one.
+     */
+    public function tenants(): BelongsToMany
+    {
+        return $this->belongsToMany(Tenant::class, 'tenant_user')
+            ->withPivot('role')
+            ->withTimestamps();
     }
 
     public function member(): HasOne
@@ -58,5 +74,17 @@ class User extends Authenticatable
     public function isStaff(): bool
     {
         return $this->role === 'staff';
+    }
+
+    /**
+     * Server-side authorization check: does this user actually have a
+     * membership row for this Library? Never trust a client-supplied
+     * tenant/library id without this — it's the guard against switching
+     * `current_tenant_id` to (or scoping a request under) a Library the
+     * user doesn't belong to.
+     */
+    public function belongsToTenant(int $tenantId): bool
+    {
+        return $this->tenants()->where('tenants.id', $tenantId)->exists();
     }
 }

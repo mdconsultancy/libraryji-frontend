@@ -34,6 +34,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::put('/auth/profile', [AuthController::class, 'updateProfile']);
 
+    // Library/workspace switching — admin-only; staff is rejected inside the
+    // controller even for a library it does have a membership for.
+    Route::post('/auth/select-library', [AuthController::class, 'selectLibrary']);
+
     // Plan selection / Razorpay checkout: reachable as soon as the tenant admin
     // is authenticated, regardless of whether a plan is active yet — this is
     // what activates one (used for both post-registration payment and

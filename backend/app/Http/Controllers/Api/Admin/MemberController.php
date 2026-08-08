@@ -35,7 +35,7 @@ class MemberController extends Controller
 
     public function store(Request $request)
     {
-        $tenant = $request->user()->tenant;
+        $tenant = $request->user()->currentTenant;
 
         if ($limit = $this->planLimits->limit($tenant, 'members')) {
             if ($this->planLimits->wouldExceed($tenant, 'members')) {
@@ -134,7 +134,7 @@ class MemberController extends Controller
 
     private function generateMemberCode(): string
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = Auth::user()->current_tenant_id;
         $prefix = 'MEM';
         $count = Member::withoutGlobalScopes()->where('tenant_id', $tenantId)->count() + 1;
 

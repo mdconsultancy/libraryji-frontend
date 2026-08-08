@@ -17,7 +17,7 @@ class BillingController extends Controller
 
     public function index(Request $request)
     {
-        $tenant = $request->user()->tenant;
+        $tenant = $request->user()->currentTenant;
 
         $subscriptions = $tenant->subscriptions()
             ->with('plan')
@@ -38,7 +38,7 @@ class BillingController extends Controller
      */
     public function limits(Request $request)
     {
-        $tenant = $request->user()->tenant;
+        $tenant = $request->user()->currentTenant;
 
         return response()->json($this->planLimits->summary($tenant));
     }

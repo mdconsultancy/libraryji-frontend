@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
@@ -29,9 +30,27 @@ class Tenant extends Model
         ];
     }
 
-    public function users(): HasMany
+    /**
+     * Every user (admin or staff) with access to this Library, via the
+     * tenant_user membership pivot — not everyone whose *current* workspace
+     * happens to be this Library (an admin with several Libraries may be
+     * "in" a different one right now but still belongs here).
+     */
+    public function users(): BelongsToMany
     {
-        return $this->hasMany(User::class);
+        return $this->belongsToMany(User::class, 'tenant_user')
+            ->withPivot('role')
+            ->withTimestamps();
+    }
+
+    public function staff(): BelongsToMany
+    {
+        return $this->users()->wherePivot('role', 'staff');
+    }
+
+    public function admins(): BelongsToMany
+    {
+        return $this->users()->wherePivot('role', 'admin');
     }
 
     public function halls(): HasMany

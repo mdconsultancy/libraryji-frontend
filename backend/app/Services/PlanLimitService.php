@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Member;
 use App\Models\Seat;
 use App\Models\Tenant;
-use App\Models\User;
 
 /**
  * Enforces the resource caps (max_seats/max_members/max_staff)
@@ -42,7 +41,9 @@ class PlanLimitService
         return match ($resource) {
             'seats' => Seat::where('tenant_id', $tenant->id)->count(),
             'members' => Member::where('tenant_id', $tenant->id)->count(),
-            'staff' => User::where('tenant_id', $tenant->id)->whereIn('role', ['admin', 'staff'])->count(),
+            // `role` exists on both `users` and the `tenant_user` pivot, so it
+            // must be qualified here to avoid an ambiguous-column SQL error.
+            'staff' => $tenant->users()->whereIn('users.role', ['admin', 'staff'])->count(),
             default => 0,
         };
     }

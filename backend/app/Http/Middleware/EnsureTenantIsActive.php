@@ -21,7 +21,19 @@ class EnsureTenantIsActive
             return $next($request);
         }
 
-        $tenant = $user->tenant;
+        if (! $user->current_tenant_id) {
+            abort(403, 'Please select a library to continue.');
+        }
+
+        // Defense in depth: current_tenant_id is only ever set by login/
+        // selectLibrary (both verify tenant_user membership first), but if
+        // it were ever stale — e.g. an admin's access to a library was
+        // revoked after they last switched into it — re-check here too.
+        if (! $user->belongsToTenant($user->current_tenant_id)) {
+            abort(403, 'You no longer have access to this library.');
+        }
+
+        $tenant = $user->currentTenant;
 
         if (! $tenant || in_array($tenant->status, ['suspended', 'cancelled'], true)) {
             abort(403, 'Your library account is suspended. Please contact support.');

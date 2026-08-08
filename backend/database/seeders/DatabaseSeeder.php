@@ -19,7 +19,7 @@ class DatabaseSeeder extends Seeder
         User::firstOrCreate(
             ['email' => 'superadmin@libraryji.com'],
             [
-                'tenant_id' => null,
+                'current_tenant_id' => null,
                 'role' => 'super_admin',
                 'name' => 'LibraryJi Super Admin',
                 'password' => bcrypt('password'),
