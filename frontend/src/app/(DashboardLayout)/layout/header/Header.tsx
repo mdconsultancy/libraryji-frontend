@@ -135,7 +135,8 @@ const Header = () => {
                   </div>
                 </div>
 
-                {/* Library Switcher (admin, multi-library only) */}
+                {/* Library usage + Library Switcher (admin only) */}
+                <LibraryUsage />
                 <LibrarySwitcher />
 
                 {/* Profile Dropdown */}

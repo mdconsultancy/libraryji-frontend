@@ -50,12 +50,23 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!value.faviconUrl) return
-    let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+
+    let link = document.getElementById('app-favicon') as HTMLLinkElement | null
     if (!link) {
+      // Shouldn't happen (layout.tsx always renders one), but don't silently
+      // no-op if it's ever missing — create it rather than leaving the tab
+      // icon stuck on the bundled default.
       link = document.createElement('link')
+      link.id = 'app-favicon'
       link.rel = 'icon'
       document.head.appendChild(link)
     }
+
+    // The static default is an SVG (type="image/svg+xml" is correct for it),
+    // but an uploaded favicon can be a jpg/png/ico — a mismatched `type`
+    // makes some browsers ignore the link entirely rather than fetch and
+    // sniff it. Drop the attribute so the browser figures it out itself.
+    link.removeAttribute('type')
     link.href = value.faviconUrl
   }, [value.faviconUrl])
 

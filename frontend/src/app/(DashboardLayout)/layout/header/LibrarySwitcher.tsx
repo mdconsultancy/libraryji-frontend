@@ -14,20 +14,31 @@ import { useAuth } from "@/context/AuthContext";
 import GlobalPreloader from "@/components/shared/GlobalPreloader";
 
 /**
- * Workspace switcher for admins who own more than one Library. Hidden
- * entirely for staff (always exactly one Library, never a chooser) and for
- * admins who only have one — matching the backend, which rejects a
- * select-library call from anyone but an admin regardless of what's sent.
+ * Current-Library name, always visible for an admin (even with just one
+ * Library — so it's never ambiguous which workspace is active), becoming
+ * an actual switcher dropdown once there's more than one to choose from.
+ * Hidden entirely for staff (always exactly one Library, never a chooser)
+ * — matching the backend, which rejects a select-library call from anyone
+ * but an admin regardless of what's sent.
  */
 const LibrarySwitcher = () => {
   const { user, selectLibrary } = useAuth();
   const [switchingId, setSwitchingId] = useState<number | null>(null);
 
-  if (user?.role !== "admin" || !user.tenants || user.tenants.length < 2) {
+  if (user?.role !== "admin" || !user.tenants || user.tenants.length === 0) {
     return null;
   }
 
   const current = user.tenants.find((t) => t.id === user.current_tenant_id);
+
+  if (user.tenants.length === 1) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-border text-sm max-w-48">
+        <Icon icon="solar:buildings-3-linear" width={18} height={18} className="shrink-0" />
+        <span className="truncate">{current?.name ?? "—"}</span>
+      </div>
+    );
+  }
 
   const handleSwitch = async (tenantId: number) => {
     if (tenantId === user.current_tenant_id) return;
