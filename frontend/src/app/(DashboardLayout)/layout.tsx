@@ -15,19 +15,27 @@ export default function Layout({
 }>) {
   const { user, loading } = useAuth()
   const router = useRouter()
-  const needsPlan = user?.role !== 'super_admin' && tenantNeedsPlan(user?.tenant)
+  const needsPlan = user?.role !== 'super_admin' && tenantNeedsPlan(user?.current_tenant)
+  // Multi-library admin who logged in without picking a workspace yet (or
+  // whose session predates a switch) — every tenant-scoped route 403s until
+  // this is resolved, so bounce to the picker instead of a broken dashboard.
+  const needsLibrary = user?.role === 'admin' && !user?.current_tenant_id
 
   useEffect(() => {
     if (!loading && !user) {
       router.replace('/auth/login')
       return
     }
+    if (!loading && user && needsLibrary) {
+      router.replace('/select-library')
+      return
+    }
     if (!loading && user && needsPlan) {
       router.replace('/select-plan')
     }
-  }, [loading, user, needsPlan, router])
+  }, [loading, user, needsPlan, needsLibrary, router])
 
-  if (loading || !user || needsPlan) {
+  if (loading || !user || needsPlan || needsLibrary) {
     return <GlobalPreloader />
   }
 

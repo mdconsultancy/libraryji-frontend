@@ -32,6 +32,7 @@ interface AuthContextValue {
   loading: boolean
   login: (payload: LoginPayload) => Promise<User>
   register: (payload: RegisterPayload) => Promise<User>
+  selectLibrary: (tenantId: number) => Promise<User>
   logout: () => Promise<void>
   refreshMe: () => Promise<void>
 }
@@ -65,8 +66,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = useCallback(async (payload: LoginPayload) => {
+    // The backend always resolves a workspace for admin/staff on its own —
+    // the last-selected Library if the admin still has access to it,
+    // otherwise their first one. There's no "pick a library" step here;
+    // a multi-library admin switches afterwards via the header dropdown.
     const { user, token } = await api.post<{ user: User; token: string }>('/auth/login', payload)
     setToken(token)
+    setUser(user)
+    return user
+  }, [])
+
+  /** Admin-only — the backend rejects this for staff regardless of what's passed. */
+  const selectLibrary = useCallback(async (tenantId: number) => {
+    const { user } = await api.post<{ user: User }>('/auth/select-library', { tenant_id: tenantId })
     setUser(user)
     return user
   }, [])
@@ -92,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshMe }}>
+    <AuthContext.Provider value={{ user, loading, login, register, selectLibrary, logout, refreshMe }}>
       {children}
     </AuthContext.Provider>
   )

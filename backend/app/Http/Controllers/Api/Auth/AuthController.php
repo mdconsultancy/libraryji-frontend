@@ -124,11 +124,14 @@ class AuthController extends Controller
      * *different* library:
      *  - `library_code` given: the account must have a membership for that
      *    Library, and that becomes the selected workspace.
-     *  - `library_code` omitted, exactly one membership: auto-selected.
-     *  - `library_code` omitted, multiple memberships (multi-library admin):
-     *    credentials are still checked, a token is issued, but no workspace
-     *    is selected — the frontend must show the Library picker and call
-     *    `selectLibrary()` before any tenant-scoped route will work.
+     *  - `library_code` omitted: reuse whichever Library the admin had
+     *    selected last session (`current_tenant_id`), as long as they still
+     *    have a membership there, so returning admins land back where they
+     *    left off instead of being reset on every login. Falls back to
+     *    their first Library if there's no (still-valid) saved one — e.g.
+     *    the very first login, or access to the saved one was revoked.
+     *    There's deliberately no "pick a library" screen at login; a
+     *    multi-library admin switches afterwards via the header dropdown.
      */
     public function login(Request $request)
     {
@@ -141,7 +144,6 @@ class AuthController extends Controller
         $user = User::where('email', $validated['email'])->first();
 
         $pendingTenantId = null;
-        $needsLibrarySelection = false;
 
         if ($user && $user->role !== 'super_admin') {
             if (! empty($validated['library_code'])) {
@@ -163,15 +165,15 @@ class AuthController extends Controller
             } else {
                 $memberships = $user->tenants;
 
-                if ($memberships->count() === 1) {
-                    $pendingTenantId = $memberships->first()->id;
-                } elseif ($memberships->count() > 1) {
-                    $needsLibrarySelection = true;
-                } else {
+                if ($memberships->isEmpty()) {
                     throw ValidationException::withMessages([
                         'email' => ['This account is not linked to any library. Please contact support.'],
                     ]);
                 }
+
+                $pendingTenantId = $user->current_tenant_id && $memberships->contains('id', $user->current_tenant_id)
+                    ? $user->current_tenant_id
+                    : $memberships->first()->id;
             }
         }
 
@@ -192,32 +194,13 @@ class AuthController extends Controller
             'last_login_ip' => $request->ip(),
         ]);
 
-        if ($needsLibrarySelection) {
-            // Force an explicit pick every time this happens, rather than
-            // silently reusing whatever workspace was selected last session.
-            $user->current_tenant_id = null;
-        } elseif ($pendingTenantId) {
+        if ($pendingTenantId) {
             $user->current_tenant_id = $pendingTenantId;
         }
 
         $user->save();
 
         $token = $user->createToken('auth-token')->plainTextToken;
-
-        if ($needsLibrarySelection) {
-            return response()->json([
-                'user' => $user,
-                'token' => $token,
-                'needs_library_selection' => true,
-                'libraries' => $user->tenants->map(fn ($tenant) => [
-                    'id' => $tenant->id,
-                    'name' => $tenant->name,
-                    'library_code' => $tenant->library_code,
-                    'status' => $tenant->status,
-                    'role' => $tenant->pivot->role,
-                ]),
-            ]);
-        }
 
         return response()->json([
             'user' => $user->load('currentTenant.activeSubscription.plan', 'tenants'),

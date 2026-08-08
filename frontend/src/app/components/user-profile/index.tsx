@@ -90,10 +90,10 @@ const UserProfile = () => {
                                 <h5 className="card-title">{user.name}</h5>
                                 <div className="flex flex-wrap items-center gap-1 md:gap-3">
                                     <p className="text-sm text-gray-500 dark:text-gray-400 capitalize">{user.role.replace('_', ' ')}</p>
-                                    {user.tenant?.name && (
+                                    {user.current_tenant?.name && (
                                         <>
                                             <div className="hidden h-4 w-px bg-gray-300 dark:bg-gray-700 xl:block"></div>
-                                            <p className="text-sm text-gray-500 dark:text-gray-400">{user.tenant.name}</p>
+                                            <p className="text-sm text-gray-500 dark:text-gray-400">{user.current_tenant.name}</p>
                                         </>
                                     )}
                                 </div>

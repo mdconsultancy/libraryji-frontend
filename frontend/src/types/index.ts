@@ -76,9 +76,14 @@ export interface Tenant {
   created_at?: string
 }
 
+/** A Library this user has access to, with their role in that specific Library. */
+export type TenantMembership = Tenant & { pivot: { role: 'admin' | 'staff' } }
+
 export interface User {
   id: number
-  tenant_id: number | null
+  /** The Library workspace currently selected — null for super_admin, and
+   *  briefly null for a multi-library admin who hasn't picked one yet. */
+  current_tenant_id: number | null
   role: UserRole
   name: string
   email: string
@@ -87,7 +92,11 @@ export interface User {
   status: 'active' | 'inactive'
   two_factor_enabled: boolean
   last_login_at: string | null
-  tenant?: Tenant
+  /** The currently selected Library (loaded via current_tenant_id). */
+  current_tenant?: Tenant
+  /** Every Library this user belongs to. Staff always has exactly one;
+   *  an admin may have several — use this to drive the Library Switcher. */
+  tenants?: TenantMembership[]
   created_at?: string
 }
 
@@ -305,7 +314,8 @@ export interface PlanLimitEntry {
 
 export type PlanLimitSummary = Record<PlanLimitResource, PlanLimitEntry>
 
-// Super-admin "User Management" — library-owning (tenant admin) users.
+// Super-admin "User Management" — library-owning (admin) users, each of
+// whom may own/manage more than one Library (tenant_user membership pivot).
 export interface UserManagementRow {
   id: number
   name: string
@@ -313,20 +323,24 @@ export interface UserManagementRow {
   phone: string | null
   status: 'active' | 'inactive'
   created_at?: string
-  tenant: (Tenant & {
+  tenants_count: number
+  tenants: (Tenant & {
+    pivot: { role: 'admin' | 'staff' }
     activeSubscription?: TenantSubscription | null
     halls_count?: number
     seats_count?: number
     members_count?: number
-  }) | null
+  })[]
 }
 
 export interface UserManagementDetail extends UserManagementRow {
-  tenant: (Tenant & {
-    halls?: Hall[]
+  tenants: (Tenant & {
+    pivot: { role: 'admin' | 'staff' }
+    activeSubscription?: TenantSubscription | null
+    halls?: (Hall & { seats_count?: number })[]
     subscriptions?: TenantSubscription[]
     membershipPlans?: MembershipPlan[]
     seats_count?: number
     members_count?: number
-  }) | null
+  })[]
 }

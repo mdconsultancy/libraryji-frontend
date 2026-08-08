@@ -45,7 +45,7 @@ function SelectPlanContent() {
   const plans = plansData ?? [];
 
   useEffect(() => {
-    if (!loading && user && !isUpgrading && !tenantNeedsPlan(user.tenant)) {
+    if (!loading && user && !isUpgrading && !tenantNeedsPlan(user.current_tenant)) {
       router.replace("/");
     }
   }, [loading, user, isUpgrading, router]);
@@ -129,15 +129,15 @@ function SelectPlanContent() {
         <p className="text-sm text-charcoal">
           {isUpgrading
             ? "Pick a higher plan to raise your limits — your new plan applies as soon as payment is confirmed."
-            : user.tenant?.status === "suspended" || user.tenant?.status === "cancelled"
+            : user.current_tenant?.status === "suspended" || user.current_tenant?.status === "cancelled"
             ? "Complete payment below to activate your library."
             : "Your trial period has ended. Select a plan below to keep using LibraryJi."}
         </p>
-        {!isUpgrading && user.tenant?.library_code && (
+        {!isUpgrading && user.current_tenant?.library_code && (
           <p className="text-xs text-charcoal mt-3">
             Your Library Code is{" "}
             <span className="font-mono font-semibold tracking-wider bg-white/60 px-2 py-0.5 rounded">
-              {user.tenant.library_code}
+              {user.current_tenant.library_code}
             </span>{" "}
             — save it. You&apos;ll need it to sign back in if you leave before finishing payment.
           </p>
