@@ -37,6 +37,8 @@ import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/context/ToastContext";
 import { useAuth } from "@/context/AuthContext";
+import { usePermission } from "@/hooks/usePermission";
+import { usePermissionGuard } from "@/hooks/usePermissionGuard";
 import type { Hall } from "@/types";
 
 const BCrumb = [{ to: "/", title: "Home" }, { title: "Halls" }];
@@ -52,6 +54,10 @@ export default function HallsPage() {
   const toast = useToast();
   const { user } = useAuth();
   const libraries = user?.tenants ?? [];
+  const { authorized } = usePermissionGuard("halls", "view");
+  const canAdd = usePermission("halls", "add");
+  const canEdit = usePermission("halls", "edit");
+  const canDelete = usePermission("halls", "delete");
 
   const { data: hallsData, isLoading: loading, error: loadError, mutate } = useApi<Hall[]>("/admin/halls");
   const halls = hallsData ?? [];
@@ -124,16 +130,20 @@ export default function HallsPage() {
 
   const fieldError = (field: string) => fieldErrors[field]?.[0];
 
+  if (!authorized) return null;
+
   return (
     <>
       <BreadcrumbComp title="Halls" items={BCrumb} />
 
       <CardBox className="p-0 bg-background overflow-hidden border-none rounded-xl shadow-xs">
         <div className="flex flex-wrap items-center justify-end gap-4 p-6">
-          <Button onClick={openCreate} className="flex items-center gap-1.5">
-            <Icon icon="solar:add-circle-linear" width={18} height={18} />
-            Add Hall
-          </Button>
+          {canAdd && (
+            <Button onClick={openCreate} className="flex items-center gap-1.5">
+              <Icon icon="solar:add-circle-linear" width={18} height={18} />
+              Add Hall
+            </Button>
+          )}
         </div>
 
         {error && <p className="px-6 pb-4 text-sm text-error">{error}</p>}
@@ -170,17 +180,21 @@ export default function HallsPage() {
                     </TableCell>
                     <TableCell className="text-right pe-6">
                       <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => openEdit(hall)}>
-                          <Icon icon="ic:outline-edit" width={16} height={16} />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-error hover:bg-error hover:text-white"
-                          onClick={() => setDeleteTarget(hall)}
-                        >
-                          <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} />
-                        </Button>
+                        {canEdit && (
+                          <Button variant="outline" size="sm" onClick={() => openEdit(hall)}>
+                            <Icon icon="ic:outline-edit" width={16} height={16} />
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-error hover:bg-error hover:text-white"
+                            onClick={() => setDeleteTarget(hall)}
+                          >
+                            <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

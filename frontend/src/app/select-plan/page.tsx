@@ -67,7 +67,7 @@ function SelectPlanContent() {
         description: `${plan.name} subscription`,
         prefill: {
           name: user?.name,
-          email: user?.email,
+          email: user?.email || undefined,
           contact: user?.phone || undefined,
         },
         theme: { color: "#5D87FF" },

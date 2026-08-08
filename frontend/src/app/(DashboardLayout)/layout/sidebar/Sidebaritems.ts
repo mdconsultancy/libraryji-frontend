@@ -14,6 +14,8 @@ export interface ChildItem {
   badgeType?: string
   isPro?: boolean
   roles?: string[]
+  /** For staff, also hidden unless they have `view` on this module (Library/Halls/Members/Payments). Admin/super_admin ignore this — they always have full access. */
+  permissionModule?: 'library' | 'halls' | 'members' | 'payments'
 }
 
 export interface MenuItem {
@@ -58,6 +60,7 @@ const SidebarContent: MenuItem[] = [
         id: uniqueId(),
         url: '/halls',
         roles: ['admin', 'staff'],
+        permissionModule: 'halls',
       },
       {
         name: 'Seats',
@@ -80,6 +83,14 @@ const SidebarContent: MenuItem[] = [
         url: '/membership-plans',
         roles: ['admin', 'staff'],
       },
+      {
+        name: 'Library',
+        icon: 'solar:buildings-3-line-duotone',
+        id: uniqueId(),
+        url: '/settings',
+        roles: ['admin', 'staff'],
+        permissionModule: 'library',
+      },
     ],
   },
   {
@@ -92,6 +103,7 @@ const SidebarContent: MenuItem[] = [
         id: uniqueId(),
         url: '/members',
         roles: ['admin', 'staff'],
+        permissionModule: 'members',
       },
     ],
   },
@@ -105,6 +117,7 @@ const SidebarContent: MenuItem[] = [
         id: uniqueId(),
         url: '/payments',
         roles: ['admin', 'staff'],
+        permissionModule: 'payments',
       },
       {
         name: 'Expenses',
@@ -131,13 +144,6 @@ const SidebarContent: MenuItem[] = [
         icon: 'solar:bill-list-line-duotone',
         id: uniqueId(),
         url: '/billing',
-        roles: ['admin'],
-      },
-      {
-        name: 'Library',
-        icon: 'solar:buildings-3-line-duotone',
-        id: uniqueId(),
-        url: '/settings',
         roles: ['admin'],
       },
     ],

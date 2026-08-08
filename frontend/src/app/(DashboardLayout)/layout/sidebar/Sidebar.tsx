@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import Image from 'next/image'
 import { useTheme } from 'next-themes'
 import { usePathname } from 'next/navigation'
 import SidebarContent from './Sidebaritems'
@@ -8,8 +7,9 @@ import { Icon } from '@iconify/react'
 import FullLogo from '../shared/logo/FullLogo'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
+import { usePermission } from '@/hooks/usePermission'
+import type { PermissionModule } from '@/types'
 import {
-  AMLogo,
   AMMenu,
   AMMenuItem,
   AMSidebar,
@@ -19,6 +19,13 @@ import 'tailwind-sidebar/styles.css'
 
 const visibleFor = (roles: string[] | undefined, userRole: string | undefined) =>
   !roles || !roles.length || (userRole ? roles.includes(userRole) : false)
+
+/** Staff additionally needs `view` on the item's module (Library/Halls/
+ *  Members/Payments), if it declares one — admin/super_admin always pass. */
+const visibleForPermission = (
+  permissionModule: PermissionModule | undefined,
+  modulePermissions: Record<PermissionModule, boolean>
+) => !permissionModule || modulePermissions[permissionModule]
 
 const renderSidebarItems = (
   items: any[],
@@ -97,6 +104,13 @@ const SidebarLayout = ({ onClose }: { onClose?: () => void }) => {
   // Only allow "light" or "dark" for AMSidebar
   const sidebarMode = theme === 'light' || theme === 'dark' ? theme : undefined
 
+  const modulePermissions: Record<PermissionModule, boolean> = {
+    library: usePermission('library', 'view'),
+    halls: usePermission('halls', 'view'),
+    members: usePermission('members', 'view'),
+    payments: usePermission('payments', 'view'),
+  }
+
   const visibleSections = SidebarContent.filter((section) => visibleFor(section.roles, user?.role))
 
   return (
@@ -108,18 +122,9 @@ const SidebarLayout = ({ onClose }: { onClose?: () => void }) => {
       showTrigger={false}
       mode={sidebarMode}
       className='fixed left-0 top-0 border-none bg-background z-10 h-screen'>
-      {/* Logo */}
+      {/* Logo — from Admin Settings -> Theme via FullLogo/BrandingContext, same as every other panel. */}
       <div className='px-4 flex items-center brand-logo overflow-hidden'>
-        <AMLogo component={Link} href='/' img=''>
-          {/* <FullLogo /> */}
-          <Image
-            src="/images/logos/dark-logo.svg"
-            alt="logo"
-            width={135}
-            height={40}
-            className="rtl:scale-x-[-1]"
-          />
-        </AMLogo>
+        <FullLogo />
       </div>
 
       {/* Sidebar items */}
@@ -131,7 +136,9 @@ const SidebarLayout = ({ onClose }: { onClose?: () => void }) => {
               {renderSidebarItems(
                 [
                   ...(section.heading ? [{ heading: section.heading }] : []),
-                  ...(section.children || []).filter((child) => visibleFor(child.roles, user?.role)),
+                  ...(section.children || []).filter(
+                    (child) => visibleFor(child.roles, user?.role) && visibleForPermission(child.permissionModule, modulePermissions)
+                  ),
                 ],
                 pathname,
                 onClose

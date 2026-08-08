@@ -55,7 +55,18 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Tenant-scoped routes: accessible to admin & staff of an active tenant.
     Route::middleware(['tenant.active', 'role:admin,staff'])->prefix('admin')->group(function () {
-        Route::apiResource('halls', HallController::class);
+        // Halls, Members, Payments, and Library (tenant-settings) are the
+        // granular-permission modules — every verb is broken out individually
+        // (an apiResource line can't carry a different `permission:` per
+        // action) and gated by `permission:{module},{action}`. Admin/
+        // super_admin always pass; only staff is actually restricted by what
+        // was configured on their tenant_user row for this Library.
+        Route::middleware('permission:halls,view')->get('halls', [HallController::class, 'index']);
+        Route::middleware('permission:halls,view')->get('halls/{hall}', [HallController::class, 'show']);
+        Route::middleware('permission:halls,add')->post('halls', [HallController::class, 'store']);
+        Route::middleware('permission:halls,edit')->put('halls/{hall}', [HallController::class, 'update']);
+        Route::middleware('permission:halls,edit')->patch('halls/{hall}', [HallController::class, 'update']);
+        Route::middleware('permission:halls,delete')->delete('halls/{hall}', [HallController::class, 'destroy']);
 
         Route::post('seats/bulk', [SeatController::class, 'bulkStore']);
         Route::apiResource('seats', SeatController::class);
@@ -63,7 +74,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('shifts', ShiftController::class);
         Route::apiResource('membership-plans', MembershipPlanController::class);
 
-        Route::apiResource('members', MemberController::class);
+        Route::middleware('permission:members,view')->get('members', [MemberController::class, 'index']);
+        Route::middleware('permission:members,view')->get('members/{member}', [MemberController::class, 'show']);
+        Route::middleware('permission:members,add')->post('members', [MemberController::class, 'store']);
+        Route::middleware('permission:members,edit')->put('members/{member}', [MemberController::class, 'update']);
+        Route::middleware('permission:members,edit')->patch('members/{member}', [MemberController::class, 'update']);
+        Route::middleware('permission:members,delete')->delete('members/{member}', [MemberController::class, 'destroy']);
 
         Route::post('subscriptions/{memberSubscription}/renew', [MemberSubscriptionController::class, 'renew']);
         Route::apiResource('subscriptions', MemberSubscriptionController::class)
@@ -73,7 +89,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('attendance/{attendance}/check-out', [AttendanceController::class, 'checkOut']);
         Route::apiResource('attendance', AttendanceController::class)->except(['store']);
 
-        Route::apiResource('payments', PaymentController::class);
+        Route::middleware('permission:payments,view')->get('payments', [PaymentController::class, 'index']);
+        Route::middleware('permission:payments,view')->get('payments/{payment}', [PaymentController::class, 'show']);
+        Route::middleware('permission:payments,add')->post('payments', [PaymentController::class, 'store']);
+        Route::middleware('permission:payments,edit')->put('payments/{payment}', [PaymentController::class, 'update']);
+        Route::middleware('permission:payments,edit')->patch('payments/{payment}', [PaymentController::class, 'update']);
+        Route::middleware('permission:payments,delete')->delete('payments/{payment}', [PaymentController::class, 'destroy']);
+
         Route::apiResource('expenses', ExpenseController::class);
 
         Route::get('dashboard/summary', [DashboardController::class, 'summary']);
@@ -82,11 +104,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('dashboard/expiring-memberships', [DashboardController::class, 'expiringMemberships']);
         Route::get('dashboard/recent-members', [DashboardController::class, 'recentMembers']);
 
-        // Staff management and tenant settings are admin-only.
+        // Library module: view/edit only (it's a single settings resource per
+        // Library, no add/delete concept). Staff can now reach it too, but
+        // only with the matching permission — previously admin-only outright.
+        Route::middleware('permission:library,view')->get('tenant-settings', [TenantSettingsController::class, 'show']);
+        Route::middleware('permission:library,edit')->put('tenant-settings', [TenantSettingsController::class, 'update']);
+
+        // Staff management stays admin-only — staff must never manage other
+        // staff accounts or grant/revoke permissions, regardless of what
+        // permissions they hold on the four modules above.
         Route::middleware('role:admin')->group(function () {
             Route::apiResource('staff', StaffController::class);
-            Route::get('tenant-settings', [TenantSettingsController::class, 'show']);
-            Route::put('tenant-settings', [TenantSettingsController::class, 'update']);
         });
     });
 

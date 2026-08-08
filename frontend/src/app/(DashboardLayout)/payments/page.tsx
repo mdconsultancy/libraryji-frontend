@@ -36,6 +36,8 @@ import TableSkeleton from "@/components/shared/TableSkeleton";
 import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/hooks/useApi";
 import { useMemberOptions } from "@/hooks/useOptions";
+import { usePermission } from "@/hooks/usePermission";
+import { usePermissionGuard } from "@/hooks/usePermissionGuard";
 import type { Payment, PaymentMethod, PaymentStatus, Paginated } from "@/types";
 
 const BCrumb = [{ to: "/", title: "Home" }, { title: "Payments" }];
@@ -61,6 +63,9 @@ const emptyForm = {
 };
 
 export default function PaymentsPage() {
+  const { authorized } = usePermissionGuard("payments", "view");
+  const canAdd = usePermission("payments", "add");
+  const canEdit = usePermission("payments", "edit");
   const [statusFilter, setStatusFilter] = useState("all");
   const [methodFilter, setMethodFilter] = useState("all");
   const [page, setPage] = useState(1);
@@ -138,6 +143,8 @@ export default function PaymentsPage() {
 
   const fieldError = (field: string) => fieldErrors[field]?.[0];
 
+  if (!authorized) return null;
+
   return (
     <>
       <BreadcrumbComp title="Payments" items={BCrumb} />
@@ -172,10 +179,12 @@ export default function PaymentsPage() {
               </Select>
             </div>
           </div>
-          <Button onClick={openCreate} className="flex items-center gap-1.5">
-            <Icon icon="solar:add-circle-linear" width={18} height={18} />
-            Record Payment
-          </Button>
+          {canAdd && (
+            <Button onClick={openCreate} className="flex items-center gap-1.5">
+              <Icon icon="solar:add-circle-linear" width={18} height={18} />
+              Record Payment
+            </Button>
+          )}
         </div>
 
         {error && <p className="px-6 pb-4 text-sm text-error">{error}</p>}
@@ -214,9 +223,11 @@ export default function PaymentsPage() {
                     </TableCell>
                     <TableCell>{payment.paid_at ? new Date(payment.paid_at).toLocaleDateString() : "—"}</TableCell>
                     <TableCell className="text-right pe-6">
-                      <Button variant="outline" size="sm" onClick={() => openEdit(payment)}>
-                        <Icon icon="ic:outline-edit" width={16} height={16} />
-                      </Button>
+                      {canEdit && (
+                        <Button variant="outline" size="sm" onClick={() => openEdit(payment)}>
+                          <Icon icon="ic:outline-edit" width={16} height={16} />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))

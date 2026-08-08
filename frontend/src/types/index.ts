@@ -76,8 +76,21 @@ export interface Tenant {
   created_at?: string
 }
 
-/** A Library this user has access to, with their role in that specific Library. */
-export type TenantMembership = Tenant & { pivot: { role: 'admin' | 'staff' } }
+export type PermissionModule = 'library' | 'halls' | 'members' | 'payments'
+export type PermissionAction = 'view' | 'add' | 'edit' | 'delete'
+
+/** One module's action flags. Every module shares the same shape so
+ *  `permissions[module][action]` indexes cleanly — `library` just never
+ *  populates `add`/`delete` in the UI (it's a single settings resource). */
+export type ModulePermissions = { view?: boolean; add?: boolean; edit?: boolean; delete?: boolean }
+
+/** Granular per-module permissions for a staff member on one Library. Only
+ *  ever meaningful for role=staff — admin/super_admin always have full
+ *  access regardless of what's stored here. */
+export type StaffPermissions = Partial<Record<PermissionModule, ModulePermissions>>
+
+/** A Library this user has access to, with their role and (for staff) granular permissions in that specific Library. */
+export type TenantMembership = Tenant & { pivot: { role: 'admin' | 'staff'; permissions?: StaffPermissions | null } }
 
 export interface User {
   id: number
@@ -86,7 +99,7 @@ export interface User {
   current_tenant_id: number | null
   role: UserRole
   name: string
-  email: string
+  email: string | null
   phone: string | null
   avatar_path: string | null
   status: 'active' | 'inactive'

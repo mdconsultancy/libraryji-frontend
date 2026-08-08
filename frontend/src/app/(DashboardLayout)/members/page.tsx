@@ -38,6 +38,8 @@ import DeleteConfirmDialog from "@/components/shared/DeleteConfirmDialog";
 import { api, ApiError, storageUrl } from "@/lib/api";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/context/ToastContext";
+import { usePermission } from "@/hooks/usePermission";
+import { usePermissionGuard } from "@/hooks/usePermissionGuard";
 import DatePicker from "@/components/form/DatePicker";
 import PhoneInput from "@/components/form/PhoneInput";
 import ImageUploadField from "@/components/form/ImageUploadField";
@@ -71,6 +73,10 @@ const emptyForm = {
 
 export default function MembersPage() {
   const toast = useToast();
+  const { authorized } = usePermissionGuard("members", "view");
+  const canAdd = usePermission("members", "add");
+  const canEdit = usePermission("members", "edit");
+  const canDelete = usePermission("members", "delete");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
@@ -183,6 +189,8 @@ export default function MembersPage() {
 
   const fieldError = (field: string) => fieldErrors[field]?.[0];
 
+  if (!authorized) return null;
+
   return (
     <>
       <BreadcrumbComp title="Members / Students" items={BCrumb} />
@@ -223,10 +231,12 @@ export default function MembersPage() {
               </Select>
             </div>
           </div>
-          <Button onClick={openCreate} className="flex items-center gap-1.5">
-            <Icon icon="solar:add-circle-linear" width={18} height={18} />
-            Add Member
-          </Button>
+          {canAdd && (
+            <Button onClick={openCreate} className="flex items-center gap-1.5">
+              <Icon icon="solar:add-circle-linear" width={18} height={18} />
+              Add Member
+            </Button>
+          )}
         </div>
 
         {error && <p className="px-6 pb-4 text-sm text-error">{error}</p>}
@@ -276,17 +286,21 @@ export default function MembersPage() {
                     </TableCell>
                     <TableCell className="text-right pe-6">
                       <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => openEdit(member)}>
-                          <Icon icon="ic:outline-edit" width={16} height={16} />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-error hover:bg-error hover:text-white"
-                          onClick={() => setDeleteTarget(member)}
-                        >
-                          <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} />
-                        </Button>
+                        {canEdit && (
+                          <Button variant="outline" size="sm" onClick={() => openEdit(member)}>
+                            <Icon icon="ic:outline-edit" width={16} height={16} />
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-error hover:bg-error hover:text-white"
+                            onClick={() => setDeleteTarget(member)}
+                          >
+                            <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
