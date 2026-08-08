@@ -23,7 +23,21 @@ class HallController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'status' => 'in:active,inactive',
+            // Optional: defaults to the caller's current workspace. When given
+            // explicitly (multi-library admin picking a different Library from
+            // the form), it must be one they actually belong to — never trust
+            // this beyond that membership check.
+            'tenant_id' => 'nullable|integer',
         ]);
+
+        $tenantId = $validated['tenant_id'] ?? $request->user()->current_tenant_id;
+
+        if (! $request->user()->belongsToTenant((int) $tenantId)) {
+            abort(403, 'You do not have access to that library.');
+        }
+
+        unset($validated['tenant_id']);
+        $validated['tenant_id'] = $tenantId;
 
         $hall = Hall::create($validated);
 

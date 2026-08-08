@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\Admin\StaffController;
 use App\Http\Controllers\Api\Admin\TenantSettingsController;
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\PublicPlanController;
+use App\Http\Controllers\Api\PublicThemeController;
 use App\Http\Controllers\Api\SuperAdmin\AuditLogController;
 use App\Http\Controllers\Api\SuperAdmin\DashboardController as SuperAdminDashboardController;
 use App\Http\Controllers\Api\SuperAdmin\SettingsController;
@@ -28,6 +29,7 @@ use Illuminate\Support\Facades\Route;
 Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);
 Route::get('/plans', [PublicPlanController::class, 'index']);
+Route::get('/theme', [PublicThemeController::class, 'show']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);

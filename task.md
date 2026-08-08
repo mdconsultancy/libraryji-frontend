@@ -1,74 +1,63 @@
-# Multi-Library SaaS Architecture Refactor — Task Plan
+# Task Plan
 
-## Goal
-Move from `1 Admin -> 1 Tenant (fixed users.tenant_id)` to:
-`Super Admin -> Admin (owns N Libraries via pivot) -> Library -> Staff (belongs to exactly 1 Library)`,
-with a "current Library / workspace" concept, strict server-side authorization
-(never trust client-supplied tenant/library IDs), and per-Library subscriptions.
+> Phase 1 (multi-library SaaS architecture: Admin -> N Libraries, tenant_user pivot,
+> workspace switching, staff isolation) is done and committed — see git log
+> (`Backend: Admin -> multiple Libraries architecture`, `Frontend: multi-library
+> workspace support...`). This file now tracks Phase 2.
 
-## Current-state findings (as inspected 2026-08-08)
-- DB: MySQL, **0 tenants, 1 user (super_admin) — no real tenant data exists yet**, so
-  no risky data backfill is needed. Safe to change schema now.
-- `users.tenant_id` (nullable FK) + `users.role` (enum: super_admin/admin/staff/member)
-  is the *only* tenant link today. `App\Models\Scopes\TenantScope` (a global scope
-  applied via `App\Models\Concerns\BelongsToTenant`) filters every scoped model's
-  queries by `Auth::user()->tenant_id` (bypassed for `super_admin`).
-  `BelongsToTenant::bootBelongsToTenant()` also auto-fills `tenant_id` on create.
-- Models using `BelongsToTenant`: `User`, `Member`, plus (per grep) `Hall`, `Seat`,
-  `Shift`, `MembershipPlan`, `MemberSubscription`, `Attendance`, `Payment`, `Expense`.
-  `AuditLog` and `Tenant`/`TenantSubscription` do NOT use it (manual/no tenant scoping).
-- Login (`AuthController::login`) is library-code-scoped: requires `library_code` for
-  non-super-admins and hard-checks `$user->tenant_id === $tenant->id`. `register()`
-  creates exactly one Tenant + one Admin user (1:1, hardcoded).
-  `users.email` is globally unique across the whole platform (virtual generated
-  column trick in `2026_08_07_190000_...` migration) — one email = one account.
-- `StaffController` has **no explicit tenant scoping in code** — it relies entirely
-  on the `User` model's global `TenantScope`. `PlanLimitService::currentCount('staff')`
-  queries `User::where('tenant_id', $tenant->id)`.
-- `UserManagementController` (super admin) lists `User::where('role','admin')->with('tenant')`
-  — assumes 1 tenant per admin.
-- Frontend: Next.js. `AuthContext.tsx` stores `user` (typed in `types/index.ts` with
-  `tenant_id: number | null` and `tenant?: Tenant`), no library-switcher concept yet.
-  Login form already collects `library_code`.
+# Phase 2: Branding centralization, Library Admin menu rework, Staff permissions
 
-## Key design decision
-`users` keeps a `current_tenant_id` column (renamed from `tenant_id`) that represents
-the **currently selected workspace**, not ownership. Ownership/membership is tracked
-in a new `tenant_user` pivot table (`tenant_id`, `user_id`, `role`). Business-data
-models (Hall/Seat/Member/etc.) keep scoping by `Auth::user()->current_tenant_id`
-(unchanged mechanism, just renamed column) — this is what "current Library" means.
-**The `User` model itself stops using `BelongsToTenant`/`TenantScope`**, because a
-`User` row can legitimately be visible/attached to more than one Library via the
-pivot; anywhere that needs "staff of Library X" now queries the pivot explicitly
-(`$tenant->users()`), not the old single-column filter. This was found necessary
-during research — a naive "just rename the column" approach would silently break
-staff/user listings for multi-library admins.
+Three requests tracked together since they touch overlapping files (sidebar, staff, settings).
 
-Every switch-of-library and every login goes through server-side pivot-membership
-verification before `current_tenant_id` is changed — client never supplies a trusted
-tenant/library id for scoping.
+## Findings before starting
+- Theme assets (`logo_path`/`favicon_path`) already upload correctly to `platform_settings` (group=theme) via `SettingsController::uploadThemeAsset` — the bug is that nothing on the frontend ever reads them back. `FullLogo.tsx` is hardcoded to a static `/images/logos/dark-logo.svg`, and the favicon is a static `<link>` in the root layout (`/favicon.svg`). No public endpoint exists to read theme settings without a super_admin token, which the login page and every non-super-admin panel need.
+- No "Branch" menu item exists anywhere in `Sidebaritems.ts` today — the closest existing thing is "Library Settings" (Administration section, `/settings`, backed by `TenantSettingsController`, already scoped to the admin's current Library). Treating "replace Branch with Library" as **rename "Library Settings" -> "Library"**, same page — it already does what's asked (view/manage the assigned Library).
+- Sidebar has two different "Subscription(s)": `Members -> Subscriptions` (`/subscriptions`, **member/student** membership-plan subscriptions — real business data, unrelated to SaaS billing) and `Administration -> Subscription` (`/billing`, the Library's own SaaS plan — this is what "My Plan & Subscription" means). Assumption: rename the billing one to "My Plan & Subscription"; remove the *member*-subscriptions item from the top-level sidebar per the literal instruction ("remove the separate Subscriptions menu"), but leave its route/controller intact (not deleted, just unlinked from top nav) since hiding a nav link is cheap to reverse if that reading is wrong.
+- Payments create form **already has** an optional member selector ("Member (optional)" / "No member" option) — that requirement is already satisfied, no change needed there.
+- Hall create form has no Library selector at all (relies entirely on the ambient `current_tenant_id` workspace). Needs an explicit dropdown sourced from the admin's `tenants` memberships.
+- Staff create form currently: email required (needs to become optional), no password generator, no library selection (implicit via current workspace only), no permissions UI at all. Backend `StaffController` has no concept of granular permissions.
 
-## Task list (execute one by one, commit after each)
+## Design decisions
+- **Permissions storage**: add a `permissions` JSON column to the `tenant_user` pivot (per staff-per-Library, matching the existing role-per-Library model). Shape: `{"library":{"view":bool,"edit":bool}, "halls":{"view":,"add":,"edit":,"delete":}, "members":{...}, "payments":{...}}`.
+- **Scope of enforced modules**: exactly the 4 modules in the user's example table — Library, Halls, Members, Payments. (Library is a singleton settings resource, so only `view`/`edit` apply there, not `add`/`delete`.)
+- **Who's restricted**: `admin` and `super_admin` always pass every permission check (full access — matches "without affecting Super Admin functionality" and the existing "admin owns/manages" model). Only `staff` rows are actually gated by their stored permissions.
+- **Enforcement layer**: new `permission:{module},{action}` middleware, applied per HTTP verb (can't infer view/add/edit/delete from a shared `apiResource` line), checked against the *current tenant's* `tenant_user.permissions` row — never a client-supplied value.
+- **Frontend**: permissions for the logged-in user's current Library come back on `tenants[].pivot.permissions` (extend the existing pivot load); a small `usePermission(module, action)` hook drives button/section visibility, treating `admin`/`super_admin` as always-allowed to mirror the backend.
 
-- [x] 0. Inspect current schema/models/auth/scoping (this document).
-- [x] 0.1 `git init` + baseline commit as a rollback safety net (no VCS existed).
-- [x] 1. Migration: create `tenant_user` pivot table (tenant_id, user_id, role, timestamps, unique(tenant_id,user_id)).
-- [x] 2. Migration: add `users.current_tenant_id` (nullable FK -> tenants, nullOnDelete), backfill from `tenant_id` + backfill `tenant_user` from existing `tenant_id`/`role`, then drop `users.tenant_id`.
-- [x] 3. Models: `User` — drop `BelongsToTenant`, add `tenants()` (belongsToMany w/ pivot role+timestamps), `currentTenant()` (belongsTo via current_tenant_id), helper `belongsToTenant()`; update `#[Fillable]`. `Tenant` — change `users()` to belongsToMany via pivot; add `staff()`/`admins()` helpers as needed.
-- [x] 4. `BelongsToTenant` trait + `TenantScope`: read `current_tenant_id` instead of `tenant_id`.
-- [x] 5. Auth: `AuthController::register` (create pivot row + current_tenant_id), `login` (pivot-based membership check, auto-select single library, multi-library -> needs-selection response), new `selectLibrary` endpoint (admin-only, staff gets 403 even if it belongs to the target library), `me` (include libraries list). Routes for the new endpoint.
-- [x] 6. Middleware `EnsureTenantIsActive`: use `currentTenant`, add explicit pivot-membership re-check (defense in depth), clearer message when no library selected yet.
-- [x] 7. `StaffController`: explicit pivot-based scoping (index/show/update/destroy verify membership in current tenant), `store` creates user + pivot row scoped to admin's current library.
-- [x] 8. `PlanLimitService::currentCount('staff')`: pivot-based count instead of `tenant_id` column.
-- [x] 9. `UserManagementController` (super admin): list admins with all their libraries (via pivot, withCount), `show()` drill-down across all owned libraries.
-- [x] 10. Sweep remaining `Auth::user()->tenant`/`tenant_id` references app-wide (BillingController, MemberController, TenantSettingsController, PaymentController, SeatController, PlanSelectionController, DatabaseSeeder) — confirmed zero remaining via grep, `php -l` clean on all changed files, `route:list` resolves.
-- [x] 10.1 Tinker smoke test (rolled back transaction): 2-library admin, pivot membership true/false checks, per-library staff isolation via pivot count, business-data (Hall) TenantScope isolation across workspace switch — all assertions passed.
-- [x] 11. Frontend: `types/index.ts` (`current_tenant_id`, `current_tenant`, `tenants[]` w/ pivot role), `AuthContext` (`selectLibrary`), Library Switcher dropdown in header (admin-only, hidden for staff, shown only when >1 library, full-screen loader + hard reload on switch since SWR cache isn't per-tenant), `/select-library` page kept only as a defensive fallback (see below), super-admin User Management page at `/platform/users` (was routed in the sidebar but never built) showing per-admin library count/list/subscriptions with a "View" drill-down dialog.
-- [x] 11.1 **Design correction from user feedback**: login does NOT show a library-selection screen. Instead `AuthController::login` auto-resolves the workspace — reuses `current_tenant_id` if the admin still has that membership (so returning admins land back where they left off), otherwise falls back to their first Library. The `/select-library` page + the dashboard-layout `needsLibrary` redirect are kept only as a defensive fallback for the now-rare case where the saved library was revoked and the flag briefly needs resolving; they're not part of normal UX. Switching libraries only happens deliberately, via the header dropdown.
-- [x] 12. Smoke tests: (a) tinker — 2-library admin, pivot membership true/false, per-library staff isolation, Hall TenantScope isolation across a workspace switch, all passed; (b) tinker — login resolution reuses a still-valid saved `current_tenant_id`, falls back to remaining membership when the saved one is revoked, and defaults correctly for a brand-new single-library admin; (c) `php -l` clean on every changed PHP file; (d) frontend `tsc --noEmit` clean; (e) `next build` succeeds, including the new `/select-library` and `/platform/users` routes.
-- [ ] 13. Not yet done — needs a live backend+DB+browser session to actually click through (only static/type checks were run): full manual browser walkthrough of register → login → switch-library → staff-created-in-one-library-invisible-in-another → tampering rejected → staff gets 403 calling `/auth/select-library` directly.
+## Task list
 
-## Non-goals / explicitly out of scope (per "minimum required changes")
-- No changes to Branches (not present in current schema — Hall is the top sub-unit).
-- No change to Member (customer) model/portal — members already belong to exactly one tenant, unaffected by the Admin/Staff hierarchy change.
-- No change to subscription billing logic beyond confirming `tenant_subscriptions` stays per-Library (already true — no change needed there).
+### Part A — Centralized Logo & Favicon
+- [ ] A1. Backend: new public `GET /theme` route (no auth) returning `{ logo_url, favicon_url, site_name, primary_color }` derived from `platform_settings` group=theme, safe to expose pre-login.
+- [ ] A2. Frontend: `ThemeContext`/hook fetching `/theme` once; `FullLogo.tsx` uses it (falls back to the existing static SVG when no logo uploaded) instead of a hardcoded path.
+- [ ] A3. Frontend: dynamic favicon — small client component in the root layout that sets the `<link rel="icon">` href from the fetched theme once available; static `/favicon.svg` stays the fallback.
+- [ ] A4. Verify: super_admin uploads a new logo/favicon in Theme settings -> reflected on login page, Admin panel, Staff panel without a rebuild, survives refresh/logout/login.
+
+### Part B — Library Admin menu & functionality
+- [ ] B1. Sidebar: rename "Library Settings" -> "Library"; remove `Members -> Subscriptions` top-level item (route stays, just unlinked); rename `Administration -> Subscription` -> "My Plan & Subscription"; remove `Members -> Attendance` item. Keep Dashboard, Halls/Seats/Shifts/Membership Plans, Payments, Staff as-is.
+- [ ] B2. Hall create/edit form: add a "Library" select populated from the admin's `tenants`, defaulting to (and, for a single-library admin, locked to) the current workspace; `HallController::store` accepts and validates an explicit `tenant_id` against the caller's membership instead of only the ambient one.
+- [ ] B3. Members page: relabel to "Members / Students" and surface the total count prominently (stat above the table, using the existing pagination `total`).
+- [ ] B4. Billing/"My Plan & Subscription" page: already shows current plan + Change/Renew Plan link — just confirm the rename covers it, no functional change needed.
+
+### Part C — Staff creation with granular permissions
+- [ ] C1. Migration: add `permissions` JSON column to `tenant_user`.
+- [ ] C2. Backend: `EnsurePermission` middleware (module, action) — full pass for admin/super_admin, pivot-lookup check for staff; register alias.
+- [ ] C3. Backend: split the `halls`/`members`/`payments` `apiResource` routes (and `tenant-settings` show/update) into explicit per-verb routes carrying `permission:module,action`; `StaffController::store`/`update` accept + persist a `permissions` object into the `tenant_user` pivot row alongside `role`.
+- [ ] C4. Backend: `User::tenants()` pivot load includes `permissions`; expose via `/auth/me` (already loads `tenants`).
+- [ ] C5. Frontend: `usePermission(module, action)` hook; Staff form reworked — Library select (required), Name (required), Email (optional), Phone (optional), Password (required) + Generate Password button, and a permission matrix (4 modules x up to 4 actions) as checkboxes.
+- [ ] C6. Frontend: gate Add/Edit/Delete buttons and page-level view access on Halls, Members, Payments, Library(Settings) pages behind `usePermission`.
+- [ ] C7. Verify: create a staff member with only `Members -> view+add`; confirm Edit/Delete hidden on Members, Halls/Payments pages inaccessible, and that hitting the underlying API routes directly (not just hiding UI) 403s.
+
+Execution order: A -> B -> C -> D (C is the largest; B2/B3 touch files C6 will touch again, doing them first avoids rework).
+
+### Part D — Subscription-driven Library limit
+
+New request that arrived mid-Phase-2. Confirmed with the user: **"best active plan wins"** — an
+Admin's total allowed Library count = `MAX(max_libraries)` across all of their *currently active*
+(`active`/`trialing`) per-Library subscriptions, not a sum and not just the first one. Upgrading
+any one Library's plan raises the shared account-wide cap immediately.
+
+- [ ] D1. Migration + model: add `max_libraries` (nullable int, null = unlimited) to `subscription_plans`; update `SubscriptionPlan` fillable/casts, the super-admin Subscription Plans create/edit form, and `SubscriptionPlan` frontend type.
+- [ ] D2. Backend: `GET /admin/libraries-summary` (admin-only) -> `{used, limit, remaining, exceeded}` — `used` = count of Libraries the admin belongs to (role=admin, any status), `limit` = MAX(max_libraries) over their active subscriptions (null/unlimited if any active plan has no cap).
+- [ ] D3. Backend: `POST /admin/libraries` — creates an *additional* Library for the already-authenticated admin (reuses the account; does NOT create a new User, unlike `/auth/register`), 422s if at limit, attaches `tenant_user` (role=admin), sets it as the new `current_tenant_id` so the existing PlanSelectionController payment flow applies to it immediately afterward. New Library starts `suspended` (payment-pending), same as registration.
+- [ ] D4. Frontend: header "Libraries X/Y" indicator (admin-only, next to the Library Switcher) — a "+" button opening a small "New Library" dialog (posts to `/admin/libraries`, then redirects into `/select-plan` to complete first payment for it) when under limit, or an "Upgrade Plan" button linking to the existing `/select-plan?upgrade=1` flow when at limit. Reuses the existing select-plan component/page as-is rather than rebuilding it inside the dashboard shell (it already has a "Back to Dashboard" exit) — noting this as the minimal-diff reading of "open the existing Plan component."
+- [ ] D5. Verify: `PlanLimitService` (seats/members/staff) and the account-wide library cap both already recompute live off `tenant->activeSubscription->plan` / the admin's active subscriptions — no extra "propagate the upgrade" step should be needed, confirm this holds after D1-D4. Confirm Super Admin User Management already surfaces `activeSubscription.plan` per Library (it does, from Phase 1) so the new `max_libraries` value is visible there for free once D1 lands.

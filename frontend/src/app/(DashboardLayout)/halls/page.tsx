@@ -36,14 +36,22 @@ import TableSkeleton from "@/components/shared/TableSkeleton";
 import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/context/ToastContext";
+import { useAuth } from "@/context/AuthContext";
 import type { Hall } from "@/types";
 
 const BCrumb = [{ to: "/", title: "Home" }, { title: "Halls" }];
 
-const emptyForm = { name: "", description: "", status: "active" as "active" | "inactive" };
+const emptyForm = (tenantId: number | null) => ({
+  name: "",
+  description: "",
+  status: "active" as "active" | "inactive",
+  tenant_id: tenantId ? String(tenantId) : "",
+});
 
 export default function HallsPage() {
   const toast = useToast();
+  const { user } = useAuth();
+  const libraries = user?.tenants ?? [];
 
   const { data: hallsData, isLoading: loading, error: loadError, mutate } = useApi<Hall[]>("/admin/halls");
   const halls = hallsData ?? [];
@@ -51,7 +59,7 @@ export default function HallsPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Hall | null>(null);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(emptyForm(user?.current_tenant_id ?? null));
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [saving, setSaving] = useState(false);
 
@@ -60,7 +68,7 @@ export default function HallsPage() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm(emptyForm);
+    setForm(emptyForm(user?.current_tenant_id ?? null));
     setFieldErrors({});
     setDialogOpen(true);
   };
@@ -71,6 +79,7 @@ export default function HallsPage() {
       name: hall.name,
       description: hall.description || "",
       status: hall.status,
+      tenant_id: String(hall.tenant_id),
     });
     setFieldErrors({});
     setDialogOpen(true);
@@ -82,9 +91,13 @@ export default function HallsPage() {
     setFieldErrors({});
     try {
       if (editing) {
-        await api.put(`/admin/halls/${editing.id}`, form);
+        await api.put(`/admin/halls/${editing.id}`, { name: form.name, description: form.description, status: form.status });
       } else {
-        await api.post("/admin/halls", form);
+        await api.post("/admin/halls", { name: form.name, description: form.description, status: form.status, tenant_id: Number(form.tenant_id) });
+        const targetLibrary = libraries.find((l) => l.id === Number(form.tenant_id));
+        if (targetLibrary && targetLibrary.id !== user?.current_tenant_id) {
+          toast.success(`Hall created in ${targetLibrary.name}. Switch to that library to manage it.`);
+        }
       }
       setDialogOpen(false);
       mutate();
@@ -184,6 +197,26 @@ export default function HallsPage() {
             <DialogTitle>{editing ? "Edit Hall" : "Add Hall"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4">
+            {!editing && (
+              <div className="flex flex-col gap-2">
+                <Label>Library</Label>
+                <Select
+                  value={form.tenant_id}
+                  onValueChange={(v) => setForm({ ...form, tenant_id: v })}
+                  disabled={libraries.length <= 1}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select library" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {libraries.map((lib) => (
+                      <SelectItem key={lib.id} value={String(lib.id)}>{lib.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {fieldError("tenant_id") && <p className="text-xs text-error">{fieldError("tenant_id")}</p>}
+              </div>
+            )}
             <div className="flex flex-col gap-2">
               <Label htmlFor="name">Name</Label>
               <Input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />

@@ -44,7 +44,7 @@ import ImageUploadField from "@/components/form/ImageUploadField";
 import FileUploadField from "@/components/form/FileUploadField";
 import type { Member, MemberStatus, MemberGender, Paginated } from "@/types";
 
-const BCrumb = [{ to: "/", title: "Home" }, { title: "Members" }];
+const BCrumb = [{ to: "/", title: "Home" }, { title: "Members / Students" }];
 
 const statuses: MemberStatus[] = ["active", "inactive", "expired"];
 const genders: MemberGender[] = ["male", "female", "other"];
@@ -185,7 +185,17 @@ export default function MembersPage() {
 
   return (
     <>
-      <BreadcrumbComp title="Members" items={BCrumb} />
+      <BreadcrumbComp title="Members / Students" items={BCrumb} />
+
+      <CardBox className="p-4 mb-4 bg-background border-none rounded-xl shadow-xs flex items-center gap-4">
+        <div className="h-12 w-12 rounded-full bg-lightprimary flex items-center justify-center shrink-0">
+          <Icon icon="solar:users-group-rounded-bold-duotone" width={24} height={24} className="text-primary" />
+        </div>
+        <div>
+          <p className="text-2xl font-semibold leading-none">{members?.total ?? 0}</p>
+          <p className="text-sm text-darklink mt-1">Total Students</p>
+        </div>
+      </CardBox>
 
       <CardBox className="p-0 bg-background overflow-hidden border-none rounded-xl shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-4 p-6">
