@@ -12,7 +12,11 @@ import { useBranding } from "@/context/BrandingContext";
  * through this one component.
  */
 const FullLogo = () => {
-  const { logoUrl, siteName } = useBranding();
+  const { logoUrl, siteName, isLoading } = useBranding();
+
+  if (isLoading) {
+    return <div className="h-10 w-32 rounded-md bg-gray-200 dark:bg-darkborder animate-pulse" />;
+  }
 
   if (logoUrl) {
     return (
