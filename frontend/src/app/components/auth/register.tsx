@@ -72,7 +72,7 @@ export const Register = () => {
   return (
     <>
       <div className='h-screen w-full flex justify-center items-center bg-lightprimary py-10'>
-        <div className='md:min-w-[500px] min-w-max'>
+        <div className='w-[92%] max-w-[500px] mx-auto md:w-full md:min-w-[500px]'>
           <CardBox>
             <form onSubmit={handleSubmit}>
               <div className='flex justify-center mb-4'>

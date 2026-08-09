@@ -132,6 +132,14 @@ class SettingsController extends Controller
      */
     public function uploadThemeAsset(Request $request)
     {
+        \Log::info('📥 [theme-asset] upload request received', [
+            'type' => $request->input('type'),
+            'has_file' => $request->hasFile('file'),
+            'original_name' => $request->file('file')?->getClientOriginalName(),
+            'size' => $request->file('file')?->getSize(),
+            'mime' => $request->file('file')?->getMimeType(),
+        ]);
+
         $validated = $request->validate([
             'type' => 'required|in:logo,favicon',
             'file' => 'required|image|max:2048',
@@ -142,11 +150,27 @@ class SettingsController extends Controller
 
         $path = $request->file('file')->store('platform/theme', 'public');
 
+        $storedOk = Storage::disk('public')->exists($path);
+        if ($storedOk) {
+            \Log::info('✅ [theme-asset] file saved to storage', [
+                'path' => $path,
+                'full_path' => Storage::disk('public')->path($path),
+                'url' => Storage::disk('public')->url($path),
+            ]);
+        } else {
+            \Log::error('❌ [theme-asset] file store() returned a path but it does NOT exist on disk', [
+                'path' => $path,
+                'disk_root' => Storage::disk('public')->path(''),
+            ]);
+        }
+
         if ($existing) {
             Storage::disk('public')->delete($existing);
+            \Log::info('🗑️ [theme-asset] deleted previous asset', ['existing' => $existing]);
         }
 
         PlatformSetting::setGroup('theme', [$key => $path]);
+        \Log::info('💾 [theme-asset] platform_settings updated', ['key' => $key, 'path' => $path]);
 
         return response()->json([
             'key' => $key,
