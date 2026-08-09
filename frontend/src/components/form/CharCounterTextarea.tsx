@@ -28,3 +28,6 @@ export default function CharCounterTextarea({ id, value, onChange, maxLength, pl
     </div>
   );
 }
+
+
+// this is for git
