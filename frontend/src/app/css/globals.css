@@ -17,17 +17,6 @@ main {
   scroll-behavior: smooth;
 }
 
-/* iOS/Android browsers auto-zoom the page when a focused form field's
-   font-size is below 16px. Forcing 16px on mobile stops that zoom without
-   disabling pinch-zoom elsewhere. */
-@media (max-width: 767px) {
-  input,
-  textarea,
-  select {
-    font-size: 16px !important;
-  }
-}
-
 @theme {
   
   --shadow-lg: 0 1rem 3rem rgba(0, 0, 0, 0.175);
