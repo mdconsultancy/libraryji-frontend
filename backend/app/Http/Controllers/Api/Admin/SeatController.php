@@ -19,6 +19,7 @@ class SeatController extends Controller
             ->when($request->hall_id, fn ($q) => $q->where('hall_id', $request->hall_id))
             ->when($request->status, fn ($q) => $q->where('status', $request->status))
             ->when($request->seat_type, fn ($q) => $q->where('seat_type', $request->seat_type))
+            ->when($request->category, fn ($q) => $q->where('category', $request->category))
             ->orderBy('seat_number')
             ->get();
 
@@ -39,6 +40,7 @@ class SeatController extends Controller
             'hall_id' => 'nullable|exists:halls,id',
             'seat_number' => 'required|string|max:50',
             'seat_type' => 'in:general,ac,non_ac,cabin,premium',
+            'category' => 'in:regular,rotation',
             'status' => 'in:available,occupied,reserved,maintenance',
         ]);
 
@@ -55,6 +57,7 @@ class SeatController extends Controller
             'start' => 'required|integer|min:1',
             'end' => 'required|integer|min:1|gte:start',
             'seat_type' => 'in:general,ac,non_ac,cabin,premium',
+            'category' => 'in:regular,rotation',
         ]);
 
         $tenant = $request->user()->currentTenant;
@@ -75,6 +78,7 @@ class SeatController extends Controller
                 [
                     'hall_id' => $validated['hall_id'] ?? null,
                     'seat_type' => $validated['seat_type'] ?? 'general',
+                    'category' => $validated['category'] ?? 'regular',
                     'status' => 'available',
                 ]
             );
@@ -96,6 +100,7 @@ class SeatController extends Controller
             'hall_id' => 'nullable|exists:halls,id',
             'seat_number' => 'sometimes|required|string|max:50',
             'seat_type' => 'in:general,ac,non_ac,cabin,premium',
+            'category' => 'in:regular,rotation',
             'status' => 'in:available,occupied,reserved,maintenance',
             'position_x' => 'nullable|numeric',
             'position_y' => 'nullable|numeric',

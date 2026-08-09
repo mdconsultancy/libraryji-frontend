@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
+use App\Models\Expense;
 use App\Models\Member;
 use App\Models\MemberSubscription;
 use App\Models\Payment;
@@ -14,10 +15,14 @@ class DashboardController extends Controller
 {
     public function summary(Request $request)
     {
+        $tenant = $request->user()->currentTenant;
+
         $totalMembers = Member::count();
         $activeMembers = Member::where('status', 'active')->count();
         $totalSeats = Seat::count();
         $occupiedSeats = Seat::where('status', 'occupied')->count();
+        $staffCount = $tenant->staff()->count();
+        $hallsCount = $tenant->halls()->count();
 
         $expiringSoon = MemberSubscription::where('status', 'active')
             ->whereDate('end_date', '<=', now()->addDays(7))
@@ -45,6 +50,10 @@ class DashboardController extends Controller
 
         $onlineThisMonth = $revenueThisMonth - $cashThisMonth;
 
+        $expensesThisMonth = Expense::whereMonth('expense_date', now()->month)
+            ->whereYear('expense_date', now()->year)
+            ->sum('amount');
+
         return response()->json([
             'total_members' => $totalMembers,
             'active_members' => $activeMembers,
@@ -54,6 +63,9 @@ class DashboardController extends Controller
             'occupied_seats' => $occupiedSeats,
             'available_seats' => $totalSeats - $occupiedSeats,
             'occupancy_rate' => $totalSeats > 0 ? round(($occupiedSeats / $totalSeats) * 100, 1) : 0,
+            'staff_count' => $staffCount,
+            'halls_count' => $hallsCount,
+            'expenses_this_month' => (float) $expensesThisMonth,
             'expiring_soon' => $expiringSoon,
             'today_attendance' => $todayAttendance,
             'currently_checked_in' => $currentlyCheckedIn,
@@ -66,7 +78,9 @@ class DashboardController extends Controller
 
     public function revenueChart(Request $request)
     {
-        $months = collect(range(5, 0))->map(function ($i) {
+        $span = min(max($request->integer('months', 6), 1), 24);
+
+        $months = collect(range($span - 1, 0))->map(function ($i) {
             $date = now()->subMonths($i);
 
             $revenue = Payment::where('status', 'paid')
@@ -85,9 +99,10 @@ class DashboardController extends Controller
 
     public function attendanceChart(Request $request)
     {
+        $span = min(max($request->integer('days', 7), 1), 90);
         $activeMembers = Member::where('status', 'active')->count();
 
-        $days = collect(range(6, 0))->map(function ($i) use ($activeMembers) {
+        $days = collect(range($span - 1, 0))->map(function ($i) use ($activeMembers) {
             $date = now()->subDays($i);
 
             $present = Attendance::whereDate('date', $date->toDateString())
@@ -125,5 +140,58 @@ class DashboardController extends Controller
             ->get();
 
         return response()->json($members);
+    }
+
+    /**
+     * Unified feed for the dashboard's "Recent Activities" card — merges
+     * three different tables into one timeline instead of the UI having to
+     * stitch together separate member/payment/attendance calls itself.
+     */
+    public function recentActivity(Request $request)
+    {
+        $limit = min(max($request->integer('limit', 10), 1), 50);
+
+        $newMembers = Member::orderByDesc('created_at')
+            ->limit($limit)
+            ->get()
+            ->map(fn (Member $member) => [
+                'type' => 'member_joined',
+                'title' => "{$member->name} joined",
+                'subtitle' => $member->member_code,
+                'occurred_at' => $member->created_at,
+            ]);
+
+        $payments = Payment::with('member')
+            ->where('status', 'paid')
+            ->orderByDesc('paid_at')
+            ->limit($limit)
+            ->get()
+            ->map(fn (Payment $payment) => [
+                'type' => 'payment_received',
+                'title' => ($payment->member?->name ?? 'A member').' made a payment',
+                'subtitle' => '₹'.number_format((float) $payment->amount, 2),
+                'occurred_at' => $payment->paid_at,
+            ]);
+
+        $checkIns = Attendance::with('member')
+            ->orderByDesc('check_in')
+            ->limit($limit)
+            ->get()
+            ->map(fn (Attendance $attendance) => [
+                'type' => 'attendance_check_in',
+                'title' => ($attendance->member?->name ?? 'A member').' checked in',
+                'subtitle' => $attendance->check_out ? 'Checked out' : 'Currently present',
+                'occurred_at' => $attendance->check_in,
+            ]);
+
+        $activity = $newMembers
+            ->concat($payments)
+            ->concat($checkIns)
+            ->filter(fn ($item) => $item['occurred_at'] !== null)
+            ->sortByDesc('occurred_at')
+            ->take($limit)
+            ->values();
+
+        return response()->json($activity);
     }
 }

@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Admin\BillingController;
 use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\ExpenseController;
 use App\Http\Controllers\Api\Admin\HallController;
+use App\Http\Controllers\Api\Admin\LeadController;
 use App\Http\Controllers\Api\Admin\LibraryController;
 use App\Http\Controllers\Api\Admin\MemberController;
 use App\Http\Controllers\Api\Admin\MembershipPlanController;
@@ -52,6 +53,7 @@ Route::middleware('auth:jwt')->group(function () {
     // what activates one (used for both post-registration payment and
     // reactivating a suspended/trial-expired tenant).
     Route::middleware('role:admin')->prefix('admin')->group(function () {
+        Route::post('select-plan/trial', [PlanSelectionController::class, 'startTrial']);
         Route::post('select-plan/order', [PlanSelectionController::class, 'createOrder']);
         Route::post('select-plan/verify', [PlanSelectionController::class, 'verify']);
 
@@ -94,12 +96,24 @@ Route::middleware('auth:jwt')->group(function () {
             Route::apiResource('membership-plans', MembershipPlanController::class);
         });
 
+        // Must be registered before members/{member} — otherwise "trashed" is
+        // matched as the {member} id parameter instead of this literal path.
+        Route::middleware('permission:members,view')->get('members/trashed', [MemberController::class, 'trashed']);
+        Route::middleware('permission:members,delete')->post('members/{member}/restore', [MemberController::class, 'restore']);
+
         Route::middleware('permission:members,view')->get('members', [MemberController::class, 'index']);
         Route::middleware('permission:members,view')->get('members/{member}', [MemberController::class, 'show']);
         Route::middleware('permission:members,add')->post('members', [MemberController::class, 'store']);
         Route::middleware('permission:members,edit')->put('members/{member}', [MemberController::class, 'update']);
         Route::middleware('permission:members,edit')->patch('members/{member}', [MemberController::class, 'update']);
         Route::middleware('permission:members,delete')->delete('members/{member}', [MemberController::class, 'destroy']);
+
+        Route::middleware('permission:members,view')->get('leads', [LeadController::class, 'index']);
+        Route::middleware('permission:members,view')->get('leads/{lead}', [LeadController::class, 'show']);
+        Route::middleware('permission:members,add')->post('leads', [LeadController::class, 'store']);
+        Route::middleware('permission:members,edit')->put('leads/{lead}', [LeadController::class, 'update']);
+        Route::middleware('permission:members,edit')->patch('leads/{lead}', [LeadController::class, 'update']);
+        Route::middleware('permission:members,delete')->delete('leads/{lead}', [LeadController::class, 'destroy']);
 
         Route::post('subscriptions/{memberSubscription}/renew', [MemberSubscriptionController::class, 'renew']);
         Route::apiResource('subscriptions', MemberSubscriptionController::class)
@@ -123,6 +137,7 @@ Route::middleware('auth:jwt')->group(function () {
         Route::get('dashboard/attendance-chart', [DashboardController::class, 'attendanceChart']);
         Route::get('dashboard/expiring-memberships', [DashboardController::class, 'expiringMemberships']);
         Route::get('dashboard/recent-members', [DashboardController::class, 'recentMembers']);
+        Route::get('dashboard/recent-activity', [DashboardController::class, 'recentActivity']);
 
         // Library module: view/edit only (it's a single settings resource per
         // Library, no add/delete concept). Staff can now reach it too, but

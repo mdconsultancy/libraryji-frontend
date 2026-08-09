@@ -71,17 +71,24 @@ class MemberController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'nullable|email|max:255',
             'phone' => 'required|string|max:20',
+            'whatsapp_number' => 'nullable|string|max:20',
             'photo' => $this->photoValidationRule(),
             'address' => 'nullable|string|max:500',
             'id_proof_type' => 'nullable|string|max:50',
             'id_proof_number' => 'nullable|string|max:100',
             'id_proof' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:4096',
+            'id_proof_front' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:4096',
+            'id_proof_back' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:4096',
             'date_of_birth' => 'nullable|date',
             'gender' => 'nullable|in:male,female,other',
             'join_date' => 'required|date',
             'status' => 'in:active,inactive,expired',
             'notes' => 'nullable|string',
         ]);
+
+        // If the user doesn't enter a separate WhatsApp number, use the
+        // phone number as a sane default rather than leaving it blank.
+        $validated['whatsapp_number'] = $validated['whatsapp_number'] ?? $validated['phone'];
 
         $validated['member_code'] = $this->generateMemberCode();
 
@@ -94,6 +101,14 @@ class MemberController extends Controller
 
         if ($request->hasFile('id_proof')) {
             $validated['id_proof_path'] = $request->file('id_proof')->store('members/id_proofs', 'local');
+        }
+
+        if ($request->hasFile('id_proof_front')) {
+            $validated['id_proof_front_path'] = $request->file('id_proof_front')->store('members/id_proofs', 'local');
+        }
+
+        if ($request->hasFile('id_proof_back')) {
+            $validated['id_proof_back_path'] = $request->file('id_proof_back')->store('members/id_proofs', 'local');
         }
 
         $member = Member::create($validated);
@@ -121,11 +136,14 @@ class MemberController extends Controller
             'name' => 'sometimes|required|string|max:255',
             'email' => 'nullable|email|max:255',
             'phone' => 'sometimes|required|string|max:20',
+            'whatsapp_number' => 'nullable|string|max:20',
             'photo' => $this->photoValidationRule(),
             'address' => 'nullable|string|max:500',
             'id_proof_type' => 'nullable|string|max:50',
             'id_proof_number' => 'nullable|string|max:100',
             'id_proof' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:4096',
+            'id_proof_front' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:4096',
+            'id_proof_back' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:4096',
             'date_of_birth' => 'nullable|date',
             'gender' => 'nullable|in:male,female,other',
             'join_date' => 'sometimes|required|date',
@@ -147,6 +165,20 @@ class MemberController extends Controller
             $validated['id_proof_path'] = $request->file('id_proof')->store('members/id_proofs', 'local');
         }
 
+        if ($request->hasFile('id_proof_front')) {
+            if ($member->id_proof_front_path) {
+                Storage::disk('local')->delete($member->id_proof_front_path);
+            }
+            $validated['id_proof_front_path'] = $request->file('id_proof_front')->store('members/id_proofs', 'local');
+        }
+
+        if ($request->hasFile('id_proof_back')) {
+            if ($member->id_proof_back_path) {
+                Storage::disk('local')->delete($member->id_proof_back_path);
+            }
+            $validated['id_proof_back_path'] = $request->file('id_proof_back')->store('members/id_proofs', 'local');
+        }
+
         $member->update($validated);
 
         return response()->json($member);
@@ -157,6 +189,34 @@ class MemberController extends Controller
         $member->delete();
 
         return response()->json(['message' => 'Member deleted successfully.']);
+    }
+
+    /**
+     * "Old Students/Members" — soft-deleted members, kept for reference or
+     * restoration rather than being purged.
+     */
+    public function trashed(Request $request)
+    {
+        $members = Member::onlyTrashed()
+            ->when($request->search, function ($q) use ($request) {
+                $q->where(function ($q2) use ($request) {
+                    $q2->where('name', 'like', "%{$request->search}%")
+                        ->orWhere('phone', 'like', "%{$request->search}%")
+                        ->orWhere('member_code', 'like', "%{$request->search}%");
+                });
+            })
+            ->orderByDesc('deleted_at')
+            ->paginate($request->integer('per_page', 15));
+
+        return response()->json($members);
+    }
+
+    public function restore(Request $request, int $member)
+    {
+        $record = Member::onlyTrashed()->findOrFail($member);
+        $record->restore();
+
+        return response()->json($record);
     }
 
     private function generateMemberCode(): string

@@ -39,8 +39,14 @@ class EnsureTenantIsActive
             abort(403, 'Your library account is suspended. Please contact support.');
         }
 
-        if ($tenant->status === 'trial' && $tenant->trial_ends_at && $tenant->trial_ends_at->isPast()) {
-            abort(403, 'Your trial period has expired. Please subscribe to continue.');
+        // A tenant sits in `trial` status from registration until they pick
+        // a plan (trial_ends_at null — never started one) and again once
+        // their free month runs out (trial_ends_at in the past) — both are
+        // "no access yet", not just the expiry case.
+        if ($tenant->status === 'trial' && (! $tenant->trial_ends_at || $tenant->trial_ends_at->isPast())) {
+            abort(403, $tenant->trial_ends_at
+                ? 'Your trial period has expired. Please subscribe to continue.'
+                : 'Please choose a plan to continue.');
         }
 
         return $next($request);

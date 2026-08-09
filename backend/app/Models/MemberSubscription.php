@@ -13,7 +13,7 @@ class MemberSubscription extends Model
     use BelongsToTenant, HasFactory;
 
     protected $fillable = [
-        'tenant_id', 'member_id', 'membership_plan_id', 'seat_id', 'shift_id',
+        'tenant_id', 'member_id', 'membership_plan_id', 'duration_months', 'seat_id', 'shift_id',
         'plan_name_snapshot', 'amount', 'start_date', 'end_date', 'status',
     ];
 

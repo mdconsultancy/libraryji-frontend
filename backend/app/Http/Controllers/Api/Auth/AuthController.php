@@ -21,10 +21,11 @@ class AuthController extends Controller
      *
      * The new account is always created with role `admin` (tenant admin) —
      * `super_admin` can never be assigned through self-service registration.
-     * A plan must be chosen at signup, but the tenant is created `suspended`
-     * (payment-pending) — the existing EnsureTenantIsActive middleware blocks
-     * all tenant-scoped access until Razorpay payment is verified via
-     * PlanSelectionController::verify, which flips the tenant to `active`.
+     * A plan must still be chosen after signup — the tenant is created with
+     * status `trial` and `trial_ends_at` left null, which EnsureTenantIsActive
+     * treats as "no active trial yet" and blocks all tenant-scoped access
+     * until a plan is picked via PlanSelectionController::startTrial (free,
+     * immediate, 1 month) or ::verify (Razorpay, once the trial is used up).
      */
     public function register(Request $request)
     {
@@ -89,7 +90,7 @@ class AuthController extends Controller
                 'city' => $validated['city'] ?? null,
                 'pincode' => $validated['pincode'] ?? null,
                 'gst_number' => $validated['gst_number'] ?? null,
-                'status' => 'suspended',
+                'status' => 'trial',
                 'trial_ends_at' => null,
             ]);
 

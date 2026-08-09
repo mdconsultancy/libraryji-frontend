@@ -17,15 +17,16 @@ class Member extends Model
 
     protected $fillable = [
         'tenant_id', 'user_id', 'member_code', 'name', 'email',
-        'phone', 'photo_path', 'address', 'id_proof_type', 'id_proof_number',
-        'id_proof_path', 'date_of_birth', 'gender', 'join_date', 'status', 'notes',
+        'phone', 'whatsapp_number', 'photo_path', 'address', 'id_proof_type', 'id_proof_number',
+        'id_proof_path', 'id_proof_front_path', 'id_proof_back_path',
+        'date_of_birth', 'gender', 'join_date', 'status', 'notes',
     ];
 
     // Raw storage paths are never sent to the client — photo_url/id_proof_url
     // (short-lived, signed) are how the frontend is allowed to view these files.
-    protected $hidden = ['photo_path', 'id_proof_path'];
+    protected $hidden = ['photo_path', 'id_proof_path', 'id_proof_front_path', 'id_proof_back_path'];
 
-    protected $appends = ['photo_url', 'id_proof_url'];
+    protected $appends = ['photo_url', 'id_proof_url', 'id_proof_front_url', 'id_proof_back_url'];
 
     protected function casts(): array
     {
@@ -53,6 +54,20 @@ class Member extends Model
     {
         return Attribute::make(
             get: fn () => $this->id_proof_path ? Storage::disk('local')->temporaryUrl($this->id_proof_path, now()->addMinutes(30)) : null,
+        );
+    }
+
+    protected function idProofFrontUrl(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->id_proof_front_path ? Storage::disk('local')->temporaryUrl($this->id_proof_front_path, now()->addMinutes(30)) : null,
+        );
+    }
+
+    protected function idProofBackUrl(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->id_proof_back_path ? Storage::disk('local')->temporaryUrl($this->id_proof_back_path, now()->addMinutes(30)) : null,
         );
     }
 

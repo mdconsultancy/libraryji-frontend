@@ -12,15 +12,64 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * Activates a tenant's SaaS subscription via Razorpay. Used both right after
- * registration (tenant starts out payment-pending) and to reactivate a
- * suspended/trial-expired tenant. Two-step flow: create an Order, take the
- * admin through Razorpay Checkout client-side, then verify the signature
- * before actually granting access.
+ * Activates a tenant's SaaS subscription. `startTrial` grants the one-time
+ * free first month with no payment step. Once that's used up (or on a
+ * repeat/upgrade pick), `createOrder`/`verify` run the real Razorpay flow:
+ * create an Order, take the admin through Razorpay Checkout client-side,
+ * then verify the signature before actually granting access.
  */
 class PlanSelectionController extends Controller
 {
     public function __construct(private RazorpayService $razorpay) {}
+
+    /**
+     * Every tenant's first plan pick is a free 1-month trial — no payment
+     * step at all. `trial_ends_at` doubles as the "have they ever had a
+     * trial" flag: once set (even after it lapses), this endpoint refuses
+     * and the client must fall back to createOrder/verify (real payment).
+     */
+    public function startTrial(Request $request)
+    {
+        $validated = $request->validate([
+            'subscription_plan_id' => 'required|exists:subscription_plans,id',
+        ]);
+
+        $tenant = $request->user()->currentTenant;
+
+        if ($tenant->trial_ends_at !== null) {
+            return response()->json([
+                'message' => 'Your free trial has already been used. Please subscribe to continue.',
+            ], 422);
+        }
+
+        $plan = SubscriptionPlan::findOrFail($validated['subscription_plan_id']);
+
+        $subscription = DB::transaction(function () use ($plan, $tenant) {
+            $startsAt = now();
+            $endsAt = $startsAt->copy()->addMonth();
+
+            $subscription = TenantSubscription::create([
+                'tenant_id' => $tenant->id,
+                'subscription_plan_id' => $plan->id,
+                'status' => 'trialing',
+                'amount' => 0,
+                'currency' => 'INR',
+                'starts_at' => $startsAt,
+                'ends_at' => $endsAt,
+                'payment_gateway' => 'trial',
+                'invoice_number' => 'TRIAL-'.$tenant->id.'-'.now()->format('YmdHis').Str::upper(Str::random(4)),
+            ]);
+
+            $tenant->update(['status' => 'trial', 'trial_ends_at' => $endsAt]);
+
+            return $subscription;
+        });
+
+        return response()->json([
+            'subscription' => $subscription->load('plan'),
+            'tenant' => $tenant->fresh(),
+        ], 201);
+    }
 
     public function createOrder(Request $request)
     {

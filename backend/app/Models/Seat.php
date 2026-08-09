@@ -13,7 +13,7 @@ class Seat extends Model
     use BelongsToTenant, HasFactory;
 
     protected $fillable = [
-        'tenant_id', 'hall_id', 'seat_number', 'seat_type',
+        'tenant_id', 'hall_id', 'seat_number', 'seat_type', 'category',
         'status', 'position_x', 'position_y',
     ];
 
