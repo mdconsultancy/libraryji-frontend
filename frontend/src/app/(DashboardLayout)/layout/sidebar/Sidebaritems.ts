@@ -51,49 +51,6 @@ const SidebarContent: MenuItem[] = [
     ],
   },
   {
-    heading: 'Library',
-    roles: ['admin', 'staff'],
-    children: [
-      {
-        name: 'Halls',
-        icon: 'solar:home-2-line-duotone',
-        id: uniqueId(),
-        url: '/halls',
-        roles: ['admin', 'staff'],
-        permissionModule: 'halls',
-      },
-      {
-        name: 'Seats',
-        icon: 'solar:armchair-2-line-duotone',
-        id: uniqueId(),
-        url: '/seats',
-        roles: ['admin', 'staff'],
-      },
-      {
-        name: 'Shifts',
-        icon: 'solar:clock-circle-line-duotone',
-        id: uniqueId(),
-        url: '/shifts',
-        roles: ['admin', 'staff'],
-      },
-      {
-        name: 'Membership Plans',
-        icon: 'solar:document-text-line-duotone',
-        id: uniqueId(),
-        url: '/membership-plans',
-        roles: ['admin', 'staff'],
-      },
-      {
-        name: 'Library',
-        icon: 'solar:buildings-3-line-duotone',
-        id: uniqueId(),
-        url: '/settings',
-        roles: ['admin', 'staff'],
-        permissionModule: 'library',
-      },
-    ],
-  },
-  {
     heading: 'Members',
     roles: ['admin', 'staff'],
     children: [
@@ -104,6 +61,51 @@ const SidebarContent: MenuItem[] = [
         url: '/members',
         roles: ['admin', 'staff'],
         permissionModule: 'members',
+      },
+    ],
+  },
+  {
+    heading: 'Library',
+    roles: ['admin', 'staff'],
+    children: [
+      {
+        name: 'Seats',
+        icon: 'solar:armchair-2-line-duotone',
+        id: uniqueId(),
+        url: '/seats',
+        roles: ['admin', 'staff'],
+      },
+      {
+        name: 'Halls',
+        icon: 'solar:home-2-line-duotone',
+        id: uniqueId(),
+        url: '/halls',
+        roles: ['admin', 'staff'],
+        permissionModule: 'halls',
+      },
+      {
+        name: 'Library',
+        icon: 'solar:buildings-3-line-duotone',
+        id: uniqueId(),
+        url: '/settings',
+        roles: ['admin', 'staff'],
+        permissionModule: 'library',
+      },
+      {
+        name: 'Shifts',
+        icon: 'solar:clock-circle-line-duotone',
+        id: uniqueId(),
+        url: '/shifts',
+        roles: ['admin', 'staff'],
+      },
+      {
+        // Library Admin no longer manages Membership Plans at all (product
+        // decision) — staff-only now, both here and enforced server-side.
+        name: 'Membership Plans',
+        icon: 'solar:document-text-line-duotone',
+        id: uniqueId(),
+        url: '/membership-plans',
+        roles: ['staff'],
       },
     ],
   },

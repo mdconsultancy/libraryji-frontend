@@ -29,10 +29,16 @@ use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);
+// Exchanges a still-valid refresh token for a new access/refresh pair.
+// Deliberately outside auth:jwt — by the time this is called the access
+// token has usually already expired, so there's nothing to authenticate
+// the request with except the refresh token itself.
+Route::post('/auth/refresh', [AuthController::class, 'refresh']);
 Route::get('/plans', [PublicPlanController::class, 'index']);
 Route::get('/theme', [PublicThemeController::class, 'show']);
+Route::get('/upload-limits', [PublicThemeController::class, 'uploadLimits']);
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware('auth:jwt')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::put('/auth/profile', [AuthController::class, 'updateProfile']);
@@ -80,7 +86,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('seats', SeatController::class);
 
         Route::apiResource('shifts', ShiftController::class);
-        Route::apiResource('membership-plans', MembershipPlanController::class);
+
+        // Membership Plans is staff-managed only — the Library Admin no
+        // longer creates/manages these at all (product decision), so this
+        // narrows the group's blanket admin,staff access down to staff.
+        Route::middleware('role:staff')->group(function () {
+            Route::apiResource('membership-plans', MembershipPlanController::class);
+        });
 
         Route::middleware('permission:members,view')->get('members', [MemberController::class, 'index']);
         Route::middleware('permission:members,view')->get('members/{member}', [MemberController::class, 'show']);

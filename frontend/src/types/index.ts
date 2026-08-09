@@ -14,6 +14,12 @@ export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded'
 export type BillingCycle = 'monthly' | 'quarterly' | 'yearly'
 export type TenantSubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'cancelled' | 'expired'
 
+/** One line item in a plan's feature list, with its own include/exclude toggle. */
+export interface PlanFeature {
+  text: string
+  included: boolean
+}
+
 export interface SubscriptionPlan {
   id: number
   name: string
@@ -26,7 +32,8 @@ export interface SubscriptionPlan {
   max_staff: number
   /** How many total Libraries this plan entitles the admin's account to operate. null = unlimited. */
   max_libraries: number | null
-  features: string[] | null
+  /** Older plans may still have plain strings (always "included") — normalize with normalizePlanFeatures() before rendering. */
+  features: (string | PlanFeature)[] | null
   is_active: boolean
   sort_order: number
   created_at?: string
@@ -170,11 +177,13 @@ export interface Member {
   name: string
   email: string | null
   phone: string
-  photo_path: string | null
+  /** Short-lived signed URL, not a static path — the raw storage path is never sent to the client. */
+  photo_url: string | null
   address: string | null
   id_proof_type: string | null
   id_proof_number: string | null
-  id_proof_path: string | null
+  /** Short-lived signed URL, not a static path. */
+  id_proof_url: string | null
   date_of_birth: string | null
   gender: MemberGender | null
   join_date: string

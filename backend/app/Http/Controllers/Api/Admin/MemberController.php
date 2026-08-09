@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Member;
+use App\Models\PlatformSetting;
 use App\Services\PlanLimitService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,6 +15,29 @@ class MemberController extends Controller
     public function __construct(
         private PlanLimitService $planLimits,
     ) {}
+
+    /**
+     * Photo size/format come from Admin Settings -> General
+     * (`max_upload_size_mb`, `allowed_file_types`) instead of a hardcoded
+     * rule, so a super admin can tighten/loosen it platform-wide without a
+     * deploy. Falls back to the same 2MB/jpg,jpeg,png default the public
+     * `/upload-limits` endpoint advertises to the frontend, so client and
+     * server agree even when nothing has been configured yet.
+     */
+    private function photoValidationRule(): string
+    {
+        $general = PlatformSetting::getGroup('general');
+
+        $maxMb = (int) ($general['max_upload_size_mb'] ?? 0);
+        $maxKb = ($maxMb > 0 ? $maxMb : 2) * 1024;
+
+        $extensions = collect(explode(',', $general['allowed_file_types'] ?? ''))
+            ->map(fn ($ext) => strtolower(trim($ext, " .\t\n\r\0\x0B")))
+            ->filter()
+            ->implode(',');
+
+        return 'nullable|file|mimes:'.($extensions !== '' ? $extensions : 'jpg,jpeg,png')."|max:{$maxKb}";
+    }
 
     public function index(Request $request)
     {
@@ -47,7 +71,7 @@ class MemberController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'nullable|email|max:255',
             'phone' => 'required|string|max:20',
-            'photo' => 'nullable|image|max:2048',
+            'photo' => $this->photoValidationRule(),
             'address' => 'nullable|string|max:500',
             'id_proof_type' => 'nullable|string|max:50',
             'id_proof_number' => 'nullable|string|max:100',
@@ -61,12 +85,15 @@ class MemberController extends Controller
 
         $validated['member_code'] = $this->generateMemberCode();
 
+        // Private disk: member photos/ID proofs are personal data and must
+        // not be web-accessible via a guessable /storage/... URL — served
+        // instead through a signed route (see Member::photoUrl()/idProofUrl()).
         if ($request->hasFile('photo')) {
-            $validated['photo_path'] = $request->file('photo')->store('members/photos', 'public');
+            $validated['photo_path'] = $request->file('photo')->store('members/photos', 'local');
         }
 
         if ($request->hasFile('id_proof')) {
-            $validated['id_proof_path'] = $request->file('id_proof')->store('members/id_proofs', 'public');
+            $validated['id_proof_path'] = $request->file('id_proof')->store('members/id_proofs', 'local');
         }
 
         $member = Member::create($validated);
@@ -94,7 +121,7 @@ class MemberController extends Controller
             'name' => 'sometimes|required|string|max:255',
             'email' => 'nullable|email|max:255',
             'phone' => 'sometimes|required|string|max:20',
-            'photo' => 'nullable|image|max:2048',
+            'photo' => $this->photoValidationRule(),
             'address' => 'nullable|string|max:500',
             'id_proof_type' => 'nullable|string|max:50',
             'id_proof_number' => 'nullable|string|max:100',
@@ -108,16 +135,16 @@ class MemberController extends Controller
 
         if ($request->hasFile('photo')) {
             if ($member->photo_path) {
-                Storage::disk('public')->delete($member->photo_path);
+                Storage::disk('local')->delete($member->photo_path);
             }
-            $validated['photo_path'] = $request->file('photo')->store('members/photos', 'public');
+            $validated['photo_path'] = $request->file('photo')->store('members/photos', 'local');
         }
 
         if ($request->hasFile('id_proof')) {
             if ($member->id_proof_path) {
-                Storage::disk('public')->delete($member->id_proof_path);
+                Storage::disk('local')->delete($member->id_proof_path);
             }
-            $validated['id_proof_path'] = $request->file('id_proof')->store('members/id_proofs', 'public');
+            $validated['id_proof_path'] = $request->file('id_proof')->store('members/id_proofs', 'local');
         }
 
         $member->update($validated);

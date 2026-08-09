@@ -30,6 +30,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { Icon } from "@iconify/react";
 import PaginationBar from "@/components/shared/Pagination";
 import TableSkeleton from "@/components/shared/TableSkeleton";
@@ -69,6 +75,7 @@ export default function PaymentsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [methodFilter, setMethodFilter] = useState("all");
   const [page, setPage] = useState(1);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const { data: payments, isLoading: loading, error: loadError, mutate } = useApi<Paginated<Payment>>("/admin/payments", {
     page,
@@ -149,6 +156,8 @@ export default function PaymentsPage() {
     <>
       <BreadcrumbComp title="Payments" items={BCrumb} />
 
+      {/* Desktop (xl and up) — unchanged */}
+      <div className="hidden xl:block">
       <CardBox className="p-0 bg-background overflow-hidden border-none rounded-xl shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-4 p-6">
           <div className="flex flex-wrap gap-3">
@@ -238,15 +247,123 @@ export default function PaymentsPage() {
 
         <PaginationBar meta={payments ?? null} onPageChange={setPage} />
       </CardBox>
+      </div>
+
+      {/* Mobile (below xl) — same card-list pattern as Members/Students */}
+      <div className="xl:hidden flex flex-col gap-4">
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setMobileFiltersOpen((o) => !o)}
+            aria-label="Toggle filters"
+            className={`h-10 w-10 shrink-0 flex items-center justify-center rounded-md border border-border ${mobileFiltersOpen ? "bg-lightprimary text-primary border-primary" : ""}`}
+          >
+            <Icon icon="solar:tuning-2-linear" width={18} height={18} />
+          </button>
+        </div>
+
+        {mobileFiltersOpen && (
+          <div className="flex flex-col gap-2">
+            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+              <SelectTrigger>
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                {statuses.map((s) => (
+                  <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={methodFilter} onValueChange={(v) => { setMethodFilter(v); setPage(1); }}>
+              <SelectTrigger>
+                <SelectValue placeholder="All methods" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All methods</SelectItem>
+                {methods.map((m) => (
+                  <SelectItem key={m} value={m} className="capitalize">{m.replace('_', ' ')}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        <div className="rounded-2xl bg-white dark:bg-darkgray p-4 shadow-xs flex items-center gap-3">
+          <div className="h-11 w-11 rounded-full bg-lightprimary flex items-center justify-center shrink-0">
+            <Icon icon="solar:bill-check-bold-duotone" width={22} height={22} className="text-primary" />
+          </div>
+          <div>
+            <p className="text-xs text-darklink">Total Payments</p>
+            <p className="text-xl font-bold text-dark dark:text-white">{payments?.total ?? 0}</p>
+          </div>
+        </div>
+
+        {canAdd && (
+          <Button onClick={openCreate} className="w-full flex items-center justify-center gap-1.5">
+            <Icon icon="solar:add-circle-linear" width={18} height={18} />
+            Record Payment
+          </Button>
+        )}
+
+        {error && <p className="text-sm text-error">{error}</p>}
+
+        {loading ? (
+          <div className="flex flex-col gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-20 rounded-2xl bg-gray-100 dark:bg-darkgray animate-pulse" />
+            ))}
+          </div>
+        ) : payments?.data.length === 0 ? (
+          <p className="text-center py-8 text-sm text-gray-500">No payments found</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {payments?.data.map((payment) => (
+              <div key={payment.id} className="rounded-2xl bg-white dark:bg-darkgray p-4 shadow-xs flex items-center gap-3">
+                <div className="h-12 w-12 rounded-full bg-lightprimary flex items-center justify-center shrink-0">
+                  <Icon icon="solar:bill-check-bold-duotone" width={22} height={22} className="text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-dark dark:text-white truncate">{payment.member?.name || payment.invoice_number}</p>
+                  <p className="text-xs text-darklink truncate">₹{Number(payment.amount).toLocaleString()} · <span className="capitalize">{payment.payment_method.replace('_', ' ')}</span></p>
+                  <p className="text-xs text-darklink mt-0.5">{payment.paid_at ? new Date(payment.paid_at).toLocaleDateString() : "—"}</p>
+                </div>
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <Badge variant="secondary" className={`border-none capitalize ${statusStyles[payment.status]}`}>
+                    {payment.status}
+                  </Badge>
+                  {canEdit && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button type="button" aria-label="Payment actions" className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-lightprimary hover:text-primary">
+                          <Icon icon="tabler:dots-vertical" width={18} height={18} />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEdit(payment)}>
+                          <Icon icon="ic:outline-edit" width={16} height={16} className="mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <PaginationBar meta={payments ?? null} onPageChange={setPage} />
+      </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editing ? "Edit Payment" : "Record Payment"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             {!editing && (
-              <div className="flex flex-col gap-2 lg:col-span-2">
+              <div className="flex flex-col gap-2 xl:col-span-2">
                 <Label>Member (optional)</Label>
                 <Input placeholder="Search member..." value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)} className="mb-2" />
                 <Select value={form.member_id || "none"} onValueChange={(v) => setForm({ ...form, member_id: v === "none" ? "" : v })}>
@@ -311,12 +428,12 @@ export default function PaymentsPage() {
               <Label htmlFor="transaction_id">Transaction ID</Label>
               <Input id="transaction_id" value={form.transaction_id} onChange={(e) => setForm({ ...form, transaction_id: e.target.value })} />
             </div>
-            <div className="flex flex-col gap-2 lg:col-span-2">
+            <div className="flex flex-col gap-2 xl:col-span-2">
               <Label htmlFor="notes">Notes</Label>
               <Textarea id="notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </div>
 
-            <DialogFooter className="lg:col-span-2 flex gap-2 mt-4">
+            <DialogFooter className="xl:col-span-2 flex gap-2 mt-4">
               <Button type="submit" className="rounded-md" disabled={saving}>
                 {saving ? "Saving..." : "Save"}
               </Button>

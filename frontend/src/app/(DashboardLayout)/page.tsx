@@ -7,6 +7,10 @@ import NewCustomers from "../components/dashboard/NewCustomers";
 import TotalIncome from "../components/dashboard/TotalIncome";
 import ProductRevenue from "../components/dashboard/ProductRevenue";
 import DailyActivity from "../components/dashboard/DailyActivity";
+import MobileGreeting from "../components/dashboard/mobile/MobileGreeting";
+import MobileStatsGrid from "../components/dashboard/mobile/MobileStatsGrid";
+import MobileAttendanceCard from "../components/dashboard/mobile/MobileAttendanceCard";
+import MobileRecentActivity from "../components/dashboard/mobile/MobileRecentActivity";
 import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
 import DashboardSkeleton from "@/components/shared/DashboardSkeleton";
@@ -45,7 +49,8 @@ const Page = () => {
 
   return (
     <>
-      <div className="grid grid-cols-12 gap-30">
+      {/* Desktop (xl and up) — unchanged */}
+      <div className="hidden xl:grid grid-cols-12 gap-30">
         <div className="lg:col-span-8 col-span-12">
           <RevenueForecast data={revenueChart ?? []} />
         </div>
@@ -69,22 +74,32 @@ const Page = () => {
           <p className="text-base">
             Design and Developed by{" "}
             <Link
-              href="https://adminmart.com/"
+              href="https://hinguland.com/"
               target="_blank"
               className="pl-1 text-primary underline decoration-primary"
             >
-              adminmart.com{" "}
-            </Link>
-            • Distributed by{" "}
-            <Link
-              href="https://themewagon.com/"
-              target="_blank"
-              className="pl-1 text-primary underline decoration-primary"
-            >
-              ThemeWagon
+              Hinguland Digital Marketing
             </Link>
           </p>
         </div>
+      </div>
+
+      {/* Mobile (below xl) — separate layout, same underlying data */}
+      <div className="xl:hidden flex flex-col gap-4">
+        <MobileGreeting name={user?.name} />
+        {summary && <MobileStatsGrid summary={summary} />}
+        {summary && <MobileAttendanceCard summary={summary} />}
+        <MobileRecentActivity members={recentMembers ?? []} />
+        <p className="text-sm text-center py-2">
+          Design and Developed by{" "}
+          <Link
+            href="https://hinguland.com/"
+            target="_blank"
+            className="pl-1 text-primary underline decoration-primary"
+          >
+            Hinguland Digital Marketing
+          </Link>
+        </p>
       </div>
     </>
   );

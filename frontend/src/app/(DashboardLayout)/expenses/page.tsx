@@ -29,6 +29,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { Icon } from "@iconify/react";
 import PaginationBar from "@/components/shared/Pagination";
 import TableSkeleton from "@/components/shared/TableSkeleton";
@@ -124,6 +130,8 @@ export default function ExpensesPage() {
     <>
       <BreadcrumbComp title="Expenses" items={BCrumb} />
 
+      {/* Desktop (xl and up) — unchanged */}
+      <div className="hidden xl:block">
       <CardBox className="p-0 bg-background overflow-hidden border-none rounded-xl shadow-xs">
         <div className="flex flex-wrap items-center justify-end gap-4 p-6">
           <Button onClick={openCreate} className="flex items-center gap-1.5">
@@ -183,19 +191,84 @@ export default function ExpensesPage() {
 
         <PaginationBar meta={expenses ?? null} onPageChange={setPage} />
       </CardBox>
+      </div>
+
+      {/* Mobile (below xl) — same card-list pattern as Members/Students */}
+      <div className="xl:hidden flex flex-col gap-4">
+        <div className="rounded-2xl bg-white dark:bg-darkgray p-4 shadow-xs flex items-center gap-3">
+          <div className="h-11 w-11 rounded-full bg-lightprimary flex items-center justify-center shrink-0">
+            <Icon icon="solar:wallet-money-bold-duotone" width={22} height={22} className="text-primary" />
+          </div>
+          <div>
+            <p className="text-xs text-darklink">Total Expenses</p>
+            <p className="text-xl font-bold text-dark dark:text-white">{expenses?.total ?? 0}</p>
+          </div>
+        </div>
+
+        <Button onClick={openCreate} className="w-full flex items-center justify-center gap-1.5">
+          <Icon icon="solar:add-circle-linear" width={18} height={18} />
+          Add Expense
+        </Button>
+
+        {error && <p className="text-sm text-error">{error}</p>}
+
+        {loading ? (
+          <div className="flex flex-col gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-20 rounded-2xl bg-gray-100 dark:bg-darkgray animate-pulse" />
+            ))}
+          </div>
+        ) : expenses?.data.length === 0 ? (
+          <p className="text-center py-8 text-sm text-gray-500">No expenses found</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {expenses?.data.map((expense) => (
+              <div key={expense.id} className="rounded-2xl bg-white dark:bg-darkgray p-4 shadow-xs flex items-center gap-3">
+                <div className="h-12 w-12 rounded-full bg-lightprimary flex items-center justify-center shrink-0">
+                  <Icon icon="solar:wallet-money-bold-duotone" width={22} height={22} className="text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-dark dark:text-white truncate">{expense.title}</p>
+                  <p className="text-xs text-darklink truncate">{expense.category} · ₹{Number(expense.amount).toLocaleString()}</p>
+                  <p className="text-xs text-darklink mt-0.5">{new Date(expense.expense_date).toLocaleDateString()}</p>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button type="button" aria-label="Expense actions" className="h-7 w-7 shrink-0 flex items-center justify-center rounded-full hover:bg-lightprimary hover:text-primary">
+                      <Icon icon="tabler:dots-vertical" width={18} height={18} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => openEdit(expense)}>
+                      <Icon icon="ic:outline-edit" width={16} height={16} className="mr-2" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setDeleteTarget(expense)} className="text-error">
+                      <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} className="mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <PaginationBar meta={expenses ?? null} onPageChange={setPage} />
+      </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editing ? "Edit Expense" : "Add Expense"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="category">Category</Label>
               <Input id="category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} required />
               {fieldError("category") && <p className="text-xs text-error">{fieldError("category")}</p>}
             </div>
-            <div className="flex flex-col gap-2 lg:col-span-2">
+            <div className="flex flex-col gap-2 xl:col-span-2">
               <Label htmlFor="title">Title</Label>
               <Input id="title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
               {fieldError("title") && <p className="text-xs text-error">{fieldError("title")}</p>}
@@ -210,12 +283,12 @@ export default function ExpensesPage() {
               <Input id="expense_date" type="date" value={form.expense_date} onChange={(e) => setForm({ ...form, expense_date: e.target.value })} required />
               {fieldError("expense_date") && <p className="text-xs text-error">{fieldError("expense_date")}</p>}
             </div>
-            <div className="flex flex-col gap-2 lg:col-span-2">
+            <div className="flex flex-col gap-2 xl:col-span-2">
               <Label htmlFor="notes">Notes</Label>
               <Textarea id="notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </div>
 
-            <DialogFooter className="lg:col-span-2 flex gap-2 mt-4">
+            <DialogFooter className="xl:col-span-2 flex gap-2 mt-4">
               <Button type="submit" className="rounded-md" disabled={saving}>
                 {saving ? "Saving..." : "Save"}
               </Button>

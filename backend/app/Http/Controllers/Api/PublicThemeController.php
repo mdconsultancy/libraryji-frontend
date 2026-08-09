@@ -28,6 +28,29 @@ class PublicThemeController extends Controller
         ]);
     }
 
+    /**
+     * Upload constraints from Admin Settings -> General, read by every image
+     * upload field (member photos, etc.) so client-side validation matches
+     * what the backend will actually accept — without this being public,
+     * the frontend would have no way to know the configured limits before
+     * submitting. Not sensitive: just a max size and a list of extensions.
+     */
+    public function uploadLimits()
+    {
+        $general = PlatformSetting::getGroup('general');
+
+        $maxMb = (int) ($general['max_upload_size_mb'] ?? 0);
+        $extensions = collect(explode(',', $general['allowed_file_types'] ?? ''))
+            ->map(fn ($ext) => strtolower(trim($ext, " .\t\n\r\0\x0B")))
+            ->filter()
+            ->values();
+
+        return response()->json([
+            'max_upload_size_mb' => $maxMb > 0 ? $maxMb : 2,
+            'allowed_extensions' => $extensions->isNotEmpty() ? $extensions : collect(['jpg', 'jpeg', 'png']),
+        ]);
+    }
+
     private function assetUrl(?string $path): ?string
     {
         return $path ? Storage::disk('public')->url($path) : null;

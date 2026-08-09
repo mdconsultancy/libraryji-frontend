@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { storageUrl } from "@/lib/api";
 import type { Member } from "@/types";
 
 const statusStyles: Record<string, string> = {
@@ -57,7 +56,7 @@ const ProductRevenue = ({ members }: { members: Member[] }) => {
                   <TableCell className="whitespace-nowrap ps-6">
                     <div className="flex gap-3 items-center">
                       <Image
-                        src={storageUrl(member.photo_path) || "/images/profile/user-1.jpg"}
+                        src={member.photo_url || "/images/profile/user-1.jpg"}
                         alt={member.name}
                         width={44}
                         height={44}

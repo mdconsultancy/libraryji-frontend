@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react'
-import { api, getToken, setToken } from '@/lib/api'
+import { api, getToken, getRefreshToken, setTokens, type TokenPair } from '@/lib/api'
 import type { User } from '@/types'
 
 interface LoginPayload {
@@ -53,7 +53,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { user } = await api.get<{ user: User }>('/auth/me')
       setUser(user)
     } catch {
-      setToken(null)
+      // api.ts already tried a silent refresh before this throws, so the
+      // refresh token itself is gone/expired — nothing left to do but log out.
+      setTokens(null)
       setUser(null)
     } finally {
       setLoading(false)
@@ -70,8 +72,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // the last-selected Library if the admin still has access to it,
     // otherwise their first one. There's no "pick a library" step here;
     // a multi-library admin switches afterwards via the header dropdown.
-    const { user, token } = await api.post<{ user: User; token: string }>('/auth/login', payload)
-    setToken(token)
+    const { user, ...tokens } = await api.post<{ user: User } & TokenPair>('/auth/login', payload)
+    setTokens(tokens)
     setUser(user)
     return user
   }, [])
@@ -84,8 +86,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const register = useCallback(async (payload: RegisterPayload) => {
-    const { token } = await api.post<{ user: User; token: string }>('/auth/register', payload)
-    setToken(token)
+    const { user: _registeredUser, ...tokens } = await api.post<{ user: User } & TokenPair>('/auth/register', payload)
+    setTokens(tokens)
     // The register response doesn't eager-load `tenant`; fetch the full profile
     // so downstream checks like tenantNeedsPlan() have what they need.
     const { user } = await api.get<{ user: User }>('/auth/me')
@@ -95,11 +97,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      await api.post('/auth/logout')
+      // Revokes this refresh token server-side — without this, the pair
+      // would keep working (via silent refresh) until it naturally expires.
+      await api.post('/auth/logout', { refresh_token: getRefreshToken() })
     } catch {
       // ignore network errors on logout, still clear local state
     }
-    setToken(null)
+    setTokens(null)
     setUser(null)
   }, [])
 

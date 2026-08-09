@@ -3,18 +3,9 @@
 import { useState, FormEvent } from "react";
 import BreadcrumbComp from "@/app/(DashboardLayout)/layout/shared/breadcrumb/BreadcrumbComp";
 import CardBox from "@/app/components/shared/CardBox";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -31,7 +22,6 @@ import {
 } from "@/components/ui/dialog";
 import { Icon } from "@iconify/react";
 import DeleteConfirmDialog from "@/components/shared/DeleteConfirmDialog";
-import TableSkeleton from "@/components/shared/TableSkeleton";
 import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/hooks/useApi";
 import { usePlanLimit } from "@/hooks/usePlanLimit";
@@ -45,11 +35,13 @@ const BCrumb = [{ to: "/", title: "Home" }, { title: "Seats" }];
 const seatTypes: SeatType[] = ["general", "ac", "non_ac", "cabin", "premium"];
 const seatStatuses: SeatStatus[] = ["available", "occupied", "reserved", "maintenance"];
 
-const statusStyles: Record<SeatStatus, string> = {
-  available: "bg-lightsuccess text-success",
-  occupied: "bg-lighterror text-error",
-  reserved: "bg-lightwarning text-warning",
-  maintenance: "bg-lightsecondary text-secondary",
+// 3D "pressed button" card: a darker slab sits behind the face and peeks out
+// bottom-right; hovering lifts the face toward the slab's edge.
+const seatCardStyles: Record<SeatStatus, { face: string; slab: string }> = {
+  available: { face: "from-emerald-400 to-emerald-600", slab: "bg-emerald-800" },
+  occupied: { face: "from-rose-400 to-rose-600", slab: "bg-rose-800" },
+  reserved: { face: "from-amber-400 to-amber-600", slab: "bg-amber-800" },
+  maintenance: { face: "from-slate-400 to-slate-600", slab: "bg-slate-800" },
 };
 
 const emptyForm = { hall_id: "", seat_number: "", seat_type: "general" as SeatType, status: "available" as SeatStatus };
@@ -219,57 +211,67 @@ export default function SeatsPage() {
 
         {error && <p className="px-6 pb-4 text-sm text-error">{error}</p>}
 
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="ps-6">Seat No.</TableHead>
-                <TableHead>Hall</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Occupied By</TableHead>
-                <TableHead className="text-right pe-6">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableSkeleton columns={6} />
-              ) : seats.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-sm text-gray-500">No seats found</TableCell>
-                </TableRow>
-              ) : (
-                seats.map((seat) => (
-                  <TableRow key={seat.id}>
-                    <TableCell className="ps-6 font-medium">{seat.seat_number}</TableCell>
-                    <TableCell>{seat.hall?.name || "—"}</TableCell>
-                    <TableCell className="capitalize">{seat.seat_type.replace('_', ' ')}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className={`border-none capitalize ${statusStyles[seat.status]}`}>
-                        {seat.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{seat.current_subscription?.member?.name || "—"}</TableCell>
-                    <TableCell className="text-right pe-6">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => openEdit(seat)}>
-                          <Icon icon="ic:outline-edit" width={16} height={16} />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-error hover:bg-error hover:text-white"
-                          onClick={() => setDeleteTarget(seat)}
-                        >
-                          <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+        <div className="flex flex-wrap items-center gap-4 px-6 pb-4 text-xs">
+          {seatStatuses.map((s) => (
+            <div key={s} className="flex items-center gap-1.5">
+              <span className={`h-2.5 w-2.5 rounded-full bg-gradient-to-br ${seatCardStyles[s].face}`} />
+              <span className="capitalize text-gray-500 dark:text-gray-400">{s}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="px-6 pb-6">
+          {loading ? (
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
+              {Array.from({ length: 16 }).map((_, i) => (
+                <div key={i} className="aspect-square animate-pulse rounded-2xl bg-gray-100 dark:bg-darkgray" />
+              ))}
+            </div>
+          ) : seats.length === 0 ? (
+            <p className="py-8 text-center text-sm text-gray-500">No seats found</p>
+          ) : (
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
+              {seats.map((seat) => {
+                const styles = seatCardStyles[seat.status];
+                const occupant = seat.current_subscription?.member?.name;
+
+                return (
+                  <div key={seat.id} className="group relative">
+                    {/* Slab: peeks out bottom-right to fake depth */}
+                    <div className={`absolute inset-0 top-1.5 left-1.5 rounded-2xl ${styles.slab}`} />
+
+                    {/* Face */}
+                    <button
+                      type="button"
+                      onClick={() => openEdit(seat)}
+                      title={occupant ? `${seat.seat_number} • ${occupant}` : seat.seat_number}
+                      className={`relative flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-2xl border border-white/20 bg-gradient-to-br ${styles.face} p-2 text-white shadow-lg transition-transform duration-150 ease-out group-hover:-translate-y-1 group-active:translate-y-0.5`}
+                    >
+                      <Icon icon="mdi:seat" width={26} height={26} className="drop-shadow" />
+                      <span className="text-sm font-bold leading-none">{seat.seat_number}</span>
+                      <span className="text-[9px] uppercase tracking-wide opacity-90 leading-none">
+                        {seat.seat_type.replace("_", " ")}
+                      </span>
+                      {occupant && (
+                        <span className="w-full truncate text-center text-[9px] opacity-85 leading-none">{occupant}</span>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteTarget(seat);
+                      }}
+                      className="absolute -right-1.5 -top-1.5 hidden h-6 w-6 items-center justify-center rounded-full bg-white text-error shadow-md group-hover:flex dark:bg-dark"
+                    >
+                      <Icon icon="solar:trash-bin-trash-linear" width={14} height={14} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </CardBox>
 

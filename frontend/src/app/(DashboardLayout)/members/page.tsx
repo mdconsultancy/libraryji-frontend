@@ -31,20 +31,27 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { Icon } from "@iconify/react";
 import PaginationBar from "@/components/shared/Pagination";
 import TableSkeleton from "@/components/shared/TableSkeleton";
 import DeleteConfirmDialog from "@/components/shared/DeleteConfirmDialog";
-import { api, ApiError, storageUrl } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/context/ToastContext";
 import { usePermission } from "@/hooks/usePermission";
 import { usePermissionGuard } from "@/hooks/usePermissionGuard";
+import { useUploadLimits } from "@/hooks/useUploadLimits";
 import DatePicker from "@/components/form/DatePicker";
 import PhoneInput from "@/components/form/PhoneInput";
 import ImageUploadField from "@/components/form/ImageUploadField";
 import FileUploadField from "@/components/form/FileUploadField";
-import type { Member, MemberStatus, MemberGender, Paginated } from "@/types";
+import type { Member, MemberStatus, MemberGender, Paginated, DashboardSummary } from "@/types";
 
 const BCrumb = [{ to: "/", title: "Home" }, { title: "Members / Students" }];
 
@@ -56,6 +63,18 @@ const statusStyles: Record<MemberStatus, string> = {
   inactive: "bg-lightwarning text-warning",
   expired: "bg-lighterror text-error",
 };
+
+const avatarPalette = [
+  "bg-lightsuccess text-success",
+  "bg-lightinfo text-info",
+  "bg-lightwarning text-warning",
+  "bg-lightprimary text-primary",
+  "bg-lighterror text-error",
+  "bg-lightsecondary text-secondary",
+];
+const avatarColor = (id: number) => avatarPalette[id % avatarPalette.length];
+const initials = (name: string) =>
+  name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
 
 const emptyForm = {
   name: "",
@@ -77,9 +96,11 @@ export default function MembersPage() {
   const canAdd = usePermission("members", "add");
   const canEdit = usePermission("members", "edit");
   const canDelete = usePermission("members", "delete");
+  const uploadLimits = useUploadLimits();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const { data: members, isLoading: loading, error: loadError, mutate } = useApi<Paginated<Member>>("/admin/members", {
     page,
@@ -87,6 +108,13 @@ export default function MembersPage() {
     status: statusFilter !== "all" ? statusFilter : undefined,
   });
   const error = loadError ? "Unable to load members." : null;
+
+  // Same summary endpoint the dashboard already uses — gives an account-wide
+  // active/inactive split independent of whatever's currently filtered above.
+  const { data: dashboardSummary } = useApi<DashboardSummary>("/admin/dashboard/summary");
+  const totalMembers = dashboardSummary?.total_members ?? members?.total ?? 0;
+  const activeMembers = dashboardSummary?.active_members ?? 0;
+  const inactiveMembers = Math.max(totalMembers - activeMembers, 0);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Member | null>(null);
@@ -195,6 +223,8 @@ export default function MembersPage() {
     <>
       <BreadcrumbComp title="Members / Students" items={BCrumb} />
 
+      {/* Desktop (xl and up) — unchanged */}
+      <div className="hidden xl:block">
       <CardBox className="p-4 mb-4 bg-background border-none rounded-xl shadow-xs flex items-center gap-4">
         <div className="h-12 w-12 rounded-full bg-lightprimary flex items-center justify-center shrink-0">
           <Icon icon="solar:users-group-rounded-bold-duotone" width={24} height={24} className="text-primary" />
@@ -265,7 +295,7 @@ export default function MembersPage() {
                     <TableCell className="ps-6">
                       <div className="flex gap-3 items-center">
                         <Image
-                          src={storageUrl(member.photo_path) || "/images/profile/user-1.jpg"}
+                          src={member.photo_url || "/images/profile/user-1.jpg"}
                           alt={member.name}
                           width={40}
                           height={40}
@@ -312,13 +342,144 @@ export default function MembersPage() {
 
         <PaginationBar meta={members ?? null} onPageChange={setPage} />
       </CardBox>
+      </div>
+
+      {/* Mobile (below xl) — separate card-list layout, same data/handlers */}
+      <div className="xl:hidden flex flex-col gap-4">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Icon icon="solar:magnifer-linear" width={18} height={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-darklink" />
+            <Input
+              placeholder="Search by name, email or phone..."
+              className="pl-10"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setMobileFiltersOpen((o) => !o)}
+            aria-label="Toggle filters"
+            className={`h-10 w-10 shrink-0 flex items-center justify-center rounded-md border border-border ${mobileFiltersOpen ? "bg-lightprimary text-primary border-primary" : ""}`}
+          >
+            <Icon icon="solar:tuning-2-linear" width={18} height={18} />
+          </button>
+        </div>
+
+        {mobileFiltersOpen && (
+          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+            <SelectTrigger>
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              {statuses.map((s) => (
+                <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        <div className="rounded-2xl bg-white dark:bg-darkgray p-4 shadow-xs flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-11 w-11 rounded-full bg-lightprimary flex items-center justify-center shrink-0">
+              <Icon icon="solar:users-group-rounded-bold-duotone" width={22} height={22} className="text-primary" />
+            </div>
+            <div>
+              <p className="text-xs text-darklink">Total Members</p>
+              <p className="text-xl font-bold text-dark dark:text-white">{totalMembers}</p>
+            </div>
+          </div>
+          <div className="text-right text-xs text-darklink">
+            <p>Active <span className="text-success font-semibold">{activeMembers}</span></p>
+            <p className="mt-1">Inactive <span className="text-error font-semibold">{inactiveMembers}</span></p>
+          </div>
+        </div>
+
+        {canAdd && (
+          <Button onClick={openCreate} className="w-full flex items-center justify-center gap-1.5">
+            <Icon icon="solar:add-circle-linear" width={18} height={18} />
+            Add Member
+          </Button>
+        )}
+
+        {error && <p className="text-sm text-error">{error}</p>}
+
+        {loading ? (
+          <div className="flex flex-col gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-20 rounded-2xl bg-gray-100 dark:bg-darkgray animate-pulse" />
+            ))}
+          </div>
+        ) : members?.data.length === 0 ? (
+          <p className="text-center py-8 text-sm text-gray-500">No members found</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {members?.data.map((member) => (
+              <div key={member.id} className="rounded-2xl bg-white dark:bg-darkgray p-4 shadow-xs flex items-center gap-3">
+                {member.photo_url ? (
+                  <Image
+                    src={member.photo_url}
+                    alt={member.name}
+                    width={48}
+                    height={48}
+                    className="h-12 w-12 rounded-full object-cover shrink-0"
+                  />
+                ) : (
+                  <div className={`h-12 w-12 rounded-full flex items-center justify-center shrink-0 font-semibold ${avatarColor(member.id)}`}>
+                    {initials(member.name)}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-dark dark:text-white truncate">{member.name}</p>
+                  <p className="text-xs text-darklink truncate">{member.email || member.member_code}</p>
+                  <p className="text-xs text-darklink flex items-center gap-1 mt-0.5">
+                    <Icon icon="solar:phone-linear" width={12} height={12} />
+                    {member.phone}
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <Badge variant="secondary" className={`border-none capitalize ${statusStyles[member.status]}`}>
+                    {member.status}
+                  </Badge>
+                  {(canEdit || canDelete) && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button type="button" aria-label="Member actions" className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-lightprimary hover:text-primary">
+                          <Icon icon="tabler:dots-vertical" width={18} height={18} />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {canEdit && (
+                          <DropdownMenuItem onClick={() => openEdit(member)}>
+                            <Icon icon="ic:outline-edit" width={16} height={16} className="mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                        )}
+                        {canDelete && (
+                          <DropdownMenuItem onClick={() => setDeleteTarget(member)} className="text-error">
+                            <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} className="mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <PaginationBar meta={members ?? null} onPageChange={setPage} />
+      </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? "Edit Member" : "Add Member"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="name">Name</Label>
               <Input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
@@ -352,7 +513,7 @@ export default function MembersPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex flex-col gap-2 lg:col-span-2">
+            <div className="flex flex-col gap-2 xl:col-span-2">
               <Label htmlFor="address">Address</Label>
               <Textarea id="address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
             </div>
@@ -370,9 +531,13 @@ export default function MembersPage() {
                 id="photo"
                 value={photo}
                 onChange={setPhoto}
-                existingUrl={storageUrl(editing?.photo_path)}
-                maxSizeMb={2}
+                existingUrl={editing?.photo_url}
+                maxSizeMb={uploadLimits.maxSizeMb}
+                acceptedExtensions={uploadLimits.acceptedExtensions}
               />
+              <p className="text-xs text-darklink">
+                {uploadLimits.acceptedExtensions.join(", ").toUpperCase()} — max {uploadLimits.maxSizeMb}MB.
+              </p>
               {fieldError("photo") && <p className="text-xs text-error">{fieldError("photo")}</p>}
             </div>
             <div className="flex flex-col gap-2">
@@ -381,7 +546,7 @@ export default function MembersPage() {
                 id="id_proof"
                 value={idProof}
                 onChange={setIdProof}
-                existingUrl={storageUrl(editing?.id_proof_path)}
+                existingUrl={editing?.id_proof_url}
                 accept=".jpg,.jpeg,.png,.pdf"
                 maxSizeMb={4}
                 uploading={saving && !!idProof}
@@ -406,12 +571,12 @@ export default function MembersPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex flex-col gap-2 lg:col-span-2">
+            <div className="flex flex-col gap-2 xl:col-span-2">
               <Label htmlFor="notes">Notes</Label>
               <Textarea id="notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </div>
 
-            <DialogFooter className="lg:col-span-2 flex gap-2 mt-4">
+            <DialogFooter className="xl:col-span-2 flex gap-2 mt-4">
               <Button type="submit" className="rounded-md" disabled={saving}>
                 {saving ? "Saving..." : "Save"}
               </Button>

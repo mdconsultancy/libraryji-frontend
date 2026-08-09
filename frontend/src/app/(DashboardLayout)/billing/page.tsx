@@ -91,7 +91,8 @@ export default function BillingPage() {
             </p>
           </CardBox>
 
-          <CardBox className="p-0 bg-background overflow-hidden border-none rounded-xl shadow-xs">
+          {/* Desktop (xl and up) — unchanged */}
+          <CardBox className="hidden xl:block p-0 bg-background overflow-hidden border-none rounded-xl shadow-xs">
             <h5 className="card-title p-6 pb-0">Payment History</h5>
             <div className="overflow-x-auto mt-4">
               <Table>
@@ -134,6 +135,29 @@ export default function BillingPage() {
               </Table>
             </div>
           </CardBox>
+
+          {/* Mobile (below xl) — same card-list pattern as Members/Students */}
+          <div className="xl:hidden flex flex-col gap-3">
+            <h5 className="card-title">Payment History</h5>
+            {subscriptions.length === 0 ? (
+              <p className="text-center py-8 text-sm text-gray-500">No payment history yet</p>
+            ) : (
+              subscriptions.map((sub) => (
+                <div key={sub.id} className="rounded-2xl bg-white dark:bg-darkgray p-4 shadow-xs flex items-center gap-3">
+                  <div className="h-12 w-12 rounded-full bg-lightprimary flex items-center justify-center shrink-0">
+                    <Icon icon="solar:bill-list-bold-duotone" width={22} height={22} className="text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-dark dark:text-white truncate">{sub.plan?.name || sub.invoice_number || "—"}</p>
+                    <p className="text-xs text-darklink truncate">₹{Number(sub.amount).toLocaleString()} · {new Date(sub.starts_at).toLocaleDateString()} – {sub.ends_at ? new Date(sub.ends_at).toLocaleDateString() : "—"}</p>
+                  </div>
+                  <Badge variant="secondary" className={`border-none capitalize shrink-0 ${statusStyles[sub.status]}`}>
+                    {sub.status.replace('_', ' ')}
+                  </Badge>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       )}
     </>

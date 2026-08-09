@@ -29,6 +29,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { Icon } from "@iconify/react";
 import DeleteConfirmDialog from "@/components/shared/DeleteConfirmDialog";
 import TableSkeleton from "@/components/shared/TableSkeleton";
@@ -109,6 +115,8 @@ export default function ShiftsPage() {
     <>
       <BreadcrumbComp title="Shifts" items={BCrumb} />
 
+      {/* Desktop (xl and up) — unchanged */}
+      <div className="hidden xl:block">
       <CardBox className="p-0 bg-background overflow-hidden border-none rounded-xl shadow-xs">
         <div className="flex flex-wrap items-center justify-end gap-4 p-6">
           <Button onClick={openCreate} className="flex items-center gap-1.5">
@@ -173,6 +181,76 @@ export default function ShiftsPage() {
           </Table>
         </div>
       </CardBox>
+      </div>
+
+      {/* Mobile (below xl) — same card-list pattern as Members/Students */}
+      <div className="xl:hidden flex flex-col gap-4">
+        <div className="rounded-2xl bg-white dark:bg-darkgray p-4 shadow-xs flex items-center gap-3">
+          <div className="h-11 w-11 rounded-full bg-lightprimary flex items-center justify-center shrink-0">
+            <Icon icon="solar:clock-circle-bold-duotone" width={22} height={22} className="text-primary" />
+          </div>
+          <div>
+            <p className="text-xs text-darklink">Total Shifts</p>
+            <p className="text-xl font-bold text-dark dark:text-white">{shifts.length}</p>
+          </div>
+        </div>
+
+        <Button onClick={openCreate} className="w-full flex items-center justify-center gap-1.5">
+          <Icon icon="solar:add-circle-linear" width={18} height={18} />
+          Add Shift
+        </Button>
+
+        {error && <p className="text-sm text-error">{error}</p>}
+
+        {loading ? (
+          <div className="flex flex-col gap-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-20 rounded-2xl bg-gray-100 dark:bg-darkgray animate-pulse" />
+            ))}
+          </div>
+        ) : shifts.length === 0 ? (
+          <p className="text-center py-8 text-sm text-gray-500">No shifts found</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {shifts.map((shift) => (
+              <div key={shift.id} className="rounded-2xl bg-white dark:bg-darkgray p-4 shadow-xs flex items-center gap-3">
+                <div className="h-12 w-12 rounded-full bg-lightprimary flex items-center justify-center shrink-0">
+                  <Icon icon="solar:clock-circle-bold-duotone" width={22} height={22} className="text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-dark dark:text-white truncate">{shift.name}</p>
+                  <p className="text-xs text-darklink mt-0.5">{shift.start_time.slice(0, 5)} – {shift.end_time.slice(0, 5)}</p>
+                </div>
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <Badge
+                    variant="secondary"
+                    className={`border-none capitalize ${shift.status === "active" ? "bg-lightsuccess text-success" : "bg-lighterror text-error"}`}
+                  >
+                    {shift.status}
+                  </Badge>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button type="button" aria-label="Shift actions" className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-lightprimary hover:text-primary">
+                        <Icon icon="tabler:dots-vertical" width={18} height={18} />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => openEdit(shift)}>
+                        <Icon icon="ic:outline-edit" width={16} height={16} className="mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setDeleteTarget(shift)} className="text-error">
+                        <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} className="mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg">

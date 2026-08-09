@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\JwtService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -13,6 +14,8 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    public function __construct(private JwtService $jwt) {}
+
     /**
      * Self-service signup: creates a new tenant (library) and its admin user.
      *
@@ -105,12 +108,10 @@ class AuthController extends Controller
             return [$tenant, $user];
         });
 
-        $token = $user->createToken('auth-token')->plainTextToken;
-
         return response()->json([
             'user' => $user,
             'tenant' => $tenant,
-            'token' => $token,
+            ...$this->jwt->issuePair($user, $request),
         ], 201);
     }
 
@@ -200,17 +201,42 @@ class AuthController extends Controller
 
         $user->save();
 
-        $token = $user->createToken('auth-token')->plainTextToken;
-
         return response()->json([
             'user' => $user->load('currentTenant.activeSubscription.plan', 'tenants'),
-            'token' => $token,
+            ...$this->jwt->issuePair($user, $request),
         ]);
+    }
+
+    /**
+     * Exchanges a still-valid refresh token for a new access/refresh pair.
+     * Not behind auth:jwt — the access token has typically already expired
+     * by the time the frontend calls this, so the refresh token itself
+     * (validated here) is the only credential available.
+     */
+    public function refresh(Request $request)
+    {
+        $validated = $request->validate([
+            'refresh_token' => 'required|string',
+        ]);
+
+        $refreshToken = $this->jwt->findValidRefreshToken($validated['refresh_token']);
+
+        if (! $refreshToken) {
+            throw ValidationException::withMessages([
+                'refresh_token' => ['Your session has expired. Please sign in again.'],
+            ]);
+        }
+
+        return response()->json($this->jwt->rotate($refreshToken, $request));
     }
 
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        $refreshToken = $request->string('refresh_token')->toString();
+
+        if ($refreshToken !== '') {
+            $this->jwt->revoke($refreshToken);
+        }
 
         return response()->json(['message' => 'Logged out successfully.']);
     }

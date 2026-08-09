@@ -28,6 +28,8 @@ class SubscriptionPlanController extends Controller
             // account to operate. Null/omitted = unlimited.
             'max_libraries' => 'nullable|integer|min:1',
             'features' => 'nullable|array',
+            'features.*.text' => 'required_with:features|string|max:255',
+            'features.*.included' => 'boolean',
             'is_active' => 'boolean',
             'sort_order' => 'integer',
         ]);
@@ -56,6 +58,8 @@ class SubscriptionPlanController extends Controller
             'max_staff' => 'integer|min:1',
             'max_libraries' => 'nullable|integer|min:1',
             'features' => 'nullable|array',
+            'features.*.text' => 'required_with:features|string|max:255',
+            'features.*.included' => 'boolean',
             'is_active' => 'boolean',
             'sort_order' => 'integer',
         ]);

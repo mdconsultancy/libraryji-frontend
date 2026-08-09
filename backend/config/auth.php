@@ -42,6 +42,14 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Stateless — every API route authenticates via this instead of
+        // sessions/cookies. Registered in AppServiceProvider via
+        // Auth::viaRequest(), which verifies the bearer JWT on each request.
+        'jwt' => [
+            'driver' => 'jwt',
+            'provider' => 'users',
+        ],
     ],
 
     /*

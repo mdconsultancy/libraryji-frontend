@@ -1,8 +1,9 @@
-// Thin fetch wrapper around the Laravel API (Sanctum bearer-token auth).
+// Thin fetch wrapper around the Laravel API (JWT access/refresh bearer auth).
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
 const STORAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '')
-const TOKEN_KEY = 'libraryji_token'
+const ACCESS_TOKEN_KEY = 'libraryji_access_token'
+const REFRESH_TOKEN_KEY = 'libraryji_refresh_token'
 
 export class ApiError extends Error {
   status: number
@@ -16,15 +17,31 @@ export class ApiError extends Error {
   }
 }
 
-export function getToken(): string | null {
-  if (typeof window === 'undefined') return null
-  return localStorage.getItem(TOKEN_KEY)
+export interface TokenPair {
+  access_token: string
+  refresh_token: string
 }
 
-export function setToken(token: string | null) {
+export function getToken(): string | null {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem(ACCESS_TOKEN_KEY)
+}
+
+export function getRefreshToken(): string | null {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem(REFRESH_TOKEN_KEY)
+}
+
+/** Called after login/register/refresh (both tokens), or with `null` to clear on logout/expiry. */
+export function setTokens(tokens: TokenPair | null) {
   if (typeof window === 'undefined') return
-  if (token) localStorage.setItem(TOKEN_KEY, token)
-  else localStorage.removeItem(TOKEN_KEY)
+  if (tokens) {
+    localStorage.setItem(ACCESS_TOKEN_KEY, tokens.access_token)
+    localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh_token)
+  } else {
+    localStorage.removeItem(ACCESS_TOKEN_KEY)
+    localStorage.removeItem(REFRESH_TOKEN_KEY)
+  }
 }
 
 /** Resolve a storage-relative path (e.g. `members/photos/x.jpg`) to a full URL. */
@@ -38,6 +55,8 @@ interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   body?: object | FormData
   params?: Record<string, string | number | boolean | undefined | null>
+  /** Internal — set on the retry after a silent refresh, to stop at one attempt. */
+  _isRetry?: boolean
 }
 
 function buildUrl(path: string, params?: RequestOptions['params']): string {
@@ -50,6 +69,33 @@ function buildUrl(path: string, params?: RequestOptions['params']): string {
     })
   }
   return url.toString()
+}
+
+// The access token is short-lived (15 min) by design (see backend config/jwt.php),
+// so it expires constantly during normal use — this is what makes that invisible.
+// Shared across concurrent 401s so a burst of requests triggers one refresh, not one each.
+let refreshPromise: Promise<TokenPair | null> | null = null
+
+async function refreshTokens(): Promise<TokenPair | null> {
+  const refreshToken = getRefreshToken()
+  if (!refreshToken) return null
+
+  if (!refreshPromise) {
+    refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    })
+      .then(async (res) => (res.ok ? ((await res.json()) as TokenPair) : null))
+      .catch(() => null)
+      .finally(() => {
+        refreshPromise = null
+      })
+  }
+
+  const tokens = await refreshPromise
+  setTokens(tokens)
+  return tokens
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -81,7 +127,15 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const data = contentType.includes('application/json') ? await response.json() : undefined
 
   if (!response.ok) {
-    if (response.status === 401) setToken(null)
+    // An expired access token looks identical to any other 401 — try one
+    // silent refresh-and-retry before giving up and forcing a re-login.
+    if (response.status === 401 && !options._isRetry) {
+      const refreshed = await refreshTokens()
+      if (refreshed) {
+        return request<T>(path, { ...options, _isRetry: true })
+      }
+    }
+    if (response.status === 401) setTokens(null)
     throw new ApiError(
       data?.message || `Request failed with status ${response.status}`,
       response.status,

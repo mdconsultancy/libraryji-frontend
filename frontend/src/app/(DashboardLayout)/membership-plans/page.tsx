@@ -31,6 +31,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { Icon } from "@iconify/react";
 import DeleteConfirmDialog from "@/components/shared/DeleteConfirmDialog";
 import TableSkeleton from "@/components/shared/TableSkeleton";
@@ -38,6 +44,7 @@ import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/context/ToastContext";
 import { useShiftOptions } from "@/hooks/useOptions";
+import { useRoleGuard } from "@/hooks/useRoleGuard";
 import type { MembershipPlan, SeatType } from "@/types";
 
 const BCrumb = [{ to: "/", title: "Home" }, { title: "Membership Plans" }];
@@ -56,6 +63,9 @@ const emptyForm = {
 };
 
 export default function MembershipPlansPage() {
+  // Library Admin no longer manages Membership Plans (product decision) —
+  // staff-only, enforced here and server-side (routes/api.php).
+  const { authorized } = useRoleGuard(["staff"]);
   const toast = useToast();
   const shifts = useShiftOptions();
   const { data: plansData, isLoading: loading, error: loadError, mutate } = useApi<MembershipPlan[]>("/admin/membership-plans");
@@ -139,10 +149,14 @@ export default function MembershipPlansPage() {
 
   const fieldError = (field: string) => fieldErrors[field]?.[0];
 
+  if (!authorized) return null;
+
   return (
     <>
       <BreadcrumbComp title="Membership Plans" items={BCrumb} />
 
+      {/* Desktop (xl and up) — unchanged */}
+      <div className="hidden xl:block">
       <CardBox className="p-0 bg-background overflow-hidden border-none rounded-xl shadow-xs">
         <div className="flex flex-wrap items-center justify-end gap-4 p-6">
           <Button onClick={openCreate} className="flex items-center gap-1.5">
@@ -211,19 +225,90 @@ export default function MembershipPlansPage() {
           </Table>
         </div>
       </CardBox>
+      </div>
+
+      {/* Mobile (below xl) — same card-list pattern as Members/Students */}
+      <div className="xl:hidden flex flex-col gap-4">
+        <div className="rounded-2xl bg-white dark:bg-darkgray p-4 shadow-xs flex items-center gap-3">
+          <div className="h-11 w-11 rounded-full bg-lightprimary flex items-center justify-center shrink-0">
+            <Icon icon="solar:document-text-bold-duotone" width={22} height={22} className="text-primary" />
+          </div>
+          <div>
+            <p className="text-xs text-darklink">Total Plans</p>
+            <p className="text-xl font-bold text-dark dark:text-white">{plans.length}</p>
+          </div>
+        </div>
+
+        <Button onClick={openCreate} className="w-full flex items-center justify-center gap-1.5">
+          <Icon icon="solar:add-circle-linear" width={18} height={18} />
+          Add Plan
+        </Button>
+
+        {error && <p className="text-sm text-error">{error}</p>}
+
+        {loading ? (
+          <div className="flex flex-col gap-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-20 rounded-2xl bg-gray-100 dark:bg-darkgray animate-pulse" />
+            ))}
+          </div>
+        ) : plans.length === 0 ? (
+          <p className="text-center py-8 text-sm text-gray-500">No membership plans found</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {plans.map((plan) => (
+              <div key={plan.id} className="rounded-2xl bg-white dark:bg-darkgray p-4 shadow-xs flex items-center gap-3">
+                <div className="h-12 w-12 rounded-full bg-lightprimary flex items-center justify-center shrink-0">
+                  <Icon icon="solar:document-text-bold-duotone" width={22} height={22} className="text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-dark dark:text-white truncate">{plan.name}</p>
+                  <p className="text-xs text-darklink truncate">{plan.duration_days} days · ₹{Number(plan.price).toLocaleString()}</p>
+                  <p className="text-xs text-darklink capitalize mt-0.5">{plan.seat_type?.replace('_', ' ') || "Any seat"}{plan.shift ? ` · ${plan.shift.name}` : ""}</p>
+                </div>
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <Badge
+                    variant="secondary"
+                    className={`border-none capitalize ${plan.status === "active" ? "bg-lightsuccess text-success" : "bg-lighterror text-error"}`}
+                  >
+                    {plan.status}
+                  </Badge>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button type="button" aria-label="Plan actions" className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-lightprimary hover:text-primary">
+                        <Icon icon="tabler:dots-vertical" width={18} height={18} />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => openEdit(plan)}>
+                        <Icon icon="ic:outline-edit" width={16} height={16} className="mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setDeleteTarget(plan)} className="text-error">
+                        <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} className="mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editing ? "Edit Plan" : "Add Plan"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="flex flex-col gap-2 lg:col-span-2">
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <div className="flex flex-col gap-2 xl:col-span-2">
               <Label htmlFor="name">Name</Label>
               <Input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
               {fieldError("name") && <p className="text-xs text-error">{fieldError("name")}</p>}
             </div>
-            <div className="flex flex-col gap-2 lg:col-span-2">
+            <div className="flex flex-col gap-2 xl:col-span-2">
               <Label htmlFor="description">Description</Label>
               <Textarea id="description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
             </div>
@@ -282,7 +367,7 @@ export default function MembershipPlansPage() {
               </Select>
             </div>
 
-            <DialogFooter className="lg:col-span-2 flex gap-2 mt-4">
+            <DialogFooter className="xl:col-span-2 flex gap-2 mt-4">
               <Button type="submit" className="rounded-md" disabled={saving}>
                 {saving ? "Saving..." : "Save"}
               </Button>

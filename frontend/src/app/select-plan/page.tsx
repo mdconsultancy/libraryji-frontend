@@ -3,7 +3,6 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import FullLogo from "@/app/(DashboardLayout)/layout/shared/logo/FullLogo";
-import CardBox from "@/app/components/shared/CardBox";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@iconify/react";
 import { useAuth } from "@/context/AuthContext";
@@ -12,6 +11,7 @@ import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/hooks/useApi";
 import { openRazorpayCheckout } from "@/lib/razorpay";
 import { tenantNeedsPlan } from "@/lib/tenant";
+import { normalizePlanFeatures } from "@/lib/planFeatures";
 import type { SubscriptionPlan } from "@/types";
 
 interface OrderResponse {
@@ -124,8 +124,8 @@ function SelectPlanContent() {
       <div className="flex justify-center mb-4">
         <FullLogo />
       </div>
-      <div className="max-w-4xl mx-auto text-center mb-8">
-        <h4 className="text-xl font-semibold mb-2">{isUpgrading ? "Upgrade your plan" : "Choose a plan to continue"}</h4>
+      <div className="max-w-4xl mx-auto text-center mb-10">
+        <h4 className="text-2xl font-bold text-dark mb-2">{isUpgrading ? "Upgrade your plan" : "Choose a plan to continue"}</h4>
         <p className="text-sm text-charcoal">
           {isUpgrading
             ? "Pick a higher plan to raise your limits — your new plan applies as soon as payment is confirmed."
@@ -147,34 +147,97 @@ function SelectPlanContent() {
       {error && <p className="text-center text-sm text-error mb-4">{error}</p>}
 
       {loadingPlans ? (
-        <p className="text-center text-sm text-charcoal">Loading plans...</p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-          {plans.map((plan) => (
-            <CardBox key={plan.id} className="p-6 flex flex-col">
-              <h5 className="card-title mb-2">{plan.name}</h5>
-              <p className="text-2xl font-semibold mb-1">
-                ₹{Number(plan.price).toLocaleString()}
-                <span className="text-sm font-normal text-gray-500"> / {plan.billing_cycle}</span>
-              </p>
-              {plan.description && <p className="text-sm text-gray-500 mb-4">{plan.description}</p>}
-              <ul className="text-sm text-charcoal space-y-1 mb-6 flex-1">
-                <li>Up to {plan.max_seats} seats</li>
-                <li>Up to {plan.max_members} members</li>
-                <li>Up to {plan.max_staff} staff accounts</li>
-              </ul>
-              <Button className="w-full flex items-center justify-center gap-1.5" onClick={() => handlePay(plan)} disabled={payingId !== null}>
-                {payingId === plan.id ? (
-                  "Processing..."
-                ) : (
-                  <>
-                    <Icon icon="tabler:credit-card" width={18} height={18} />
-                    Pay & Activate
-                  </>
-                )}
-              </Button>
-            </CardBox>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-96 rounded-2xl bg-white/60 animate-pulse" />
           ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto items-stretch">
+          {plans.map((plan) => {
+            const features = normalizePlanFeatures(plan.features);
+            const isCurrentPlan = isUpgrading && user.current_tenant?.active_subscription?.subscription_plan_id === plan.id;
+
+            return (
+              <div
+                key={plan.id}
+                className={`relative flex flex-col rounded-2xl bg-white dark:bg-darkgray shadow-md hover:shadow-xl transition-shadow duration-200 overflow-hidden border ${
+                  isCurrentPlan ? "border-primary ring-2 ring-primary/30" : "border-border dark:border-darkborder"
+                }`}
+              >
+                {isCurrentPlan && (
+                  <span className="absolute top-4 right-4 text-[11px] font-semibold uppercase tracking-wide bg-lightprimary text-primary px-2.5 py-1 rounded-full">
+                    Current Plan
+                  </span>
+                )}
+
+                <div className="p-6 pb-5 border-b border-border dark:border-darkborder">
+                  <h5 className="text-lg font-bold text-dark dark:text-white">{plan.name}</h5>
+                  {plan.description && <p className="text-sm text-darklink mt-1">{plan.description}</p>}
+                  <div className="flex items-baseline gap-1.5 mt-4">
+                    <span className="text-3xl font-extrabold text-dark dark:text-white">
+                      ₹{Number(plan.price).toLocaleString()}
+                    </span>
+                    <span className="text-sm text-darklink">/ {plan.billing_cycle}</span>
+                  </div>
+                </div>
+
+                <div className="p-6 flex flex-col flex-1">
+                  <ul className="flex flex-col gap-3 flex-1">
+                    <li className="flex items-center gap-2.5 text-sm text-charcoal dark:text-white">
+                      <Icon icon="tabler:check" className="text-success shrink-0" width={18} height={18} />
+                      Up to {plan.max_seats} seats
+                    </li>
+                    <li className="flex items-center gap-2.5 text-sm text-charcoal dark:text-white">
+                      <Icon icon="tabler:check" className="text-success shrink-0" width={18} height={18} />
+                      Up to {plan.max_members} members
+                    </li>
+                    <li className="flex items-center gap-2.5 text-sm text-charcoal dark:text-white">
+                      <Icon icon="tabler:check" className="text-success shrink-0" width={18} height={18} />
+                      Up to {plan.max_staff} staff accounts
+                    </li>
+                    <li className="flex items-center gap-2.5 text-sm text-charcoal dark:text-white">
+                      <Icon icon="tabler:check" className="text-success shrink-0" width={18} height={18} />
+                      {plan.max_libraries === null ? "Unlimited" : plan.max_libraries} {plan.max_libraries === 1 ? "Library" : "Libraries"}
+                    </li>
+
+                    {features.length > 0 && <div className="border-t border-border dark:border-darkborder my-1" />}
+
+                    {features.map((feature, i) => (
+                      <li key={i} className="flex items-center gap-2.5 text-sm">
+                        <Icon
+                          icon={feature.included ? "tabler:check" : "tabler:x"}
+                          className={`shrink-0 ${feature.included ? "text-success" : "text-error"}`}
+                          width={18}
+                          height={18}
+                        />
+                        <span className={feature.included ? "text-charcoal dark:text-white" : "text-darklink line-through"}>
+                          {feature.text}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <Button
+                    className="w-full flex items-center justify-center gap-1.5 mt-6"
+                    onClick={() => handlePay(plan)}
+                    disabled={payingId !== null || isCurrentPlan}
+                  >
+                    {isCurrentPlan ? (
+                      "Your Current Plan"
+                    ) : payingId === plan.id ? (
+                      "Processing..."
+                    ) : (
+                      <>
+                        <Icon icon="tabler:credit-card" width={18} height={18} />
+                        Pay & Activate
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 

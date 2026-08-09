@@ -37,7 +37,8 @@ import TableSkeleton from "@/components/shared/TableSkeleton";
 import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/context/ToastContext";
-import type { SubscriptionPlan, BillingCycle } from "@/types";
+import { normalizePlanFeatures } from "@/lib/planFeatures";
+import type { SubscriptionPlan, BillingCycle, PlanFeature } from "@/types";
 
 const BCrumb = [{ to: "/", title: "Home" }, { title: "Subscription Plans" }];
 
@@ -54,6 +55,7 @@ const emptyForm = {
   max_libraries: "1",
   is_active: true,
   sort_order: "0",
+  features: [] as PlanFeature[],
 };
 
 export default function PlatformSubscriptionPlansPage() {
@@ -91,10 +93,17 @@ export default function PlatformSubscriptionPlansPage() {
       max_libraries: plan.max_libraries === null ? "" : String(plan.max_libraries),
       is_active: plan.is_active,
       sort_order: String(plan.sort_order),
+      features: normalizePlanFeatures(plan.features),
     });
     setFieldErrors({});
     setDialogOpen(true);
   };
+
+  const addFeatureRow = () => setForm((f) => ({ ...f, features: [...f.features, { text: "", included: true }] }));
+  const updateFeatureRow = (index: number, patch: Partial<PlanFeature>) =>
+    setForm((f) => ({ ...f, features: f.features.map((feat, i) => (i === index ? { ...feat, ...patch } : feat)) }));
+  const removeFeatureRow = (index: number) =>
+    setForm((f) => ({ ...f, features: f.features.filter((_, i) => i !== index) }));
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -112,6 +121,7 @@ export default function PlatformSubscriptionPlansPage() {
         max_libraries: form.max_libraries === "" ? null : Number(form.max_libraries),
         is_active: form.is_active,
         sort_order: Number(form.sort_order),
+        features: form.features.filter((f) => f.text.trim() !== ""),
       };
       if (editing) {
         await api.put(`/super-admin/subscription-plans/${editing.id}`, payload);
@@ -270,6 +280,49 @@ export default function PlatformSubscriptionPlansPage() {
             <div className="flex items-center gap-2">
               <Checkbox id="is_active" checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v === true })} />
               <Label htmlFor="is_active" className="font-normal">Active</Label>
+            </div>
+
+            <div className="flex flex-col gap-2 lg:col-span-2">
+              <Label>Plan Features</Label>
+              <p className="text-xs text-darklink -mt-1">
+                Shown on the Plan &amp; Pricing page. Click the ✓/✕ to mark a feature included or unavailable on this plan.
+              </p>
+              <div className="flex flex-col gap-2">
+                {form.features.map((feature, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => updateFeatureRow(index, { included: !feature.included })}
+                      aria-label={feature.included ? "Included — click to mark unavailable" : "Unavailable — click to mark included"}
+                      className={`h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-white transition-colors ${
+                        feature.included ? "bg-success" : "bg-error"
+                      }`}
+                    >
+                      <Icon icon={feature.included ? "tabler:check" : "tabler:x"} width={18} height={18} />
+                    </button>
+                    <Input
+                      value={feature.text}
+                      onChange={(e) => updateFeatureRow(index, { text: e.target.value })}
+                      placeholder="e.g. Priority support"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-error hover:bg-error hover:text-white shrink-0"
+                      onClick={() => removeFeatureRow(index)}
+                      aria-label="Remove feature"
+                    >
+                      <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <Button type="button" variant="outline" size="sm" className="w-fit flex items-center gap-1.5" onClick={addFeatureRow}>
+                <Icon icon="solar:add-circle-linear" width={16} height={16} />
+                Add Feature
+              </Button>
             </div>
 
             <DialogFooter className="lg:col-span-2 flex gap-2 mt-4">
