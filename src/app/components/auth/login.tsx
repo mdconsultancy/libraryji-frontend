@@ -47,7 +47,7 @@ export const Login = () => {
   return (
     <>
       <div className='h-screen w-full flex justify-center items-center bg-lightprimary'>
-        <div className='md:min-w-[450px] min-w-max'>
+        <div className='w-[92%] max-w-[450px] mx-auto md:w-full md:min-w-[450px]'>
           <CardBox>
             <form onSubmit={handleSubmit}>
               <div className='flex justify-center mb-4'>
