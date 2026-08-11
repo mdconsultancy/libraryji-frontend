@@ -12,15 +12,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { Icon } from "@iconify/react";
 import { useAuth } from "@/context/AuthContext";
-import LibrarySwitcher from "./LibrarySwitcher";
-import LibraryUsage from "./LibraryUsage";
 
-interface ProfileProps {
-  /** Mobile app-bar has no room for the Library switcher/usage pills inline (see MobileHeader) — folds them into this dropdown instead. Desktop keeps showing them in the header row, so this stays off there. */
-  showLibraryControls?: boolean;
-}
-
-const Profile = ({ showLibraryControls = false }: ProfileProps) => {
+const Profile = () => {
   const { user, logout } = useAuth();
   const router = useRouter();
 
@@ -44,21 +37,11 @@ const Profile = ({ showLibraryControls = false }: ProfileProps) => {
           </span>
         </DropdownMenuTrigger>
 
-        <DropdownMenuContent
-          align="end"
-          className={`${showLibraryControls ? "w-64" : "w-56"} rounded-sm shadow-md p-2`}
-        >
+        <DropdownMenuContent align="end" className="w-56 rounded-sm shadow-md p-2">
           {user && (
             <div className="px-3 py-2 border-b border-border mb-1">
               <p className="text-sm font-semibold truncate">{user.name}</p>
               <p className="text-xs text-darklink truncate">{user.email}</p>
-            </div>
-          )}
-
-          {showLibraryControls && (
-            <div className="flex flex-col items-start gap-2 px-1 pb-2 mb-1 border-b border-border">
-              <LibrarySwitcher />
-              <LibraryUsage />
             </div>
           )}
 

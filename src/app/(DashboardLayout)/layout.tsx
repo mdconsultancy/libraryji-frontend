@@ -28,10 +28,6 @@ export default function Layout({
   // member has no library-details/Halls/Seats access to complete it with),
   // and must be resolved before the plan gate below can ever be reached.
   const needsOnboarding = user?.role === 'admin' && tenantNeedsOnboarding(user?.current_tenant)
-  // Multi-library admin who logged in without picking a workspace yet (or
-  // whose session predates a switch) — every tenant-scoped route 403s until
-  // this is resolved, so bounce to the picker instead of a broken dashboard.
-  const needsLibrary = user?.role === 'admin' && !user?.current_tenant_id
   const isSharedRoute = SHARED_ROUTES.includes(pathname)
   // Platform (`/platform/**`) is the Super Admin's own panel — every other
   // route here is a tenant's Library workspace. Neither role belongs on the
@@ -53,16 +49,13 @@ export default function Layout({
       router.replace(user.role === 'super_admin' ? '/platform' : '/')
       return
     }
-    if (!loading && user && needsLibrary) {
-      router.replace('/select-library')
-    }
     // needsPlan is deliberately NOT redirected — see the inline gate below.
     // A redirect can be navigated away from (back button, typing another
     // URL); rendering the gate in place of every route, regardless of
     // pathname, is what makes it actually unbypassable.
-  }, [loading, user, needsLibrary, wrongSideForRole, router])
+  }, [loading, user, wrongSideForRole, router])
 
-  if (loading || !user || needsLibrary || wrongSideForRole) {
+  if (loading || !user || wrongSideForRole) {
     return <GlobalPreloader />
   }
 

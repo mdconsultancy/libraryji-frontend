@@ -183,15 +183,7 @@ export function PlanPicker({ isUpgrading = false, onActivated, showLogout = fals
                   <ul className="flex flex-col gap-3 flex-1">
                     <li className="flex items-center gap-2.5 text-sm text-charcoal dark:text-white">
                       <Icon icon="tabler:check" className="text-success shrink-0" width={18} height={18} />
-                      Up to {plan.max_seats} seats
-                    </li>
-                    <li className="flex items-center gap-2.5 text-sm text-charcoal dark:text-white">
-                      <Icon icon="tabler:check" className="text-success shrink-0" width={18} height={18} />
-                      Unlimited members & staff
-                    </li>
-                    <li className="flex items-center gap-2.5 text-sm text-charcoal dark:text-white">
-                      <Icon icon="tabler:check" className="text-success shrink-0" width={18} height={18} />
-                      {plan.max_libraries === null ? "Unlimited" : plan.max_libraries} {plan.max_libraries === 1 ? "Library" : "Libraries"}
+                      Unlimited seats, members & staff
                     </li>
 
                     {features.length > 0 && <div className="border-t border-border dark:border-darkborder my-1" />}

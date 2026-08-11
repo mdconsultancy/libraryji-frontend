@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react'
 import { useTheme } from 'next-themes'
 import { Icon } from '@iconify/react'
 import Profile from './Profile'
-import LibrarySwitcher from './LibrarySwitcher'
-import LibraryUsage from './LibraryUsage'
 import Notifications from './Notifications'
 import MobileHeader from './MobileHeader'
 import SidebarLayout from '../sidebar/Sidebar'
@@ -95,10 +93,6 @@ const Header = () => {
                     <Notifications />
                   </div>
                 </div>
-
-                {/* Library usage + Library Switcher (admin only) */}
-                <LibraryUsage />
-                <LibrarySwitcher />
 
                 {/* Profile Dropdown */}
                 <Profile />

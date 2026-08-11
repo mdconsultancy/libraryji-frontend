@@ -28,11 +28,10 @@ export interface SubscriptionPlan {
   description: string | null
   price: string | number
   billing_cycle: BillingCycle
-  max_seats: number
-  max_members: number
-  max_staff: number
-  /** How many total Libraries this plan entitles the admin's account to operate. null = unlimited. */
-  max_libraries: number | null
+  /** Seats, members & staff are unlimited on every plan; these are legacy columns kept for reference and are always null. */
+  max_seats: number | null
+  max_members: number | null
+  max_staff: number | null
   /** Older plans may still have plain strings (always "included") — normalize with normalizePlanFeatures() before rendering. */
   features: (string | PlanFeature)[] | null
   is_active: boolean
@@ -385,6 +384,10 @@ export interface UserManagementRow {
   status: 'active' | 'inactive'
   created_at?: string
   tenants_count: number
+  /** Estimated DB storage used across every Library this user owns, from information_schema row-size estimates. */
+  db_storage_mb: number
+  /** Actual on-disk size (tenant logo + member photos/ID proofs) across every Library this user owns. */
+  media_storage_mb: number
   tenants: (Tenant & {
     pivot: { role: 'admin' | 'staff' }
     halls_count?: number
@@ -401,5 +404,9 @@ export interface UserManagementDetail extends UserManagementRow {
     membership_plans?: MembershipPlan[]
     seats_count?: number
     members_count?: number
+    expenses_count?: number
+    expenses_sum_amount?: string | number | null
+    db_storage_mb: number
+    media_storage_mb: number
   })[]
 }

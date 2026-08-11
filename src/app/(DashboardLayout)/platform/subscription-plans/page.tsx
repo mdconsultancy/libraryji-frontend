@@ -49,10 +49,6 @@ const emptyForm = {
   description: "",
   price: "",
   billing_cycle: "monthly" as BillingCycle,
-  max_seats: "50",
-  max_members: "100",
-  max_staff: "3",
-  max_libraries: "1",
   is_active: true,
   sort_order: "0",
   features: [] as PlanFeature[],
@@ -87,10 +83,6 @@ export default function PlatformSubscriptionPlansPage() {
       description: plan.description || "",
       price: String(plan.price),
       billing_cycle: plan.billing_cycle,
-      max_seats: String(plan.max_seats),
-      max_members: String(plan.max_members),
-      max_staff: String(plan.max_staff),
-      max_libraries: plan.max_libraries === null ? "" : String(plan.max_libraries),
       is_active: plan.is_active,
       sort_order: String(plan.sort_order),
       features: normalizePlanFeatures(plan.features),
@@ -115,10 +107,6 @@ export default function PlatformSubscriptionPlansPage() {
         description: form.description || null,
         price: Number(form.price),
         billing_cycle: form.billing_cycle,
-        max_seats: Number(form.max_seats),
-        max_members: Number(form.max_members),
-        max_staff: Number(form.max_staff),
-        max_libraries: form.max_libraries === "" ? null : Number(form.max_libraries),
         is_active: form.is_active,
         sort_order: Number(form.sort_order),
         features: form.features.filter((f) => f.text.trim() !== ""),
@@ -174,18 +162,17 @@ export default function PlatformSubscriptionPlansPage() {
                 <TableHead className="ps-6">Name</TableHead>
                 <TableHead>Price</TableHead>
                 <TableHead>Cycle</TableHead>
-                <TableHead>Limits (Seats/Members/Staff)</TableHead>
-                <TableHead>Libraries</TableHead>
+                <TableHead>Limits</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right pe-6">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableSkeleton columns={7} />
+                <TableSkeleton columns={6} />
               ) : plans.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-sm text-gray-500">No subscription plans found</TableCell>
+                  <TableCell colSpan={6} className="text-center py-8 text-sm text-gray-500">No subscription plans found</TableCell>
                 </TableRow>
               ) : (
                 plans.map((plan) => (
@@ -193,8 +180,7 @@ export default function PlatformSubscriptionPlansPage() {
                     <TableCell className="ps-6 font-medium">{plan.name}</TableCell>
                     <TableCell>₹{Number(plan.price).toLocaleString()}</TableCell>
                     <TableCell className="capitalize">{plan.billing_cycle}</TableCell>
-                    <TableCell>{plan.max_seats} / {plan.max_members} / {plan.max_staff}</TableCell>
-                    <TableCell>{plan.max_libraries ?? "Unlimited"}</TableCell>
+                    <TableCell>Unlimited Seats, Members & Staff</TableCell>
                     <TableCell>
                       <Badge variant="secondary" className={`border-none ${plan.is_active ? "bg-lightsuccess text-success" : "bg-lighterror text-error"}`}>
                         {plan.is_active ? "Active" : "Inactive"}
@@ -255,23 +241,6 @@ export default function PlatformSubscriptionPlansPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="max_seats">Max Seats</Label>
-              <Input id="max_seats" type="number" min={1} value={form.max_seats} onChange={(e) => setForm({ ...form, max_seats: e.target.value })} required />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="max_members">Max Members</Label>
-              <Input id="max_members" type="number" min={1} value={form.max_members} onChange={(e) => setForm({ ...form, max_members: e.target.value })} required />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="max_staff">Max Staff</Label>
-              <Input id="max_staff" type="number" min={1} value={form.max_staff} onChange={(e) => setForm({ ...form, max_staff: e.target.value })} required />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="max_libraries">Max Libraries (blank = unlimited)</Label>
-              <Input id="max_libraries" type="number" min={1} placeholder="Unlimited" value={form.max_libraries} onChange={(e) => setForm({ ...form, max_libraries: e.target.value })} />
-              <p className="text-xs text-darklink">Total Libraries an admin can operate under this plan — the highest value across their active plans applies.</p>
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="sort_order">Sort Order</Label>

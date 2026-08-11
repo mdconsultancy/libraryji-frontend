@@ -19,10 +19,13 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | undefined>(undefined);
 
+// Solid, saturated backgrounds (not the pale `bg-light*` tints used
+// elsewhere for badges) — a toast needs to read at a glance, so it gets
+// white text on a vibrant fill instead of low-contrast tinted-on-tinted.
 const variantStyles: Record<ToastVariant, string> = {
-  success: "bg-lightsuccess text-success border-success/20",
-  error: "bg-lighterror text-error border-error/20",
-  info: "bg-lightprimary text-primary border-primary/20",
+  success: "bg-success text-white border-success",
+  error: "bg-error text-white border-error",
+  info: "bg-primary text-white border-primary",
 };
 
 const variantIcon: Record<ToastVariant, string> = {
