@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import BreadcrumbComp from "@/app/(DashboardLayout)/layout/shared/breadcrumb/BreadcrumbComp";
 import CardBox from "@/app/components/shared/CardBox";
@@ -14,9 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -24,13 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -46,17 +38,12 @@ import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/context/ToastContext";
 import { usePermission } from "@/hooks/usePermission";
 import { usePermissionGuard } from "@/hooks/usePermissionGuard";
-import { useUploadLimits } from "@/hooks/useUploadLimits";
-import DatePicker from "@/components/form/DatePicker";
-import PhoneInput from "@/components/form/PhoneInput";
-import ImageUploadField from "@/components/form/ImageUploadField";
-import FileUploadField from "@/components/form/FileUploadField";
-import type { Member, MemberStatus, MemberGender, Paginated, DashboardSummary } from "@/types";
+import AddMemberWizard from "@/components/members/AddMemberWizard";
+import type { Member, MemberStatus, Paginated, DashboardSummary } from "@/types";
 
 const BCrumb = [{ to: "/", title: "Home" }, { title: "Members / Students" }];
 
 const statuses: MemberStatus[] = ["active", "inactive", "expired"];
-const genders: MemberGender[] = ["male", "female", "other"];
 
 const statusStyles: Record<MemberStatus, string> = {
   active: "bg-lightsuccess text-success",
@@ -76,27 +63,12 @@ const avatarColor = (id: number) => avatarPalette[id % avatarPalette.length];
 const initials = (name: string) =>
   name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
 
-const emptyForm = {
-  name: "",
-  email: "",
-  phone: "",
-  address: "",
-  id_proof_type: "",
-  id_proof_number: "",
-  date_of_birth: "",
-  gender: "",
-  join_date: new Date().toISOString().slice(0, 10),
-  status: "active" as MemberStatus,
-  notes: "",
-};
-
 export default function MembersPage() {
   const toast = useToast();
   const { authorized } = usePermissionGuard("members", "view");
   const canAdd = usePermission("members", "add");
   const canEdit = usePermission("members", "edit");
   const canDelete = usePermission("members", "delete");
-  const uploadLimits = useUploadLimits();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
@@ -116,89 +88,46 @@ export default function MembersPage() {
   const activeMembers = dashboardSummary?.active_members ?? 0;
   const inactiveMembers = Math.max(totalMembers - activeMembers, 0);
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<Member | null>(null);
-  const [form, setForm] = useState(emptyForm);
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [idProof, setIdProof] = useState<File | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
-  const [saving, setSaving] = useState(false);
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  // A single wizard drives both Add and Edit — Edit is just the wizard with
+  // memberId set, prefilled from that member's data. See AddMemberWizard.tsx.
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [editingMemberId, setEditingMemberId] = useState<number | null>(null);
+  const [convertPrefill, setConvertPrefill] = useState<{ name?: string; phone?: string; whatsapp_number?: string; leadId?: number } | null>(null);
+
+  // Arrived via a Lead's "Convert" action (?convert_lead=1&name=...&phone=...)
+  // — open the wizard pre-filled instead of making the user retype it.
+  useEffect(() => {
+    const leadId = searchParams.get("convert_lead");
+    if (!leadId) return;
+    setEditingMemberId(null);
+    setConvertPrefill({
+      leadId: Number(leadId),
+      name: searchParams.get("name") ?? undefined,
+      phone: searchParams.get("phone") ?? undefined,
+      whatsapp_number: searchParams.get("whatsapp") ?? undefined,
+    });
+    setWizardOpen(true);
+    router.replace("/members");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const openCreate = () => {
-    setEditing(null);
-    setForm(emptyForm);
-    setPhoto(null);
-    setIdProof(null);
-    setFieldErrors({});
-    setDialogOpen(true);
+    setEditingMemberId(null);
+    setConvertPrefill(null);
+    setWizardOpen(true);
   };
 
   const openEdit = (member: Member) => {
-    setEditing(member);
-    setForm({
-      name: member.name,
-      email: member.email || "",
-      phone: member.phone,
-      address: member.address || "",
-      id_proof_type: member.id_proof_type || "",
-      id_proof_number: member.id_proof_number || "",
-      date_of_birth: member.date_of_birth || "",
-      gender: member.gender || "",
-      join_date: member.join_date,
-      status: member.status,
-      notes: member.notes || "",
-    });
-    setPhoto(null);
-    setIdProof(null);
-    setFieldErrors({});
-    setDialogOpen(true);
+    setEditingMemberId(member.id);
+    setConvertPrefill(null);
+    setWizardOpen(true);
   };
 
-  const buildFormData = () => {
-    const fd = new FormData();
-    fd.append("name", form.name);
-    if (form.email) fd.append("email", form.email);
-    fd.append("phone", form.phone);
-    if (form.address) fd.append("address", form.address);
-    if (form.id_proof_type) fd.append("id_proof_type", form.id_proof_type);
-    if (form.id_proof_number) fd.append("id_proof_number", form.id_proof_number);
-    if (form.date_of_birth) fd.append("date_of_birth", form.date_of_birth);
-    if (form.gender) fd.append("gender", form.gender);
-    fd.append("join_date", form.join_date);
-    fd.append("status", form.status);
-    if (form.notes) fd.append("notes", form.notes);
-    if (photo) fd.append("photo", photo);
-    if (idProof) fd.append("id_proof", idProof);
-    return fd;
-  };
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setFieldErrors({});
-    try {
-      const fd = buildFormData();
-      if (editing) {
-        await api.put(`/admin/members/${editing.id}`, fd);
-        toast.success("Member updated.");
-      } else {
-        await api.post("/admin/members", fd);
-        toast.success("Member added.");
-      }
-      setDialogOpen(false);
-      mutate();
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setFieldErrors(err.errors || {});
-        toast.error(err.message);
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
+  const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -214,8 +143,6 @@ export default function MembersPage() {
       setDeleting(false);
     }
   };
-
-  const fieldError = (field: string) => fieldErrors[field]?.[0];
 
   if (!authorized) return null;
 
@@ -474,120 +401,6 @@ export default function MembersPage() {
         <PaginationBar meta={members ?? null} onPageChange={setPage} />
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editing ? "Edit Member" : "Add Member"}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-              {fieldError("name") && <p className="text-xs text-error">{fieldError("name")}</p>}
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-              {fieldError("email") && <p className="text-xs text-error">{fieldError("email")}</p>}
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="phone">Phone</Label>
-              <PhoneInput id="phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} required />
-              {fieldError("phone") && <p className="text-xs text-error">{fieldError("phone")}</p>}
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="date_of_birth">Date of Birth</Label>
-              <DatePicker id="date_of_birth" value={form.date_of_birth} onChange={(v) => setForm({ ...form, date_of_birth: v })} placeholder="Select date of birth" />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Gender</Label>
-              <Select value={form.gender || "unspecified"} onValueChange={(v) => setForm({ ...form, gender: v === "unspecified" ? "" : v })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unspecified">Unspecified</SelectItem>
-                  {genders.map((g) => (
-                    <SelectItem key={g} value={g} className="capitalize">{g}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-2 xl:col-span-2">
-              <Label htmlFor="address">Address</Label>
-              <Textarea id="address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="id_proof_type">ID Proof Type</Label>
-              <Input id="id_proof_type" placeholder="e.g. Aadhaar" value={form.id_proof_type} onChange={(e) => setForm({ ...form, id_proof_type: e.target.value })} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="id_proof_number">ID Proof Number</Label>
-              <Input id="id_proof_number" value={form.id_proof_number} onChange={(e) => setForm({ ...form, id_proof_number: e.target.value })} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="photo">Photo</Label>
-              <ImageUploadField
-                id="photo"
-                value={photo}
-                onChange={setPhoto}
-                existingUrl={editing?.photo_url}
-                maxSizeMb={uploadLimits.maxSizeMb}
-                acceptedExtensions={uploadLimits.acceptedExtensions}
-              />
-              <p className="text-xs text-darklink">
-                {uploadLimits.acceptedExtensions.join(", ").toUpperCase()} — max {uploadLimits.maxSizeMb}MB.
-              </p>
-              {fieldError("photo") && <p className="text-xs text-error">{fieldError("photo")}</p>}
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="id_proof">ID Proof File</Label>
-              <FileUploadField
-                id="id_proof"
-                value={idProof}
-                onChange={setIdProof}
-                existingUrl={editing?.id_proof_url}
-                accept=".jpg,.jpeg,.png,.pdf"
-                maxSizeMb={4}
-                uploading={saving && !!idProof}
-              />
-              {fieldError("id_proof") && <p className="text-xs text-error">{fieldError("id_proof")}</p>}
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="join_date">Join Date *</Label>
-              <DatePicker id="join_date" value={form.join_date} onChange={(v) => setForm({ ...form, join_date: v })} placeholder="Select join date" />
-              {fieldError("join_date") && <p className="text-xs text-error">{fieldError("join_date")}</p>}
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Status</Label>
-              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as MemberStatus })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statuses.map((s) => (
-                    <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-2 xl:col-span-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea id="notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-            </div>
-
-            <DialogFooter className="xl:col-span-2 flex gap-2 mt-4">
-              <Button type="submit" className="rounded-md" disabled={saving}>
-                {saving ? "Saving..." : "Save"}
-              </Button>
-              <Button type="button" variant="outline" className="rounded-md" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
       <DeleteConfirmDialog
         open={!!deleteTarget}
         title={`Delete "${deleteTarget?.name}"?`}
@@ -595,6 +408,18 @@ export default function MembersPage() {
         loading={deleting}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
+      />
+
+      <AddMemberWizard
+        open={wizardOpen}
+        onClose={() => {
+          setWizardOpen(false);
+          setEditingMemberId(null);
+          setConvertPrefill(null);
+        }}
+        onSaved={mutate}
+        memberId={editingMemberId ?? undefined}
+        prefill={convertPrefill ?? undefined}
       />
     </>
   );

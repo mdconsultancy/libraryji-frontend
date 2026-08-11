@@ -4,6 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@iconify/react";
+import { cn } from "@/lib/utils";
 
 interface DatePickerProps {
   value?: string; // YYYY-MM-DD
@@ -11,6 +12,7 @@ interface DatePickerProps {
   placeholder?: string;
   disabled?: boolean;
   id?: string;
+  className?: string;
 }
 
 function toDate(value?: string): Date | undefined {
@@ -26,7 +28,7 @@ function toIsoDate(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-export default function DatePicker({ value, onChange, placeholder = "Pick a date", disabled, id }: DatePickerProps) {
+export default function DatePicker({ value, onChange, placeholder = "Pick a date", disabled, id, className }: DatePickerProps) {
   const selected = toDate(value);
 
   return (
@@ -37,7 +39,7 @@ export default function DatePicker({ value, onChange, placeholder = "Pick a date
           type="button"
           variant="outline"
           disabled={disabled}
-          className="w-full justify-start font-normal"
+          className={cn("w-full justify-start font-normal", className)}
         >
           <Icon icon="tabler:calendar" width={16} height={16} className="mr-2 shrink-0" />
           {selected ? selected.toLocaleDateString() : <span className="text-muted-foreground">{placeholder}</span>}

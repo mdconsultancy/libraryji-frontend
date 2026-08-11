@@ -28,11 +28,15 @@ import { usePlanLimit } from "@/hooks/usePlanLimit";
 import PlanLimitBanner from "@/components/shared/PlanLimitBanner";
 import { useToast } from "@/context/ToastContext";
 import { useHallOptions } from "@/hooks/useOptions";
-import type { Seat, SeatType, SeatStatus } from "@/types";
+import type { Seat, SeatType, SeatCategory, SeatStatus } from "@/types";
 
 const BCrumb = [{ to: "/", title: "Home" }, { title: "Seats" }];
 
 const seatTypes: SeatType[] = ["general", "ac", "non_ac", "cabin", "premium"];
+const seatCategories: { label: string; value: SeatCategory }[] = [
+  { label: "Regular — fixed to one member", value: "regular" },
+  { label: "Rotation — shared across shifts", value: "rotation" },
+];
 const seatStatuses: SeatStatus[] = ["available", "occupied", "reserved", "maintenance"];
 
 // 3D "pressed button" card: a darker slab sits behind the face and peeks out
@@ -44,8 +48,14 @@ const seatCardStyles: Record<SeatStatus, { face: string; slab: string }> = {
   maintenance: { face: "from-slate-400 to-slate-600", slab: "bg-slate-800" },
 };
 
-const emptyForm = { hall_id: "", seat_number: "", seat_type: "general" as SeatType, status: "available" as SeatStatus };
-const emptyBulkForm = { hall_id: "", prefix: "", start: "1", end: "10", seat_type: "general" as SeatType };
+const emptyForm = {
+  hall_id: "",
+  seat_number: "",
+  seat_type: "general" as SeatType,
+  category: "regular" as SeatCategory,
+  status: "available" as SeatStatus,
+};
+const emptyBulkForm = { hall_id: "", prefix: "", start: "1", end: "10", seat_type: "general" as SeatType, category: "regular" as SeatCategory };
 
 export default function SeatsPage() {
   const toast = useToast();
@@ -83,6 +93,7 @@ export default function SeatsPage() {
       hall_id: seat.hall_id ? String(seat.hall_id) : "",
       seat_number: seat.seat_number,
       seat_type: seat.seat_type,
+      category: seat.category,
       status: seat.status,
     });
     setFieldErrors({});
@@ -99,6 +110,7 @@ export default function SeatsPage() {
           hall_id: form.hall_id ? Number(form.hall_id) : null,
           seat_number: form.seat_number,
           seat_type: form.seat_type,
+          category: form.category,
           status: form.status,
         });
       } else {
@@ -106,6 +118,7 @@ export default function SeatsPage() {
           hall_id: form.hall_id ? Number(form.hall_id) : null,
           seat_number: form.seat_number,
           seat_type: form.seat_type,
+          category: form.category,
           status: form.status,
         });
         refreshSeatLimit();
@@ -130,6 +143,7 @@ export default function SeatsPage() {
         start: Number(bulkForm.start),
         end: Number(bulkForm.end),
         seat_type: bulkForm.seat_type,
+        category: bulkForm.category,
       });
       setBulkDialogOpen(false);
       setBulkForm(emptyBulkForm);
@@ -314,6 +328,19 @@ export default function SeatsPage() {
               </Select>
             </div>
             <div className="flex flex-col gap-2">
+              <Label>Category</Label>
+              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v as SeatCategory })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {seatCategories.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2">
               <Label>Status</Label>
               <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as SeatStatus })}>
                 <SelectTrigger>
@@ -383,6 +410,19 @@ export default function SeatsPage() {
                 <SelectContent>
                   {seatTypes.map((t) => (
                     <SelectItem key={t} value={t} className="capitalize">{t.replace('_', ' ')}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label>Category</Label>
+              <Select value={bulkForm.category} onValueChange={(v) => setBulkForm({ ...bulkForm, category: v as SeatCategory })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {seatCategories.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

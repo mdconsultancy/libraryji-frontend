@@ -3,6 +3,7 @@
 export type UserRole = 'super_admin' | 'admin' | 'staff' | 'member'
 export type TenantStatus = 'trial' | 'active' | 'suspended' | 'cancelled'
 export type SeatType = 'general' | 'ac' | 'non_ac' | 'cabin' | 'premium'
+export type SeatCategory = 'regular' | 'rotation'
 export type SeatStatus = 'available' | 'occupied' | 'reserved' | 'maintenance'
 export type MemberStatus = 'active' | 'inactive' | 'expired'
 export type MemberGender = 'male' | 'female' | 'other'
@@ -76,6 +77,7 @@ export interface Tenant {
   timezone: string
   status: TenantStatus
   trial_ends_at: string | null
+  onboarding_completed_at: string | null
   has_active_plan?: boolean
   // Laravel snake_cases relation names in JSON — this is `active_subscription`
   // on the wire (verified against the live API), not `activeSubscription`.
@@ -139,6 +141,7 @@ export interface Seat {
   hall_id: number | null
   seat_number: string
   seat_type: SeatType
+  category: SeatCategory
   status: SeatStatus
   position_x: string | number
   position_y: string | number
@@ -177,6 +180,7 @@ export interface Member {
   name: string
   email: string | null
   phone: string
+  whatsapp_number: string | null
   /** Short-lived signed URL, not a static path — the raw storage path is never sent to the client. */
   photo_url: string | null
   address: string | null
@@ -184,6 +188,8 @@ export interface Member {
   id_proof_number: string | null
   /** Short-lived signed URL, not a static path. */
   id_proof_url: string | null
+  id_proof_front_url: string | null
+  id_proof_back_url: string | null
   date_of_birth: string | null
   gender: MemberGender | null
   join_date: string
@@ -194,13 +200,30 @@ export interface Member {
   attendances?: Attendance[]
   payments?: Payment[]
   created_at?: string
+  deleted_at?: string | null
+}
+
+export type LeadStatus = 'new' | 'contacted' | 'converted' | 'lost'
+
+export interface Lead {
+  id: number
+  tenant_id: number
+  name: string
+  phone: string
+  whatsapp_number: string | null
+  status: LeadStatus
+  notes: string | null
+  converted_member_id: number | null
+  converted_member?: Member
+  created_at?: string
 }
 
 export interface MemberSubscription {
   id: number
   tenant_id: number
   member_id: number
-  membership_plan_id: number
+  membership_plan_id: number | null
+  duration_months: number | null
   seat_id: number | null
   shift_id: number | null
   plan_name_snapshot: string
@@ -278,6 +301,9 @@ export interface DashboardSummary {
   occupied_seats: number
   available_seats: number
   occupancy_rate: number
+  staff_count: number
+  halls_count: number
+  expenses_this_month: number
   expiring_soon: number
   today_attendance: number
   currently_checked_in: number
@@ -285,6 +311,15 @@ export interface DashboardSummary {
   revenue_last_month: number
   cash_this_month: number
   online_this_month: number
+}
+
+export type RecentActivityType = 'member_joined' | 'payment_received' | 'attendance_check_in'
+
+export interface RecentActivityItem {
+  type: RecentActivityType
+  title: string
+  subtitle: string
+  occurred_at: string
 }
 
 export interface RevenueChartPoint {
