@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import BreadcrumbComp from "@/app/(DashboardLayout)/layout/shared/breadcrumb/BreadcrumbComp";
 import CardBox from "@/app/components/shared/CardBox";
 import {
@@ -14,41 +15,44 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Icon } from "@iconify/react";
 import PaginationBar from "@/components/shared/Pagination";
 import TableSkeleton from "@/components/shared/TableSkeleton";
+import DeleteConfirmDialog from "@/components/shared/DeleteConfirmDialog";
 import { useApi } from "@/hooks/useApi";
-import type { Paginated, TenantStatus, UserManagementDetail, UserManagementRow } from "@/types";
+import { useToast } from "@/context/ToastContext";
+import { api, ApiError } from "@/lib/api";
+import type { Paginated, UserManagementRow } from "@/types";
 
 const BCrumb = [{ to: "/", title: "Home" }, { title: "User Management" }];
 
-const statusStyles: Record<TenantStatus, string> = {
-  trial: "bg-lightwarning text-warning",
-  active: "bg-lightsuccess text-success",
-  suspended: "bg-lighterror text-error",
-  cancelled: "bg-lightsecondary text-secondary",
-};
-
 export default function UserManagementPage() {
+  const toast = useToast();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [viewingId, setViewingId] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<UserManagementRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  const { data: users, isLoading: loading, error: loadError } = useApi<Paginated<UserManagementRow>>(
+  const { data: users, isLoading: loading, error: loadError, mutate } = useApi<Paginated<UserManagementRow>>(
     "/super-admin/users",
     { page, search: search || undefined }
   );
   const error = loadError ? "Unable to load users." : null;
 
-  const { data: detail, isLoading: detailLoading } = useApi<UserManagementDetail>(
-    viewingId ? `/super-admin/users/${viewingId}` : null
-  );
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/super-admin/users/${deleteTarget.id}`);
+      toast.success(`${deleteTarget.name} has been deleted.`);
+      setDeleteTarget(null);
+      mutate();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Unable to delete this user. Please try again.");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <>
@@ -75,26 +79,26 @@ export default function UserManagementPage() {
               <TableRow>
                 <TableHead className="ps-6">User</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
                 <TableHead>Libraries</TableHead>
                 <TableHead>Subscriptions</TableHead>
+                <TableHead>DB Storage</TableHead>
+                <TableHead>Media Storage</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right pe-6">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableSkeleton columns={7} />
+                <TableSkeleton columns={8} />
               ) : users?.data.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-sm text-gray-500">No users found</TableCell>
+                  <TableCell colSpan={8} className="text-center py-8 text-sm text-gray-500">No users found</TableCell>
                 </TableRow>
               ) : (
                 users?.data.map((row) => (
                   <TableRow key={row.id}>
                     <TableCell className="ps-6 font-medium">{row.name}</TableCell>
                     <TableCell>{row.email}</TableCell>
-                    <TableCell className="capitalize">Admin</TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
                         <span className="text-sm font-medium">
@@ -114,16 +118,30 @@ export default function UserManagementPage() {
                         ))}
                       </div>
                     </TableCell>
+                    <TableCell className="text-sm">{row.db_storage_mb.toLocaleString()} MB</TableCell>
+                    <TableCell className="text-sm">{row.media_storage_mb.toLocaleString()} MB</TableCell>
                     <TableCell>
                       <Badge variant="secondary" className={`border-none capitalize ${row.status === "active" ? "bg-lightsuccess text-success" : "bg-lightsecondary text-secondary"}`}>
                         {row.status}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right pe-6">
-                      <Button variant="outline" size="sm" onClick={() => setViewingId(row.id)}>
-                        <Icon icon="solar:eye-linear" width={16} height={16} />
-                        View
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Link href={`/platform/users/${row.id}`}>
+                          <Button variant="outline" size="sm">
+                            <Icon icon="solar:eye-linear" width={16} height={16} />
+                            View
+                          </Button>
+                        </Link>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-error hover:bg-error hover:text-white"
+                          onClick={() => setDeleteTarget(row)}
+                        >
+                          <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -135,92 +153,14 @@ export default function UserManagementPage() {
         <PaginationBar meta={users ?? null} onPageChange={setPage} />
       </CardBox>
 
-      <Dialog open={viewingId !== null} onOpenChange={(v) => !v && setViewingId(null)}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{detail?.name ?? "User details"}</DialogTitle>
-          </DialogHeader>
-
-          {detailLoading || !detail ? (
-            <p className="text-sm text-darklink py-6 text-center">Loading...</p>
-          ) : (
-            <div className="flex flex-col gap-6">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-darklink">Email</p>
-                  <p className="font-medium">{detail.email}</p>
-                </div>
-                <div>
-                  <p className="text-darklink">Phone</p>
-                  <p className="font-medium">{detail.phone ?? "—"}</p>
-                </div>
-                <div>
-                  <p className="text-darklink">Status</p>
-                  <Badge variant="secondary" className="border-none capitalize mt-1">{detail.status}</Badge>
-                </div>
-                <div>
-                  <p className="text-darklink">Libraries owned</p>
-                  <p className="font-medium">{detail.tenants_count}</p>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-4">
-                <h6 className="font-semibold text-sm">Libraries</h6>
-                {detail.tenants.length === 0 && <p className="text-sm text-darklink">No libraries assigned.</p>}
-                {detail.tenants.map((tenant) => (
-                  <CardBox key={tenant.id} className="p-4 border border-border">
-                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                      <div>
-                        <p className="font-medium">{tenant.name}</p>
-                        <p className="text-xs text-darklink">
-                          Role: <span className="capitalize">{tenant.pivot.role}</span>
-                          {tenant.library_code && <> · Code: <span className="font-mono">{tenant.library_code}</span></>}
-                        </p>
-                      </div>
-                      <Badge variant="secondary" className={`border-none capitalize ${statusStyles[tenant.status]}`}>
-                        {tenant.status}
-                      </Badge>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center mb-3">
-                      <div className="rounded-lg bg-lightprimary py-2">
-                        <p className="text-lg font-semibold">{tenant.halls?.length ?? 0}</p>
-                        <p className="text-xs text-darklink">Halls</p>
-                      </div>
-                      <div className="rounded-lg bg-lightprimary py-2">
-                        <p className="text-lg font-semibold">{tenant.seats_count ?? 0}</p>
-                        <p className="text-xs text-darklink">Seats</p>
-                      </div>
-                      <div className="rounded-lg bg-lightprimary py-2">
-                        <p className="text-lg font-semibold">{tenant.members_count ?? 0}</p>
-                        <p className="text-xs text-darklink">Members</p>
-                      </div>
-                      <div className="rounded-lg bg-lightprimary py-2">
-                        <p className="text-lg font-semibold">{tenant.membership_plans?.length ?? 0}</p>
-                        <p className="text-xs text-darklink">Plans</p>
-                      </div>
-                    </div>
-
-                    <p className="text-xs text-darklink mb-1">Subscription history</p>
-                    {tenant.subscriptions && tenant.subscriptions.length > 0 ? (
-                      <div className="flex flex-col gap-1">
-                        {tenant.subscriptions.map((sub) => (
-                          <div key={sub.id} className="flex items-center justify-between text-xs">
-                            <span>{sub.plan?.name ?? "—"}</span>
-                            <span className="capitalize text-darklink">{sub.status}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-darklink">No subscriptions yet.</p>
-                    )}
-                  </CardBox>
-                ))}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <DeleteConfirmDialog
+        open={!!deleteTarget}
+        title={`Delete "${deleteTarget?.name}"?`}
+        description="This permanently deletes the user account. Users with active library data (members, seats, halls, staff, or expenses in any of their libraries) can't be deleted — clean up that tenant data first."
+        loading={deleting}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+      />
     </>
   );
 }

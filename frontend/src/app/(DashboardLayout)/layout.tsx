@@ -5,8 +5,11 @@ import { useRouter, usePathname } from 'next/navigation'
 import Header from './layout/header/Header'
 import Sidebar from './layout/sidebar/Sidebar'
 import MobileBottomNav from './layout/footer/MobileBottomNav'
+import FullLogo from './layout/shared/logo/FullLogo'
 import { useAuth } from '@/context/AuthContext'
-import { tenantNeedsPlan } from '@/lib/tenant'
+import { tenantNeedsPlan, tenantNeedsOnboarding } from '@/lib/tenant'
+import { PlanPicker } from '@/components/billing/PlanPicker'
+import OnboardingFlow from '@/components/onboarding/OnboardingFlow'
 import GlobalPreloader from '@/components/shared/GlobalPreloader'
 
 // Routes any authenticated role may reach regardless of the super_admin/tenant split below.
@@ -21,10 +24,10 @@ export default function Layout({
   const router = useRouter()
   const pathname = usePathname()
   const needsPlan = user?.role !== 'super_admin' && tenantNeedsPlan(user?.current_tenant)
-  // Multi-library admin who logged in without picking a workspace yet (or
-  // whose session predates a switch) — every tenant-scoped route 403s until
-  // this is resolved, so bounce to the picker instead of a broken dashboard.
-  const needsLibrary = user?.role === 'admin' && !user?.current_tenant_id
+  // Onboarding is admin-only (its API routes are role:admin-gated — a staff
+  // member has no library-details/Halls/Seats access to complete it with),
+  // and must be resolved before the plan gate below can ever be reached.
+  const needsOnboarding = user?.role === 'admin' && tenantNeedsOnboarding(user?.current_tenant)
   const isSharedRoute = SHARED_ROUTES.includes(pathname)
   // Platform (`/platform/**`) is the Super Admin's own panel — every other
   // route here is a tenant's Library workspace. Neither role belongs on the
@@ -46,17 +49,47 @@ export default function Layout({
       router.replace(user.role === 'super_admin' ? '/platform' : '/')
       return
     }
-    if (!loading && user && needsLibrary) {
-      router.replace('/select-library')
-      return
-    }
-    if (!loading && user && needsPlan) {
-      router.replace('/select-plan')
-    }
-  }, [loading, user, needsPlan, needsLibrary, wrongSideForRole, router])
+    // needsPlan is deliberately NOT redirected — see the inline gate below.
+    // A redirect can be navigated away from (back button, typing another
+    // URL); rendering the gate in place of every route, regardless of
+    // pathname, is what makes it actually unbypassable.
+  }, [loading, user, wrongSideForRole, router])
 
-  if (loading || !user || needsPlan || needsLibrary || wrongSideForRole) {
+  if (loading || !user || wrongSideForRole) {
     return <GlobalPreloader />
+  }
+
+  // Same "unbypassable inline gate, not a route" approach as the plan gate
+  // below — resolved first, so a brand-new admin always sees Onboarding
+  // before Plan & Pricing, regardless of which URL they land on.
+  if (needsOnboarding) {
+    return <OnboardingFlow />
+  }
+
+  // Same tenant-status check the API enforces server-side — shown as a
+  // full-screen gate (not a route) so it follows the user regardless of
+  // which URL they land on or navigate to next.
+  if (needsPlan) {
+    return (
+      <div className="min-h-screen w-full bg-lightprimary py-10 px-4 overflow-y-auto">
+        <div className="flex justify-center mb-4">
+          <FullLogo />
+        </div>
+        <div className="max-w-4xl mx-auto text-center mb-10">
+          <h4 className="text-2xl font-bold text-dark mb-2">
+            {user.current_tenant?.trial_ends_at ? 'Your trial has ended' : 'Choose a plan to continue'}
+          </h4>
+          <p className="text-sm text-charcoal">
+            {user.current_tenant?.status === 'suspended' || user.current_tenant?.status === 'cancelled'
+              ? 'Complete payment below to activate your library.'
+              : user.current_tenant?.trial_ends_at
+                ? 'Select a plan below to keep using LibraryJi.'
+                : 'Every plan starts with a free first month — no card required.'}
+          </p>
+        </div>
+        <PlanPicker showLogout />
+      </div>
+    )
   }
 
   return (

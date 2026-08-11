@@ -7,6 +7,7 @@ import CardBox from '../shared/CardBox'
 import Link from 'next/link'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import PasswordInput from '@/components/form/PasswordInput'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
 
@@ -71,9 +72,9 @@ export const Register = () => {
 
   return (
     <>
-      <div className='h-screen w-full flex justify-center items-center bg-lightprimary py-10'>
-        <div className='md:min-w-[500px] min-w-max'>
-          <CardBox>
+      <div className='min-h-screen w-full flex justify-center items-center bg-lightprimary py-10 px-3'>
+        <div className='w-full max-w-[500px] mx-auto'>
+          <CardBox className='p-4 sm:p-6'>
             <form onSubmit={handleSubmit}>
               <div className='flex justify-center mb-4'>
                 <FullLogo />
@@ -119,7 +120,7 @@ export const Register = () => {
                 {fieldError('name') && <p className='text-xs text-error mt-1'>{fieldError('name')}</p>}
               </div>
 
-              <div className='grid grid-cols-2 gap-4 mb-4'>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4'>
                 <div>
                   <Input
                     id='email1'
@@ -144,7 +145,7 @@ export const Register = () => {
                 </div>
               </div>
 
-              <div className='grid grid-cols-2 gap-4 mb-4'>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4'>
                 <div>
                   <Input
                     id='city1'
@@ -165,14 +166,13 @@ export const Register = () => {
                 </div>
               </div>
 
-              <div className='grid grid-cols-2 gap-4 mb-4'>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4'>
                 <div>
-                  <Input
+                  <PasswordInput
                     id='password1'
-                    type='password'
                     placeholder='Password'
                     value={form.password}
-                    onChange={update('password')}
+                    onChange={(value) => setForm((prev) => ({ ...prev, password: value }))}
                     required
                   />
                   {fieldError('password') && (
@@ -180,12 +180,11 @@ export const Register = () => {
                   )}
                 </div>
                 <div>
-                  <Input
+                  <PasswordInput
                     id='password_confirmation1'
-                    type='password'
                     placeholder='Confirm Password'
                     value={form.password_confirmation}
-                    onChange={update('password_confirmation')}
+                    onChange={(value) => setForm((prev) => ({ ...prev, password_confirmation: value }))}
                     required
                   />
                 </div>

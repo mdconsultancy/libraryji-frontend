@@ -1,17 +1,19 @@
 "use client";
 
 import { Icon } from "@iconify/react";
-import { useApi } from "@/hooks/useApi";
-import type { Member, Payment } from "@/types";
+import type { RecentActivityItem, RecentActivityType } from "@/types";
 
-interface ActivityItem {
-  key: string;
-  icon: string;
-  color: "success" | "primary";
-  title: string;
-  subtitle: string;
-  at: string | null;
-}
+const iconByType: Record<RecentActivityType, { icon: string; color: "success" | "primary" | "info" }> = {
+  member_joined: { icon: "solar:user-plus-bold-duotone", color: "success" },
+  payment_received: { icon: "solar:wallet-money-bold-duotone", color: "primary" },
+  attendance_check_in: { icon: "solar:login-3-bold-duotone", color: "info" },
+};
+
+const colorClasses = {
+  success: "bg-lightsuccess text-success",
+  primary: "bg-lightprimary text-primary",
+  info: "bg-lightinfo text-info",
+};
 
 const timeAgo = (iso?: string | null) => {
   if (!iso) return "";
@@ -24,62 +26,33 @@ const timeAgo = (iso?: string | null) => {
   return new Date(iso).toLocaleDateString();
 };
 
-/**
- * Merges two already-existing data sources — recent members (shared with the
- * desktop dashboard) and recent payments (its own small fetch, same pattern
- * as the rest of the app) — into one activity feed for the mobile view.
- */
-const MobileRecentActivity = ({ members }: { members: Member[] }) => {
-  const { data: paymentsPage, isLoading } = useApi<{ data: Payment[] }>("/admin/payments", { per_page: 3 });
-  const payments = paymentsPage?.data ?? [];
-
-  const items: ActivityItem[] = [
-    ...members.slice(0, 3).map((m) => ({
-      key: `member-${m.id}`,
-      icon: "solar:user-plus-bold-duotone",
-      color: "success" as const,
-      title: `New student ${m.name} joined`,
-      subtitle: m.subscriptions?.[0]?.seat ? `Seat ${m.subscriptions[0].seat.seat_number}` : m.member_code,
-      at: m.join_date,
-    })),
-    ...payments.map((p) => ({
-      key: `payment-${p.id}`,
-      icon: "solar:wallet-money-bold-duotone",
-      color: "primary" as const,
-      title: `Fee collected from ${p.member?.name ?? "member"}`,
-      subtitle: `Amount: ₹${Number(p.amount).toLocaleString("en-IN")}`,
-      at: p.paid_at,
-    })),
-  ]
-    .sort((a, b) => new Date(b.at ?? 0).getTime() - new Date(a.at ?? 0).getTime())
-    .slice(0, 5);
-
+/** Same unified `/admin/dashboard/recent-activity` feed the desktop dashboard's RecentActivities card uses. */
+const MobileRecentActivity = ({ activity, loading }: { activity: RecentActivityItem[]; loading?: boolean }) => {
   return (
     <div className="rounded-2xl bg-white dark:bg-darkgray p-5 shadow-xs">
       <h5 className="card-title mb-4">Recent Activities</h5>
 
-      {isLoading ? (
+      {loading ? (
         <p className="text-sm text-darklink py-4 text-center">Loading…</p>
-      ) : items.length === 0 ? (
+      ) : activity.length === 0 ? (
         <p className="text-sm text-darklink py-4 text-center">No recent activity</p>
       ) : (
         <div className="flex flex-col gap-4">
-          {items.map((item) => (
-            <div key={item.key} className="flex items-start gap-3">
-              <div
-                className={`h-8 w-8 shrink-0 rounded-full flex items-center justify-center ${
-                  item.color === "success" ? "bg-lightsuccess text-success" : "bg-lightprimary text-primary"
-                }`}
-              >
-                <Icon icon={item.icon} width={16} height={16} />
+          {activity.slice(0, 5).map((item, i) => {
+            const meta = iconByType[item.type];
+            return (
+              <div key={i} className="flex items-start gap-3">
+                <div className={`h-8 w-8 shrink-0 rounded-full flex items-center justify-center ${colorClasses[meta.color]}`}>
+                  <Icon icon={meta.icon} width={16} height={16} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-dark dark:text-white truncate">{item.title}</p>
+                  <p className="text-xs text-darklink truncate">{item.subtitle}</p>
+                </div>
+                <span className="text-[11px] text-darklink shrink-0">{timeAgo(item.occurred_at)}</span>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-dark dark:text-white truncate">{item.title}</p>
-                <p className="text-xs text-darklink truncate">{item.subtitle}</p>
-              </div>
-              <span className="text-[11px] text-darklink shrink-0">{timeAgo(item.at)}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

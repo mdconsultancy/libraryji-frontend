@@ -44,11 +44,15 @@ export function setTokens(tokens: TokenPair | null) {
   }
 }
 
-/** Resolve a storage-relative path (e.g. `members/photos/x.jpg`) to a full URL. */
+/**
+ * Resolve a storage-relative path (e.g. `members/photos/x.jpg`) to a full URL.
+ * Uses `/media` (not `/storage`) to match the backend route — the hosting
+ * panel's WAF blanket-blocks any `/storage/*` path before it reaches PHP.
+ */
 export function storageUrl(path?: string | null): string | undefined {
   if (!path) return undefined
   if (path.startsWith('http')) return path
-  return `${STORAGE_BASE_URL}/storage/${path}`
+  return `${STORAGE_BASE_URL}/media/${path}`
 }
 
 interface RequestOptions {

@@ -12,6 +12,7 @@ const stats = (summary: DashboardSummary) => [
   { label: "Absent Today", value: summary.absent_today, icon: "solar:user-cross-rounded-bold-duotone", color: "error" as const },
   { label: "Occupied Seats", value: summary.occupied_seats, icon: "solar:armchair-2-bold-duotone", color: "secondary" as const, sub: `${summary.occupancy_rate}%` },
   { label: "Available Seats", value: summary.available_seats, icon: "solar:armchair-bold-duotone", color: "info" as const },
+  { label: "Staff Members", value: summary.staff_count, icon: "solar:shield-user-bold-duotone", color: "primary" as const },
   { label: "Revenue This Month", value: currency(summary.revenue_this_month), icon: "solar:wallet-money-bold-duotone", color: "warning" as const },
 ];
 

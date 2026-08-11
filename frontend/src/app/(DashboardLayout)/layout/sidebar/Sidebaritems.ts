@@ -37,9 +37,16 @@ export interface MenuItem {
 
 // roles omitted = visible to every authenticated role.
 // 'admin' items are visible to tenant admins; 'staff' items to staff; 'super_admin' items to the platform section.
+//
+// Admin/staff top-level nav is intentionally short — Dashboard, Manage
+// Students, Payments, Waiting List, Old Students, Library Info — with every
+// other library-management screen tucked under the single "More" accordion
+// item below (collapsed by default; AMSubmenu renders it as an expandable
+// group, same mechanism used for Platform's nested items).
 const SidebarContent: MenuItem[] = [
   {
     heading: 'Main',
+    roles: ['admin', 'staff'],
     children: [
       {
         name: 'Dashboard',
@@ -48,71 +55,14 @@ const SidebarContent: MenuItem[] = [
         url: '/',
         roles: ['admin', 'staff'],
       },
-    ],
-  },
-  {
-    heading: 'Members',
-    roles: ['admin', 'staff'],
-    children: [
       {
-        name: 'Members / Students',
+        name: 'Manage Students',
         icon: 'solar:users-group-rounded-line-duotone',
         id: uniqueId(),
         url: '/members',
         roles: ['admin', 'staff'],
         permissionModule: 'members',
       },
-    ],
-  },
-  {
-    heading: 'Library',
-    roles: ['admin', 'staff'],
-    children: [
-      {
-        name: 'Seats',
-        icon: 'solar:armchair-2-line-duotone',
-        id: uniqueId(),
-        url: '/seats',
-        roles: ['admin', 'staff'],
-      },
-      {
-        name: 'Halls',
-        icon: 'solar:home-2-line-duotone',
-        id: uniqueId(),
-        url: '/halls',
-        roles: ['admin', 'staff'],
-        permissionModule: 'halls',
-      },
-      {
-        name: 'Library',
-        icon: 'solar:buildings-3-line-duotone',
-        id: uniqueId(),
-        url: '/settings',
-        roles: ['admin', 'staff'],
-        permissionModule: 'library',
-      },
-      {
-        name: 'Shifts',
-        icon: 'solar:clock-circle-line-duotone',
-        id: uniqueId(),
-        url: '/shifts',
-        roles: ['admin', 'staff'],
-      },
-      {
-        // Library Admin no longer manages Membership Plans at all (product
-        // decision) — staff-only now, both here and enforced server-side.
-        name: 'Membership Plans',
-        icon: 'solar:document-text-line-duotone',
-        id: uniqueId(),
-        url: '/membership-plans',
-        roles: ['staff'],
-      },
-    ],
-  },
-  {
-    heading: 'Finance',
-    roles: ['admin', 'staff'],
-    children: [
       {
         name: 'Payments',
         icon: 'solar:bill-check-line-duotone',
@@ -122,31 +72,88 @@ const SidebarContent: MenuItem[] = [
         permissionModule: 'payments',
       },
       {
-        name: 'Expenses',
-        icon: 'solar:wallet-money-line-duotone',
+        name: 'Waiting List',
+        icon: 'solar:user-speak-line-duotone',
         id: uniqueId(),
-        url: '/expenses',
+        url: '/leads',
         roles: ['admin', 'staff'],
-      },
-    ],
-  },
-  {
-    heading: 'Administration',
-    roles: ['admin'],
-    children: [
-      {
-        name: 'Staff',
-        icon: 'solar:shield-user-outline',
-        id: uniqueId(),
-        url: '/staff',
-        roles: ['admin'],
+        permissionModule: 'members',
       },
       {
-        name: 'My Plan & Subscription',
-        icon: 'solar:bill-list-line-duotone',
+        name: 'Old Students',
+        icon: 'solar:history-line-duotone',
         id: uniqueId(),
-        url: '/billing',
-        roles: ['admin'],
+        url: '/members/old',
+        roles: ['admin', 'staff'],
+        permissionModule: 'members',
+      },
+      {
+        name: 'Library Info',
+        icon: 'solar:buildings-3-line-duotone',
+        id: uniqueId(),
+        url: '/settings',
+        roles: ['admin', 'staff'],
+        permissionModule: 'library',
+      },
+      {
+        name: 'More',
+        icon: 'solar:widget-5-line-duotone',
+        id: uniqueId(),
+        roles: ['admin', 'staff'],
+        children: [
+          {
+            name: 'Seats',
+            icon: 'solar:armchair-2-line-duotone',
+            id: uniqueId(),
+            url: '/seats',
+            roles: ['admin', 'staff'],
+          },
+          {
+            name: 'Halls',
+            icon: 'solar:home-2-line-duotone',
+            id: uniqueId(),
+            url: '/halls',
+            roles: ['admin', 'staff'],
+            permissionModule: 'halls',
+          },
+          {
+            name: 'Shifts',
+            icon: 'solar:clock-circle-line-duotone',
+            id: uniqueId(),
+            url: '/shifts',
+            roles: ['admin', 'staff'],
+          },
+          {
+            // Library Admin no longer manages Membership Plans at all (product
+            // decision) — staff-only now, both here and enforced server-side.
+            name: 'Membership Plans',
+            icon: 'solar:document-text-line-duotone',
+            id: uniqueId(),
+            url: '/membership-plans',
+            roles: ['staff'],
+          },
+          {
+            name: 'Expenses',
+            icon: 'solar:wallet-money-line-duotone',
+            id: uniqueId(),
+            url: '/expenses',
+            roles: ['admin', 'staff'],
+          },
+          {
+            name: 'Staff',
+            icon: 'solar:shield-user-outline',
+            id: uniqueId(),
+            url: '/staff',
+            roles: ['admin'],
+          },
+          {
+            name: 'My Plan & Subscription',
+            icon: 'solar:bill-list-line-duotone',
+            id: uniqueId(),
+            url: '/billing',
+            roles: ['admin'],
+          },
+        ],
       },
     ],
   },

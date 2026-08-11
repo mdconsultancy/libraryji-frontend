@@ -2,11 +2,30 @@
 import React from "react";
 import dynamic from "next/dynamic";
 import { ApexOptions } from "apexcharts";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { RevenueChartPoint } from "@/types";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
-const RevenueForecast = ({ data }: { data: RevenueChartPoint[] }) => {
+const RANGE_OPTIONS = [
+  { label: "Last 3 months", value: "3" },
+  { label: "Last 6 months", value: "6" },
+  { label: "Last 12 months", value: "12" },
+];
+
+interface RevenueForecastProps {
+  data: RevenueChartPoint[];
+  months: number;
+  onMonthsChange: (months: number) => void;
+}
+
+const RevenueForecast = ({ data, months, onMonthsChange }: RevenueForecastProps) => {
   const optionsBarChart: ApexOptions = {
     chart: {
       offsetX: 0,
@@ -49,7 +68,16 @@ const RevenueForecast = ({ data }: { data: RevenueChartPoint[] }) => {
     <div className="rounded-xl shadow-xs bg-white dark:bg-darkgray p-6 relative w-full words-break">
       <div className="flex justify-between items-center">
         <h5 className="card-title">Revenue Forecast</h5>
-        <p className="text-sm text-darklink">Last 6 months</p>
+        <Select value={String(months)} onValueChange={(v) => onMonthsChange(Number(v))}>
+          <SelectTrigger className="h-8 w-[150px] text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {RANGE_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="-ms-4 -me-3 mt-2">

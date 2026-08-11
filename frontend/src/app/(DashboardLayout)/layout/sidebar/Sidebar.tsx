@@ -27,6 +27,27 @@ const visibleForPermission = (
   modulePermissions: Record<PermissionModule, boolean>
 ) => !permissionModule || modulePermissions[permissionModule]
 
+/**
+ * Role/permission filtering only ever applied to the top-level list passed
+ * into renderSidebarItems — nested `children` (e.g. everything tucked under
+ * "More") were rendered unfiltered, so an admin-only or staff-only entry
+ * inside a submenu would show to the wrong role even though the link itself
+ * still enforces the permission server-side. Filter recursively instead.
+ */
+const filterVisible = (
+  items: any[],
+  userRole: string | undefined,
+  modulePermissions: Record<PermissionModule, boolean>
+): any[] =>
+  items
+    .filter((item) => visibleFor(item.roles, userRole) && visibleForPermission(item.permissionModule, modulePermissions))
+    .map((item) =>
+      item.children?.length
+        ? { ...item, children: filterVisible(item.children, userRole, modulePermissions) }
+        : item
+    )
+    .filter((item) => !item.children || item.children.length > 0)
+
 const renderSidebarItems = (
   items: any[],
   currentPath: string,
@@ -136,9 +157,7 @@ const SidebarLayout = ({ onClose }: { onClose?: () => void }) => {
               {renderSidebarItems(
                 [
                   ...(section.heading ? [{ heading: section.heading }] : []),
-                  ...(section.children || []).filter(
-                    (child) => visibleFor(child.roles, user?.role) && visibleForPermission(child.permissionModule, modulePermissions)
-                  ),
+                  ...filterVisible(section.children || [], user?.role, modulePermissions),
                 ],
                 pathname,
                 onClose

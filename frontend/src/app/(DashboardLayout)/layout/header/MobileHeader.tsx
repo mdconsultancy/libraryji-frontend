@@ -11,10 +11,7 @@ import FullLogo from '../shared/logo/FullLogo'
  * row in Header.tsx so the two can evolve independently — this one is free
  * to match a phone-app layout without ever touching desktop markup/classes.
  * Reuses the same functional pieces the desktop header uses (Profile,
- * Notifications, Library switching) rather than reimplementing them. The
- * Library switcher/usage pills live inside the Profile dropdown here (no
- * room for them inline on a phone-width bar) — see Profile's
- * `showLibraryControls` prop.
+ * Notifications) rather than reimplementing them.
  */
 const MobileHeader = ({ onMenuClick }: { onMenuClick: () => void }) => {
   const { theme, setTheme } = useTheme()
@@ -52,7 +49,7 @@ const MobileHeader = ({ onMenuClick }: { onMenuClick: () => void }) => {
             )}
           </button>
           <Notifications />
-          <Profile showLibraryControls />
+          <Profile />
         </div>
       </div>
     </div>

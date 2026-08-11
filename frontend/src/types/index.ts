@@ -3,6 +3,7 @@
 export type UserRole = 'super_admin' | 'admin' | 'staff' | 'member'
 export type TenantStatus = 'trial' | 'active' | 'suspended' | 'cancelled'
 export type SeatType = 'general' | 'ac' | 'non_ac' | 'cabin' | 'premium'
+export type SeatCategory = 'regular' | 'rotation'
 export type SeatStatus = 'available' | 'occupied' | 'reserved' | 'maintenance'
 export type MemberStatus = 'active' | 'inactive' | 'expired'
 export type MemberGender = 'male' | 'female' | 'other'
@@ -27,11 +28,10 @@ export interface SubscriptionPlan {
   description: string | null
   price: string | number
   billing_cycle: BillingCycle
-  max_seats: number
-  max_members: number
-  max_staff: number
-  /** How many total Libraries this plan entitles the admin's account to operate. null = unlimited. */
-  max_libraries: number | null
+  /** Seats, members & staff are unlimited on every plan; these are legacy columns kept for reference and are always null. */
+  max_seats: number | null
+  max_members: number | null
+  max_staff: number | null
   /** Older plans may still have plain strings (always "included") — normalize with normalizePlanFeatures() before rendering. */
   features: (string | PlanFeature)[] | null
   is_active: boolean
@@ -76,6 +76,7 @@ export interface Tenant {
   timezone: string
   status: TenantStatus
   trial_ends_at: string | null
+  onboarding_completed_at: string | null
   has_active_plan?: boolean
   // Laravel snake_cases relation names in JSON — this is `active_subscription`
   // on the wire (verified against the live API), not `activeSubscription`.
@@ -139,6 +140,7 @@ export interface Seat {
   hall_id: number | null
   seat_number: string
   seat_type: SeatType
+  category: SeatCategory
   status: SeatStatus
   position_x: string | number
   position_y: string | number
@@ -177,6 +179,7 @@ export interface Member {
   name: string
   email: string | null
   phone: string
+  whatsapp_number: string | null
   /** Short-lived signed URL, not a static path — the raw storage path is never sent to the client. */
   photo_url: string | null
   address: string | null
@@ -184,6 +187,8 @@ export interface Member {
   id_proof_number: string | null
   /** Short-lived signed URL, not a static path. */
   id_proof_url: string | null
+  id_proof_front_url: string | null
+  id_proof_back_url: string | null
   date_of_birth: string | null
   gender: MemberGender | null
   join_date: string
@@ -194,13 +199,30 @@ export interface Member {
   attendances?: Attendance[]
   payments?: Payment[]
   created_at?: string
+  deleted_at?: string | null
+}
+
+export type LeadStatus = 'new' | 'contacted' | 'converted' | 'lost'
+
+export interface Lead {
+  id: number
+  tenant_id: number
+  name: string
+  phone: string
+  whatsapp_number: string | null
+  status: LeadStatus
+  notes: string | null
+  converted_member_id: number | null
+  converted_member?: Member
+  created_at?: string
 }
 
 export interface MemberSubscription {
   id: number
   tenant_id: number
   member_id: number
-  membership_plan_id: number
+  membership_plan_id: number | null
+  duration_months: number | null
   seat_id: number | null
   shift_id: number | null
   plan_name_snapshot: string
@@ -278,6 +300,9 @@ export interface DashboardSummary {
   occupied_seats: number
   available_seats: number
   occupancy_rate: number
+  staff_count: number
+  halls_count: number
+  expenses_this_month: number
   expiring_soon: number
   today_attendance: number
   currently_checked_in: number
@@ -285,6 +310,15 @@ export interface DashboardSummary {
   revenue_last_month: number
   cash_this_month: number
   online_this_month: number
+}
+
+export type RecentActivityType = 'member_joined' | 'payment_received' | 'attendance_check_in'
+
+export interface RecentActivityItem {
+  type: RecentActivityType
+  title: string
+  subtitle: string
+  occurred_at: string
 }
 
 export interface RevenueChartPoint {
@@ -350,6 +384,10 @@ export interface UserManagementRow {
   status: 'active' | 'inactive'
   created_at?: string
   tenants_count: number
+  /** Estimated DB storage used across every Library this user owns, from information_schema row-size estimates. */
+  db_storage_mb: number
+  /** Actual on-disk size (tenant logo + member photos/ID proofs) across every Library this user owns. */
+  media_storage_mb: number
   tenants: (Tenant & {
     pivot: { role: 'admin' | 'staff' }
     halls_count?: number
@@ -366,5 +404,9 @@ export interface UserManagementDetail extends UserManagementRow {
     membership_plans?: MembershipPlan[]
     seats_count?: number
     members_count?: number
+    expenses_count?: number
+    expenses_sum_amount?: string | number | null
+    db_storage_mb: number
+    media_storage_mb: number
   })[]
 }

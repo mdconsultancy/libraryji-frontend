@@ -18,12 +18,15 @@ interface BrandingContextValue {
   logoUrl: string | null
   /** Uploaded Favicon URL from Admin Settings -> Theme, or null if none uploaded yet. */
   faviconUrl: string | null
+  /** True until the first `/theme` response lands — lets logo consumers show a skeleton instead of flashing the static default logo. */
+  isLoading: boolean
 }
 
 const defaults: BrandingContextValue = {
   siteName: 'LibraryJi',
   logoUrl: null,
   faviconUrl: null,
+  isLoading: true,
 }
 
 const BrandingContext = createContext<BrandingContextValue>(defaults)
@@ -46,6 +49,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     siteName: data?.site_name || defaults.siteName,
     logoUrl: data?.logo_url || null,
     faviconUrl: data?.favicon_url || null,
+    isLoading: data === undefined,
   }
 
   useEffect(() => {
