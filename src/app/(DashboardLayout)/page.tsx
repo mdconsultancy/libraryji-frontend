@@ -96,9 +96,7 @@ const Page = () => {
 
       {/* Mobile (below xl) — separate layout, same underlying data */}
       <div className="xl:hidden flex flex-col gap-4">
-        <MobileGreeting name={user?.name} />
         {summary && <MobileStatsGrid summary={summary} />}
-        {summary && <MobileAttendanceCard summary={summary} />}
         <MobileRecentActivity activity={activity ?? []} loading={loadingActivity} />
         <p className="text-sm text-center py-2">
           Design and Developed by{" "}
