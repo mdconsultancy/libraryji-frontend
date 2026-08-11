@@ -25,6 +25,10 @@ Route::get('/', function () {
  * to be publicly reachable and were never signed.
  */
 Route::get('/media/{path}', function (\Illuminate\Http\Request $request, string $path) {
+    if (Storage::disk('public')->exists($path)) {
+        return Storage::disk('public')->response($path);
+    }
+
     if (Storage::disk('local')->exists($path)) {
         // Laravel's LocalFilesystemAdapter::temporaryUrl() signs with
         // absolute: false (see vendor/laravel/framework .../LocalFilesystemAdapter.php),
@@ -35,10 +39,6 @@ Route::get('/media/{path}', function (\Illuminate\Http\Request $request, string 
         }
 
         return Storage::disk('local')->response($path);
-    }
-
-    if (Storage::disk('public')->exists($path)) {
-        return Storage::disk('public')->response($path);
     }
 
     abort(404);

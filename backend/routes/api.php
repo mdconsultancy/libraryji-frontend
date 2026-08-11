@@ -6,7 +6,6 @@ use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\ExpenseController;
 use App\Http\Controllers\Api\Admin\HallController;
 use App\Http\Controllers\Api\Admin\LeadController;
-use App\Http\Controllers\Api\Admin\LibraryController;
 use App\Http\Controllers\Api\Admin\MemberController;
 use App\Http\Controllers\Api\Admin\MembershipPlanController;
 use App\Http\Controllers\Api\Admin\MemberSubscriptionController;
@@ -44,25 +43,19 @@ Route::middleware('auth:jwt')->group(function () {
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::put('/auth/profile', [AuthController::class, 'updateProfile']);
 
-    // Library/workspace switching — admin-only; staff is rejected inside the
-    // controller even for a library it does have a membership for.
-    Route::post('/auth/select-library', [AuthController::class, 'selectLibrary']);
-
-    // Plan selection / Razorpay checkout: reachable as soon as the tenant admin
-    // is authenticated, regardless of whether a plan is active yet — this is
-    // what activates one (used for both post-registration payment and
-    // reactivating a suspended/trial-expired tenant).
     Route::middleware('role:admin')->prefix('admin')->group(function () {
         Route::post('select-plan/trial', [PlanSelectionController::class, 'startTrial']);
         Route::post('select-plan/order', [PlanSelectionController::class, 'createOrder']);
         Route::post('select-plan/verify', [PlanSelectionController::class, 'verify']);
 
-        // Account-wide Library count/limit + adding an additional Library.
-        // Deliberately not behind `tenant.active` — these operate on the
-        // admin's account as a whole, not the currently selected workspace,
-        // so a suspended *current* Library must never block them.
-        Route::get('libraries-summary', [LibraryController::class, 'summary']);
-        Route::post('libraries', [LibraryController::class, 'store']);
+        Route::prefix('onboarding')->group(function () {
+            Route::get('halls', [HallController::class, 'index']);
+            Route::post('halls', [HallController::class, 'store']);
+            Route::get('seats', [SeatController::class, 'index']);
+            Route::post('seats/bulk', [SeatController::class, 'bulkStore']);
+            Route::put('library-details', [TenantSettingsController::class, 'update']);
+            Route::post('complete', [TenantSettingsController::class, 'completeOnboarding']);
+        });
     });
 
     // Read-only billing history for the tenant's own SaaS subscription — admin & staff can view.
@@ -177,6 +170,7 @@ Route::middleware('auth:jwt')->group(function () {
 
         Route::get('users', [UserManagementController::class, 'index']);
         Route::get('users/{user}', [UserManagementController::class, 'show']);
+        Route::delete('users/{user}', [UserManagementController::class, 'destroy']);
 
         Route::get('dashboard/summary', [SuperAdminDashboardController::class, 'summary']);
         Route::get('dashboard/tenant-growth-chart', [SuperAdminDashboardController::class, 'tenantGrowthChart']);

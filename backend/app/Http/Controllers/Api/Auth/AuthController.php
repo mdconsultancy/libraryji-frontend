@@ -242,37 +242,6 @@ class AuthController extends Controller
         return response()->json(['message' => 'Logged out successfully.']);
     }
 
-    /**
-     * Switch the current Library workspace. Admin-only, and only among
-     * Libraries the admin actually has a `tenant_user` membership for —
-     * enforced here regardless of what the client sends. Staff never has
-     * more than one Library and is rejected outright, even if it (somehow)
-     * sends a `tenant_id` it does have a membership for.
-     */
-    public function selectLibrary(Request $request)
-    {
-        $user = $request->user();
-
-        if ($user->role !== 'admin') {
-            abort(403, 'Only library owners can switch libraries.');
-        }
-
-        $validated = $request->validate([
-            'tenant_id' => 'required|integer|exists:tenants,id',
-        ]);
-
-        if (! $user->belongsToTenant((int) $validated['tenant_id'])) {
-            abort(403, 'You do not have access to this library.');
-        }
-
-        $user->current_tenant_id = $validated['tenant_id'];
-        $user->save();
-
-        return response()->json([
-            'user' => $user->fresh()->load('currentTenant.activeSubscription.plan', 'tenants'),
-        ]);
-    }
-
     public function me(Request $request)
     {
         return response()->json([

@@ -17,7 +17,8 @@ class Tenant extends Model
     protected $fillable = [
         'name', 'slug', 'library_code', 'email', 'phone', 'alternate_phone',
         'established_year', 'address', 'city', 'state', 'country', 'pincode',
-        'gst_number', 'logo_path', 'timezone', 'status', 'trial_ends_at', 'meta',
+        'gst_number', 'logo_path', 'timezone', 'status', 'trial_ends_at',
+        'onboarding_completed_at', 'meta',
     ];
 
     protected $appends = ['has_active_plan'];
@@ -26,6 +27,7 @@ class Tenant extends Model
     {
         return [
             'trial_ends_at' => 'datetime',
+            'onboarding_completed_at' => 'datetime',
             'meta' => 'array',
         ];
     }
@@ -81,6 +83,11 @@ class Tenant extends Model
     public function membershipPlans(): HasMany
     {
         return $this->hasMany(MembershipPlan::class);
+    }
+
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(Expense::class);
     }
 
     protected function hasActivePlan(): Attribute

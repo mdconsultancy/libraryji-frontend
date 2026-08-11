@@ -21,12 +21,6 @@ class SubscriptionPlanController extends Controller
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
             'billing_cycle' => 'required|in:monthly,quarterly,yearly',
-            'max_seats' => 'required|integer|min:1',
-            'max_members' => 'required|integer|min:1',
-            'max_staff' => 'required|integer|min:1',
-            // How many total Libraries this plan entitles the admin's
-            // account to operate. Null/omitted = unlimited.
-            'max_libraries' => 'nullable|integer|min:1',
             'features' => 'nullable|array',
             'features.*.text' => 'required_with:features|string|max:255',
             'features.*.included' => 'boolean',
@@ -53,10 +47,6 @@ class SubscriptionPlanController extends Controller
             'description' => 'nullable|string',
             'price' => 'sometimes|required|numeric|min:0',
             'billing_cycle' => 'in:monthly,quarterly,yearly',
-            'max_seats' => 'integer|min:1',
-            'max_members' => 'integer|min:1',
-            'max_staff' => 'integer|min:1',
-            'max_libraries' => 'nullable|integer|min:1',
             'features' => 'nullable|array',
             'features.*.text' => 'required_with:features|string|max:255',
             'features.*.included' => 'boolean',

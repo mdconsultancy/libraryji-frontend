@@ -12,7 +12,7 @@ class SubscriptionPlan extends Model
 
     protected $fillable = [
         'name', 'slug', 'description', 'price', 'billing_cycle',
-        'max_seats', 'max_members', 'max_staff', 'max_libraries',
+        'max_seats', 'max_members', 'max_staff',
         'features', 'is_active', 'sort_order',
     ];
 

@@ -21,10 +21,7 @@ class PlanLimitService
         'staff' => 'max_staff',
     ];
 
-    // Product decision: Members/Staff are no longer capped by plan — only
-    // Seats and (separately, via LibraryController) the number of Libraries
-    // an admin can create are still enforced.
-    private const UNLIMITED_RESOURCES = ['members', 'staff'];
+    private const UNLIMITED_RESOURCES = ['seats', 'members', 'staff'];
 
     /**
      * Returns null when unlimited or no plan limit applies, otherwise the max allowed.
