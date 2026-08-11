@@ -13,13 +13,13 @@ interface FileUploadFieldProps {
   id?: string;
 }
 
-const IMAGE_EXT = /\.(jpe?g|png|gif|webp)$/i;
+const IMAGE_EXT = /\.(jpe?g|png|webp|svg)$/i;
 
 export default function FileUploadField({
   value,
   onChange,
   existingUrl,
-  accept = ".jpg,.jpeg,.png,.pdf",
+  accept = ".jpg,.jpeg,.png,.webp,.svg",
   maxSizeMb = 4,
   uploading = false,
   id,

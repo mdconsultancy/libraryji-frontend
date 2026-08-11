@@ -647,7 +647,7 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
                     value={idProofFront}
                     onChange={setIdProofFront}
                     existingUrl={editingMember?.id_proof_front_url}
-                    accept=".jpg,.jpeg,.png,.pdf"
+                    accept=".jpg,.jpeg,.png,.webp,.svg"
                     maxSizeMb={4}
                   />
                   {fieldError("id_proof_front") && <p className="text-xs text-error">{fieldError("id_proof_front")}</p>}
@@ -658,7 +658,7 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
                     value={idProofBack}
                     onChange={setIdProofBack}
                     existingUrl={editingMember?.id_proof_back_url}
-                    accept=".jpg,.jpeg,.png,.pdf"
+                    accept=".jpg,.jpeg,.png,.webp,.svg"
                     maxSizeMb={4}
                   />
                   {fieldError("id_proof_back") && <p className="text-xs text-error">{fieldError("id_proof_back")}</p>}
