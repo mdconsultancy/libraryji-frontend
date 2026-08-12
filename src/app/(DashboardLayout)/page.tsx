@@ -55,6 +55,9 @@ const Page = () => {
     <>
       {/* Desktop (xl and up) — unchanged */}
       <div className="hidden xl:grid grid-cols-12 gap-30">
+        <div className="col-span-12">
+          {summary && <MobileStatsGrid summary={summary} gridClassName="grid-cols-4" />}
+        </div>
         <div className="lg:col-span-8 col-span-12">
           <RevenueForecast data={revenueChart ?? []} months={revenueMonths} onMonthsChange={setRevenueMonths} />
         </div>
