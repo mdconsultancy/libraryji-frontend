@@ -17,7 +17,10 @@ interface DatePickerProps {
 
 function toDate(value?: string): Date | undefined {
   if (!value) return undefined;
-  const d = new Date(value + "T00:00:00");
+  // Defensive: accepts a bare "YYYY-MM-DD" (the expected shape) but also
+  // tolerates a full ISO datetime, so a value that still carries a time
+  // component doesn't silently parse to Invalid Date and blank the field.
+  const d = new Date(value.slice(0, 10) + "T00:00:00");
   return isNaN(d.getTime()) ? undefined : d;
 }
 

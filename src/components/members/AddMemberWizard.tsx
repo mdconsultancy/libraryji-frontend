@@ -292,10 +292,23 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
       whatsapp: editingMember.whatsapp_number ?? "",
       whatsappSameAsPhone: !editingMember.whatsapp_number || editingMember.whatsapp_number === editingMember.phone,
     });
+
+    // Older subscriptions (created before duration_unit/duration_days were
+    // tracked) fall back to "custom" — everything created since always has
+    // duration_unit set, so the wizard restores the exact original choice
+    // (Daily/Monthly/Custom Date) instead of always showing "Custom Date".
+    const durationUnit: DurationUnit = sub?.duration_unit ?? "custom";
+    const durationCount =
+      durationUnit === "month"
+        ? String(sub?.duration_months ?? 1)
+        : durationUnit === "day"
+          ? String(sub?.duration_days ?? 1)
+          : "1";
+
     setMembership({
       start_date: sub?.start_date ?? todayIso(),
-      durationUnit: "custom",
-      durationCount: sub?.duration_months ? String(sub.duration_months) : "1",
+      durationUnit,
+      durationCount,
       end_date: sub?.end_date ?? addMonthsIso(todayIso(), 1),
       amount: sub?.amount ? String(sub.amount) : "",
       payment_type: (payment?.payment_method as PaymentMethod) ?? "",
@@ -376,6 +389,8 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
       const subscriptionPayload = {
         seat_id: membership.seat_id,
         duration_months: membership.durationUnit === "month" ? Number(membership.durationCount) : undefined,
+        duration_days: membership.durationUnit === "day" ? Number(membership.durationCount) : undefined,
+        duration_unit: membership.durationUnit,
         start_date: membership.start_date,
         end_date: membership.end_date,
         amount: Number(membership.amount),

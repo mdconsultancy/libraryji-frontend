@@ -16,6 +16,7 @@ import { ApiError } from '@/lib/api'
 export const Login = () => {
   const { login } = useAuth()
   const router = useRouter()
+  const [loginType, setLoginType] = useState<'admin' | 'staff'>('admin')
   const [libraryCode, setLibraryCode] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -30,7 +31,7 @@ export const Login = () => {
     setFieldErrors({})
     setLoading(true)
     try {
-      await login({ library_code: libraryCode || undefined, email, password })
+      await login({ library_code: loginType === 'staff' ? libraryCode : undefined, email, password })
       router.push('/')
     } catch (err) {
       if (err instanceof ApiError) {
@@ -57,26 +58,50 @@ export const Login = () => {
                 Sign in to your library dashboard
               </p>
 
+              <div className='mb-6 grid grid-cols-2 rounded-lg bg-lightprimary p-1'>
+                <button
+                  type='button'
+                  onClick={() => setLoginType('admin')}
+                  className={`rounded-md py-2 text-sm font-medium transition-colors ${
+                    loginType === 'admin' ? 'bg-white dark:bg-dark text-primary shadow-xs' : 'text-link dark:text-darklink'
+                  }`}
+                >
+                  Admin Login
+                </button>
+                <button
+                  type='button'
+                  onClick={() => setLoginType('staff')}
+                  className={`rounded-md py-2 text-sm font-medium transition-colors ${
+                    loginType === 'staff' ? 'bg-white dark:bg-dark text-primary shadow-xs' : 'text-link dark:text-darklink'
+                  }`}
+                >
+                  Staff Login
+                </button>
+              </div>
+
               {error && (
                 <div className='mb-4 rounded-md bg-lighterror px-3 py-2 text-sm text-error'>
                   {error}
                 </div>
               )}
 
-              <div className='mb-4'>
-                <Input
-                  id='library_code'
-                  type='text'
-                  placeholder='Library Code (e.g. A4X9K)'
-                  value={libraryCode}
-                  onChange={(e) => setLibraryCode(e.target.value.toUpperCase())}
-                  className='uppercase tracking-wider'
-                  maxLength={10}
-                />
-                {fieldErrors.library_code && (
-                  <p className='text-xs text-error mt-1'>{fieldErrors.library_code[0]}</p>
-                )}
-              </div>
+              {loginType === 'staff' && (
+                <div className='mb-4'>
+                  <Input
+                    id='library_code'
+                    type='text'
+                    placeholder='Library Code (e.g. A4X9K)'
+                    value={libraryCode}
+                    onChange={(e) => setLibraryCode(e.target.value.toUpperCase())}
+                    className='uppercase tracking-wider'
+                    maxLength={10}
+                    required
+                  />
+                  {fieldErrors.library_code && (
+                    <p className='text-xs text-error mt-1'>{fieldErrors.library_code[0]}</p>
+                  )}
+                </div>
+              )}
               <div className='mb-4'>
                 <Input
                   id='email1'

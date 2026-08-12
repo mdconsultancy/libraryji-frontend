@@ -63,6 +63,22 @@ const avatarColor = (id: number) => avatarPalette[id % avatarPalette.length];
 const initials = (name: string) =>
   name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
 
+function daysLeftLabel(member: Member): { text: string; className: string } {
+  const sub = member.active_subscription;
+  if (!sub) return { text: "—", className: "text-gray-400" };
+  const days = sub.days_left ?? Math.ceil((new Date(sub.end_date.slice(0, 10) + "T00:00:00").getTime() - Date.now()) / 86400000);
+  if (days < 0) return { text: "Expired", className: "text-error font-medium" };
+  if (days === 0) return { text: "Today", className: "text-error font-medium" };
+  if (days <= 3) return { text: `${days} day${days > 1 ? "s" : ""} left`, className: "text-error font-medium" };
+  if (days <= 7) return { text: `${days} days left`, className: "text-warning font-medium" };
+  return { text: `${days} days left`, className: "text-darklink" };
+}
+
+const whatsappHref = (member: Member) => {
+  const number = (member.whatsapp_number || member.phone || "").replace(/[^\d]/g, "");
+  return number ? `https://wa.me/${number}` : undefined;
+};
+
 export default function MembersPage() {
   const toast = useToast();
   const { authorized } = usePermissionGuard("members", "view");
@@ -114,6 +130,13 @@ export default function MembersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
+  // Arrived via the header search bar (?search=...) — seed the members search box with it.
+  useEffect(() => {
+    const q = searchParams.get("search");
+    if (q) setSearch(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const openCreate = () => {
     setEditingMemberId(null);
     setConvertPrefill(null);
@@ -152,15 +175,44 @@ export default function MembersPage() {
 
       {/* Desktop (xl and up) — unchanged */}
       <div className="hidden xl:block">
-      <CardBox className="p-4 mb-4 bg-background border-none rounded-xl shadow-xs flex items-center gap-4">
-        <div className="h-12 w-12 rounded-full bg-lightprimary flex items-center justify-center shrink-0">
-          <Icon icon="solar:users-group-rounded-bold-duotone" width={24} height={24} className="text-primary" />
-        </div>
-        <div>
-          <p className="text-2xl font-semibold leading-none">{members?.total ?? 0}</p>
-          <p className="text-sm text-darklink mt-1">Total Students</p>
-        </div>
-      </CardBox>
+      <div className="grid grid-cols-4 gap-4 mb-4">
+        <CardBox className="p-4 bg-background border-none rounded-xl shadow-xs flex items-center gap-4">
+          <div className="h-12 w-12 rounded-full bg-lightprimary flex items-center justify-center shrink-0">
+            <Icon icon="solar:users-group-rounded-bold-duotone" width={24} height={24} className="text-primary" />
+          </div>
+          <div>
+            <p className="text-2xl font-semibold leading-none">{members?.total ?? 0}</p>
+            <p className="text-sm text-darklink mt-1">Total Students</p>
+          </div>
+        </CardBox>
+        <CardBox className="p-4 bg-background border-none rounded-xl shadow-xs flex items-center gap-4">
+          <div className="h-12 w-12 rounded-full bg-lightsuccess flex items-center justify-center shrink-0">
+            <Icon icon="solar:check-circle-bold-duotone" width={24} height={24} className="text-success" />
+          </div>
+          <div>
+            <p className="text-2xl font-semibold leading-none">{dashboardSummary?.fee_paid_students ?? 0}</p>
+            <p className="text-sm text-darklink mt-1">Fee Paid</p>
+          </div>
+        </CardBox>
+        <CardBox className="p-4 bg-background border-none rounded-xl shadow-xs flex items-center gap-4">
+          <div className="h-12 w-12 rounded-full bg-lightwarning flex items-center justify-center shrink-0">
+            <Icon icon="solar:hourglass-line-bold-duotone" width={24} height={24} className="text-warning" />
+          </div>
+          <div>
+            <p className="text-2xl font-semibold leading-none">{dashboardSummary?.partial_fee_students ?? 0}</p>
+            <p className="text-sm text-darklink mt-1">Partial Fee</p>
+          </div>
+        </CardBox>
+        <CardBox className="p-4 bg-background border-none rounded-xl shadow-xs flex items-center gap-4">
+          <div className="h-12 w-12 rounded-full bg-lighterror flex items-center justify-center shrink-0">
+            <Icon icon="solar:danger-circle-bold-duotone" width={24} height={24} className="text-error" />
+          </div>
+          <div>
+            <p className="text-2xl font-semibold leading-none">{dashboardSummary?.fee_pending_students ?? 0}</p>
+            <p className="text-sm text-darklink mt-1">Fee Pending</p>
+          </div>
+        </CardBox>
+      </div>
 
       <CardBox className="p-0 bg-background overflow-hidden border-none rounded-xl shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-4 p-6">
@@ -204,7 +256,7 @@ export default function MembersPage() {
               <TableRow>
                 <TableHead className="ps-6">Member</TableHead>
                 <TableHead>Phone</TableHead>
-                <TableHead>Plan</TableHead>
+                <TableHead>Days Left</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right pe-6">Actions</TableHead>
               </TableRow>
@@ -235,7 +287,9 @@ export default function MembersPage() {
                       </div>
                     </TableCell>
                     <TableCell>{member.phone}</TableCell>
-                    <TableCell>{member.active_subscription?.plan?.name || "—"}</TableCell>
+                    <TableCell>
+                      <span className={daysLeftLabel(member).className}>{daysLeftLabel(member).text}</span>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className={`border-none capitalize ${statusStyles[member.status]}`}>
                         {member.status}
@@ -243,6 +297,13 @@ export default function MembersPage() {
                     </TableCell>
                     <TableCell className="text-right pe-6">
                       <div className="flex justify-end gap-2">
+                        {whatsappHref(member) && (
+                          <Button variant="outline" size="sm" className="text-success hover:bg-success hover:text-white" asChild>
+                            <a href={whatsappHref(member)} target="_blank" rel="noopener noreferrer" title="Message on WhatsApp">
+                              <Icon icon="ic:baseline-whatsapp" width={16} height={16} />
+                            </a>
+                          </Button>
+                        )}
                         {canEdit && (
                           <Button variant="outline" size="sm" onClick={() => openEdit(member)}>
                             <Icon icon="ic:outline-edit" width={16} height={16} />
@@ -323,6 +384,21 @@ export default function MembersPage() {
           </div>
         </div>
 
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-2xl bg-white dark:bg-darkgray p-3 shadow-xs text-center">
+            <p className="text-lg font-bold text-success">{dashboardSummary?.fee_paid_students ?? 0}</p>
+            <p className="text-[11px] text-darklink">Fee Paid</p>
+          </div>
+          <div className="rounded-2xl bg-white dark:bg-darkgray p-3 shadow-xs text-center">
+            <p className="text-lg font-bold text-warning">{dashboardSummary?.partial_fee_students ?? 0}</p>
+            <p className="text-[11px] text-darklink">Partial</p>
+          </div>
+          <div className="rounded-2xl bg-white dark:bg-darkgray p-3 shadow-xs text-center">
+            <p className="text-lg font-bold text-error">{dashboardSummary?.fee_pending_students ?? 0}</p>
+            <p className="text-[11px] text-darklink">Pending</p>
+          </div>
+        </div>
+
         {canAdd && (
           <Button onClick={openCreate} className="w-full flex items-center justify-center gap-1.5">
             <Icon icon="solar:add-circle-linear" width={18} height={18} />
@@ -364,11 +440,26 @@ export default function MembersPage() {
                     <Icon icon="solar:phone-linear" width={12} height={12} />
                     {member.phone}
                   </p>
+                  <p className={`text-xs flex items-center gap-1 mt-0.5 ${daysLeftLabel(member).className}`}>
+                    <Icon icon="solar:calendar-linear" width={12} height={12} />
+                    {daysLeftLabel(member).text}
+                  </p>
                 </div>
                 <div className="flex flex-col items-end gap-2 shrink-0">
                   <Badge variant="secondary" className={`border-none capitalize ${statusStyles[member.status]}`}>
                     {member.status}
                   </Badge>
+                  {whatsappHref(member) && (
+                    <a
+                      href={whatsappHref(member)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="Message on WhatsApp"
+                      className="h-7 w-7 flex items-center justify-center rounded-full text-success hover:bg-lightsuccess"
+                    >
+                      <Icon icon="ic:baseline-whatsapp" width={18} height={18} />
+                    </a>
+                  )}
                   {(canEdit || canDelete) && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

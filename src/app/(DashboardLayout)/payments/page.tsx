@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useEffect, useState, FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import BreadcrumbComp from "@/app/(DashboardLayout)/layout/shared/breadcrumb/BreadcrumbComp";
 import CardBox from "@/app/components/shared/CardBox";
 import {
@@ -46,7 +47,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { usePermissionGuard } from "@/hooks/usePermissionGuard";
 import type { Payment, PaymentMethod, PaymentStatus, Paginated } from "@/types";
 
-const BCrumb = [{ to: "/", title: "Home" }, { title: "Payments" }];
+const BCrumb = [{ to: "/", title: "Home" }, { title: "Students Fee" }];
 
 const methods: PaymentMethod[] = ["cash", "card", "upi", "bank_transfer", "razorpay", "stripe", "other"];
 const statuses: PaymentStatus[] = ["pending", "paid", "failed", "refunded"];
@@ -72,17 +73,29 @@ export default function PaymentsPage() {
   const { authorized } = usePermissionGuard("payments", "view");
   const canAdd = usePermission("payments", "add");
   const canEdit = usePermission("payments", "edit");
+  const searchParams = useSearchParams();
+  const [search, setSearch] = useState("");
+  const [memberIdFilter, setMemberIdFilter] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [methodFilter, setMethodFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
+  // Arrived via a member's "review" link from the Statements page (?member_id=...)
+  // — scope the list to that student instead of showing every payment.
+  useEffect(() => {
+    setMemberIdFilter(searchParams.get("member_id"));
+  }, [searchParams]);
+
   const { data: payments, isLoading: loading, error: loadError, mutate } = useApi<Paginated<Payment>>("/admin/payments", {
     page,
+    search: search || undefined,
+    member_id: memberIdFilter || undefined,
     status: statusFilter !== "all" ? statusFilter : undefined,
     payment_method: methodFilter !== "all" ? methodFilter : undefined,
   });
   const error = loadError ? "Unable to load payments." : null;
+  const filteredMemberName = memberIdFilter ? payments?.data.find((p) => String(p.member_id) === memberIdFilter)?.member?.name : null;
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Payment | null>(null);
@@ -154,13 +167,22 @@ export default function PaymentsPage() {
 
   return (
     <>
-      <BreadcrumbComp title="Payments" items={BCrumb} />
+      <BreadcrumbComp title="Students Fee" items={BCrumb} />
 
       {/* Desktop (xl and up) — unchanged */}
       <div className="hidden xl:block">
       <CardBox className="p-0 bg-background overflow-hidden border-none rounded-xl shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-4 p-6">
           <div className="flex flex-wrap gap-3">
+            <div className="relative w-full sm:w-64">
+              <Icon icon="solar:magnifer-linear" width={18} height={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-darklink" />
+              <Input
+                placeholder="Search by student, phone, invoice..."
+                className="pl-10"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              />
+            </div>
             <div className="w-full sm:w-44">
               <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
                 <SelectTrigger>
@@ -195,6 +217,17 @@ export default function PaymentsPage() {
             </Button>
           )}
         </div>
+
+        {memberIdFilter && (
+          <div className="px-6 pb-4">
+            <span className="inline-flex items-center gap-2 rounded-full bg-lightprimary px-3 py-1.5 text-xs font-medium text-primary">
+              Filtered for {filteredMemberName || `student #${memberIdFilter}`}
+              <button type="button" onClick={() => setMemberIdFilter(null)} aria-label="Clear filter">
+                <Icon icon="solar:close-circle-bold" width={16} height={16} />
+              </button>
+            </span>
+          </div>
+        )}
 
         {error && <p className="px-6 pb-4 text-sm text-error">{error}</p>}
 
@@ -251,7 +284,24 @@ export default function PaymentsPage() {
 
       {/* Mobile (below xl) — same card-list pattern as Members/Students */}
       <div className="xl:hidden flex flex-col gap-4">
-        <div className="flex justify-end">
+        {memberIdFilter && (
+          <span className="inline-flex w-fit items-center gap-2 rounded-full bg-lightprimary px-3 py-1.5 text-xs font-medium text-primary">
+            Filtered for {filteredMemberName || `student #${memberIdFilter}`}
+            <button type="button" onClick={() => setMemberIdFilter(null)} aria-label="Clear filter">
+              <Icon icon="solar:close-circle-bold" width={16} height={16} />
+            </button>
+          </span>
+        )}
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Icon icon="solar:magnifer-linear" width={18} height={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-darklink" />
+            <Input
+              placeholder="Search by student, phone, invoice..."
+              className="pl-10"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            />
+          </div>
           <button
             type="button"
             onClick={() => setMobileFiltersOpen((o) => !o)}

@@ -60,12 +60,14 @@ const emptyBulkForm = { hall_id: "", prefix: "", start: "1", end: "10", seat_typ
 export default function SeatsPage() {
   const toast = useToast();
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [hallFilter, setHallFilter] = useState<string>("all");
   const halls = useHallOptions();
 
   const { data: seatsData, isLoading: loading, error: loadError, mutate } = useApi<Seat[]>("/admin/seats", {
     status: statusFilter !== "all" ? statusFilter : undefined,
   });
-  const seats = seatsData ?? [];
+  const allSeats = seatsData ?? [];
+  const seats = hallFilter === "all" ? allSeats : allSeats.filter((s) => String(s.hall_id ?? "") === hallFilter);
   const error = loadError ? "Unable to load seats." : null;
   const { limit: seatLimit, used: seatsUsed, exceeded: seatLimitExceeded, refresh: refreshSeatLimit } = usePlanLimit("seats");
 
@@ -224,6 +226,35 @@ export default function SeatsPage() {
         )}
 
         {error && <p className="px-6 pb-4 text-sm text-error">{error}</p>}
+
+        {halls.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 px-6 pb-4">
+            <button
+              type="button"
+              onClick={() => setHallFilter("all")}
+              className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                hallFilter === "all" ? "bg-primary text-white" : "bg-gray-100 dark:bg-darkgray text-link dark:text-darklink hover:bg-lightprimary hover:text-primary"
+              }`}
+            >
+              All ({allSeats.length})
+            </button>
+            {halls.map((hall) => {
+              const count = allSeats.filter((s) => s.hall_id === hall.id).length;
+              return (
+                <button
+                  key={hall.id}
+                  type="button"
+                  onClick={() => setHallFilter(String(hall.id))}
+                  className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    hallFilter === String(hall.id) ? "bg-primary text-white" : "bg-gray-100 dark:bg-darkgray text-link dark:text-darklink hover:bg-lightprimary hover:text-primary"
+                  }`}
+                >
+                  {hall.name} ({count})
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-4 px-6 pb-4 text-xs">
           {seatStatuses.map((s) => (
