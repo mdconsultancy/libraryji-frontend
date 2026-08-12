@@ -1,6 +1,6 @@
 // Thin fetch wrapper around the Laravel API (JWT access/refresh bearer auth).
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api').replace(/\/+$/, '')
 const STORAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '')
 const ACCESS_TOKEN_KEY = 'libraryji_access_token'
 const REFRESH_TOKEN_KEY = 'libraryji_refresh_token'
