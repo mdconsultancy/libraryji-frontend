@@ -2,21 +2,35 @@
 
 import { useState, useEffect } from 'react'
 import { useTheme } from 'next-themes'
+import { useRouter } from 'next/navigation'
 import { Icon } from '@iconify/react'
+import Link from 'next/link'
 import Profile from './Profile'
 import Notifications from './Notifications'
 import MobileHeader from './MobileHeader'
 import SidebarLayout from '../sidebar/Sidebar'
 import FullLogo from '../shared/logo/FullLogo'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+import { useAuth } from '@/context/AuthContext'
 
 const Header = () => {
   const { theme, setTheme } = useTheme()
+  const { user } = useAuth()
+  const router = useRouter()
+  const showVenueMenu = user?.role === 'admin' || user?.role === 'staff'
   const [isSticky, setIsSticky] = useState(false)
   const [mobileMenu, setMobileMenu] = useState('')
   const [isOpen, setIsOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const runSearch = () => {
+    const q = searchQuery.trim()
+    if (!q) return
+    router.push(`/members?search=${encodeURIComponent(q)}`)
+  }
 
   useEffect(() => {
     const handleScroll = () => {
@@ -54,7 +68,7 @@ const Header = () => {
             <div className='flex items-center gap-2'>
               {/* Search Icon */}
 
-              <div className='relative'>
+              <div className='relative w-80 2xl:w-96'>
                 <Icon
                   icon='solar:magnifer-linear'
                   width={18}
@@ -63,10 +77,34 @@ const Header = () => {
                 />
                 <Input
                   type='text'
-                  placeholder='Search...'
-                  className='rounded-xl pl-10'
+                  placeholder='Search students by name, phone, code...'
+                  className='rounded-xl pl-10 w-full'
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && runSearch()}
                 />
               </div>
+
+              {showVenueMenu && (
+                <div className='flex items-center gap-2'>
+                  <Link href='/seats'>
+                    <Button
+                      variant='outline'
+                      size='sm'
+                      className='rounded-xl flex items-center gap-1.5 bg-lightprimary text-primary border-primary/40 hover:bg-lightprimary'
+                    >
+                      <Icon icon='solar:armchair-2-line-duotone' width={18} height={18} />
+                      Manage Seats
+                    </Button>
+                  </Link>
+                  <Link href='/halls'>
+                    <Button variant='outline' size='sm' className='rounded-xl flex items-center gap-1.5'>
+                      <Icon icon='solar:buildings-2-line-duotone' width={18} height={18} />
+                      Manage Halls
+                    </Button>
+                  </Link>
+                </div>
+              )}
             </div>
             <div className='flex w-full justify-end items-end'>
               <div className='flex gap-0 items-center '>
