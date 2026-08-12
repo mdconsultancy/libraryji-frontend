@@ -64,12 +64,19 @@ const SidebarContent: MenuItem[] = [
         permissionModule: 'members',
       },
       {
-        name: 'Payments',
+        name: 'Students Fee',
         icon: 'solar:bill-check-line-duotone',
         id: uniqueId(),
         url: '/payments',
         roles: ['admin', 'staff'],
         permissionModule: 'payments',
+      },
+      {
+        name: 'Statements',
+        icon: 'solar:wallet-money-line-duotone',
+        id: uniqueId(),
+        url: '/expenses',
+        roles: ['admin', 'staff'],
       },
       {
         name: 'Waiting List',
@@ -88,34 +95,11 @@ const SidebarContent: MenuItem[] = [
         permissionModule: 'members',
       },
       {
-        name: 'Library Info',
-        icon: 'solar:buildings-3-line-duotone',
-        id: uniqueId(),
-        url: '/settings',
-        roles: ['admin', 'staff'],
-        permissionModule: 'library',
-      },
-      {
         name: 'More',
         icon: 'solar:widget-5-line-duotone',
         id: uniqueId(),
         roles: ['admin', 'staff'],
         children: [
-          {
-            name: 'Seats',
-            icon: 'solar:armchair-2-line-duotone',
-            id: uniqueId(),
-            url: '/seats',
-            roles: ['admin', 'staff'],
-          },
-          {
-            name: 'Halls',
-            icon: 'solar:home-2-line-duotone',
-            id: uniqueId(),
-            url: '/halls',
-            roles: ['admin', 'staff'],
-            permissionModule: 'halls',
-          },
           {
             name: 'Shifts',
             icon: 'solar:clock-circle-line-duotone',
@@ -131,13 +115,6 @@ const SidebarContent: MenuItem[] = [
             id: uniqueId(),
             url: '/membership-plans',
             roles: ['staff'],
-          },
-          {
-            name: 'Expenses',
-            icon: 'solar:wallet-money-line-duotone',
-            id: uniqueId(),
-            url: '/expenses',
-            roles: ['admin', 'staff'],
           },
           {
             name: 'Staff',
