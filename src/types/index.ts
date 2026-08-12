@@ -223,6 +223,8 @@ export interface MemberSubscription {
   member_id: number
   membership_plan_id: number | null
   duration_months: number | null
+  duration_unit: 'day' | 'month' | 'custom' | null
+  duration_days: number | null
   seat_id: number | null
   shift_id: number | null
   plan_name_snapshot: string
@@ -234,6 +236,11 @@ export interface MemberSubscription {
   plan?: MembershipPlan
   seat?: Seat
   shift?: Shift
+  payments?: Payment[]
+  paid_amount?: number
+  due_amount?: number
+  fee_status?: 'paid' | 'partial' | 'pending'
+  days_left?: number | null
   created_at?: string
 }
 
@@ -310,6 +317,10 @@ export interface DashboardSummary {
   revenue_last_month: number
   cash_this_month: number
   online_this_month: number
+  rotation_seats: number
+  fee_paid_students: number
+  partial_fee_students: number
+  fee_pending_students: number
 }
 
 export type RecentActivityType = 'member_joined' | 'payment_received' | 'attendance_check_in'
