@@ -12,10 +12,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { Icon } from "@iconify/react";
 import { useAuth } from "@/context/AuthContext";
+import { usePermission } from "@/hooks/usePermission";
 
 const Profile = () => {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const canViewLibrary = usePermission("library", "view");
+  const showLibraryInfo = (user?.role === "admin" || user?.role === "staff") && canViewLibrary;
 
   const handleLogout = async () => {
     await logout();
@@ -54,6 +57,18 @@ const Profile = () => {
               My Profile
             </Link>
           </DropdownMenuItem>
+
+          {showLibraryInfo && (
+            <DropdownMenuItem asChild>
+              <Link
+                href="/settings"
+                className="px-3 py-2 flex items-center w-full gap-3 text-darkLink hover:bg-lightprimary hover:text-primary"
+              >
+                <Icon icon="solar:buildings-3-outline" height={20} />
+                Library Info
+              </Link>
+            </DropdownMenuItem>
+          )}
 
           <div className="p-3 pt-0">
             <Button
