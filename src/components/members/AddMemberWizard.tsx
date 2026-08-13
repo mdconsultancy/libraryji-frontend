@@ -49,7 +49,10 @@ const DURATION_UNITS: { label: string; value: DurationUnit; icon: string }[] = [
   { label: "Custom Date", value: "custom", icon: "solar:calendar-mark-linear" },
 ];
 
-const PAYMENT_METHODS: { label: string; value: PaymentMethod }[] = [
+type PaymentTypeChoice = PaymentMethod | "pending";
+
+const PAYMENT_METHODS: { label: string; value: PaymentTypeChoice }[] = [
+  { label: "Pending / Pay Later", value: "pending" },
   { label: "Cash", value: "cash" },
   { label: "Card", value: "card" },
   { label: "UPI", value: "upi" },
@@ -101,7 +104,7 @@ const freshMembership = () => ({
   durationCount: "1",
   end_date: addMonthsIso(todayIso(), 1),
   amount: "",
-  payment_type: "" as PaymentMethod | "",
+  payment_type: "" as PaymentTypeChoice | "",
   seat_id: null as number | null,
 });
 
@@ -394,7 +397,7 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
         start_date: membership.start_date,
         end_date: membership.end_date,
         amount: Number(membership.amount),
-        payment_type: membership.payment_type || undefined,
+        payment_type: membership.payment_type && membership.payment_type !== "pending" ? membership.payment_type : undefined,
       };
 
       let member: Member;
@@ -600,7 +603,7 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
                   <Label>Payment Type *</Label>
                   <Select
                     value={membership.payment_type}
-                    onValueChange={(v) => setMembership((m) => ({ ...m, payment_type: v as PaymentMethod }))}
+                    onValueChange={(v) => setMembership((m) => ({ ...m, payment_type: v as PaymentTypeChoice }))}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="— Select payment type —" />

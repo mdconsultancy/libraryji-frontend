@@ -25,8 +25,10 @@ export default function FileUploadField({
   id,
 }: FileUploadFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const acceptsImages = /image|\.(jpe?g|png|webp|svg)/i.test(accept);
 
   const fileName = value?.name || (existingUrl ? existingUrl.split("/").pop() : null);
   const isImage = value ? value.type.startsWith("image/") : IMAGE_EXT.test(existingUrl || "");
@@ -54,9 +56,8 @@ export default function FileUploadField({
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
-        onClick={() => inputRef.current?.click()}
-        className={`flex items-center gap-3 rounded-md border-2 border-dashed p-3 cursor-pointer transition-colors ${
-          dragging ? "border-primary bg-lightprimary" : "border-border hover:border-primary/50"
+        className={`flex items-center gap-3 rounded-md border-2 border-dashed p-3 transition-colors ${
+          dragging ? "border-primary bg-lightprimary" : "border-border"
         }`}
       >
         {previewUrl && isImage ? (
@@ -69,9 +70,29 @@ export default function FileUploadField({
           {fileName ? (
             <p className="text-sm truncate">{fileName}</p>
           ) : (
-            <p className="text-xs text-gray-500">
-              Drag & drop a file, or <span className="text-primary font-medium">click to upload</span>
-            </p>
+            <div className="flex items-center gap-3">
+              {acceptsImages && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => cameraInputRef.current?.click()}
+                    className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  >
+                    <Icon icon="tabler:camera" width={15} height={15} />
+                    Take photo
+                  </button>
+                  <span className="text-xs text-gray-300">|</span>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+              >
+                <Icon icon="tabler:upload" width={15} height={15} />
+                Choose file
+              </button>
+            </div>
           )}
           {uploading && <p className="text-xs text-primary mt-0.5">Uploading...</p>}
         </div>
@@ -97,6 +118,20 @@ export default function FileUploadField({
             e.target.value = "";
           }}
         />
+        {acceptsImages && (
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) validateAndSet(file);
+              e.target.value = "";
+            }}
+          />
+        )}
       </div>
       {error && <p className="text-xs text-error mt-1">{error}</p>}
     </div>
