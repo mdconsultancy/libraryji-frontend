@@ -27,10 +27,14 @@ interface RegisterPayload {
   password_confirmation: string
 }
 
+type LoginResult = { twoFactorRequired: false; user: User } | { twoFactorRequired: true; userId: number }
+
 interface AuthContextValue {
   user: User | null
   loading: boolean
-  login: (payload: LoginPayload) => Promise<User>
+  login: (payload: LoginPayload) => Promise<LoginResult>
+  verifyTwoFactor: (userId: number, code: string) => Promise<User>
+  resendTwoFactor: (userId: number) => Promise<void>
   register: (payload: RegisterPayload) => Promise<User>
   logout: () => Promise<void>
   refreshMe: () => Promise<void>
@@ -66,13 +70,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const login = useCallback(async (payload: LoginPayload) => {
+  const login = useCallback(async (payload: LoginPayload): Promise<LoginResult> => {
     // Every user belongs to exactly one Library, so the backend always
     // resolves it on login — there's no "pick a library" step here.
-    const { user, ...tokens } = await api.post<{ user: User } & TokenPair>('/auth/login', payload)
+    const response = await api.post<
+      ({ user: User } & TokenPair) | { two_factor_required: true; user_id: number }
+    >('/auth/login', payload)
+
+    if ('two_factor_required' in response) {
+      return { twoFactorRequired: true, userId: response.user_id }
+    }
+
+    const { user, ...tokens } = response
+    setTokens(tokens)
+    setUser(user)
+    return { twoFactorRequired: false, user }
+  }, [])
+
+  const verifyTwoFactor = useCallback(async (userId: number, code: string) => {
+    const { user, ...tokens } = await api.post<{ user: User } & TokenPair>('/auth/2fa/verify', {
+      user_id: userId,
+      code,
+    })
     setTokens(tokens)
     setUser(user)
     return user
+  }, [])
+
+  const resendTwoFactor = useCallback(async (userId: number) => {
+    await api.post('/auth/2fa/resend', { user_id: userId })
   }, [])
 
   const register = useCallback(async (payload: RegisterPayload) => {
@@ -98,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshMe }}>
+    <AuthContext.Provider value={{ user, loading, login, verifyTwoFactor, resendTwoFactor, register, logout, refreshMe }}>
       {children}
     </AuthContext.Provider>
   )

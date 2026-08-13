@@ -101,6 +101,14 @@ const SidebarContent: MenuItem[] = [
         roles: ['admin', 'staff'],
         children: [
           {
+            name: 'Attendance',
+            icon: 'solar:clipboard-check-line-duotone',
+            id: uniqueId(),
+            url: '/attendance',
+            roles: ['admin', 'staff'],
+            permissionModule: 'members',
+          },
+          {
             name: 'Shifts',
             icon: 'solar:clock-circle-line-duotone',
             id: uniqueId(),

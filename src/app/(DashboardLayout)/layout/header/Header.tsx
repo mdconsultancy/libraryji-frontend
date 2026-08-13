@@ -7,6 +7,7 @@ import { Icon } from '@iconify/react'
 import Link from 'next/link'
 import Profile from './Profile'
 import Notifications from './Notifications'
+import PlanStatusBadge from './PlanStatusBadge'
 import MobileHeader from './MobileHeader'
 import SidebarLayout from '../sidebar/Sidebar'
 import FullLogo from '../shared/logo/FullLogo'
@@ -130,6 +131,10 @@ const Header = () => {
                     {/* Chat */}
                     <Notifications />
                   </div>
+                </div>
+
+                <div className='mr-2'>
+                  <PlanStatusBadge />
                 </div>
 
                 {/* Profile Dropdown */}

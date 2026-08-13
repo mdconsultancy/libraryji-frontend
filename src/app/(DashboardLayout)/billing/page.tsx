@@ -16,7 +16,10 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@iconify/react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { getPlanStatus } from "@/lib/planStatus";
 import type { Tenant, TenantSubscription, TenantSubscriptionStatus } from "@/types";
+
+const isTestingRow = (sub: TenantSubscription) => sub.status === "trialing" || sub.payment_gateway === "trial";
 
 const BCrumb = [{ to: "/", title: "Home" }, { title: "Subscription & Billing" }];
 
@@ -46,6 +49,7 @@ export default function BillingPage() {
   }, []);
 
   const active = tenant?.active_subscription;
+  const planStatus = getPlanStatus(tenant);
 
   return (
     <>
@@ -60,13 +64,30 @@ export default function BillingPage() {
           <CardBox className="p-6 bg-background border-none rounded-xl shadow-xs">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <h5 className="card-title mb-2">Current Plan</h5>
+                <div className="flex items-center gap-2 mb-2">
+                  <h5 className="card-title">Current Plan</h5>
+                  {planStatus && (
+                    <Badge
+                      variant="secondary"
+                      className={`border-none ${planStatus.isTrial || planStatus.expired ? "bg-lighterror text-error" : "bg-lightsuccess text-success"}`}
+                    >
+                      {planStatus.isTrial ? "Trial (testing)" : "Active — Paid Plan"}
+                    </Badge>
+                  )}
+                </div>
                 {active ? (
                   <>
                     <p className="text-xl font-semibold">{active.plan?.name}</p>
                     <p className="text-sm text-gray-500 mt-1">
-                      ₹{Number(active.amount).toLocaleString()} · renews {active.ends_at ? new Date(active.ends_at).toLocaleDateString() : "—"}
+                      {isTestingRow(active) ? "Testing — no payment charged" : `₹${Number(active.amount).toLocaleString()} paid`}
+                      {" · renews "}
+                      {active.ends_at ? new Date(active.ends_at).toLocaleDateString() : "—"}
                     </p>
+                    {planStatus && (
+                      <p className={`text-sm font-medium mt-1 ${planStatus.isTrial || planStatus.expired ? "text-error" : "text-success"}`}>
+                        {planStatus.label}
+                      </p>
+                    )}
                   </>
                 ) : (
                   <p className="text-sm text-gray-500">No active subscription.</p>
@@ -119,7 +140,13 @@ export default function BillingPage() {
                       <TableRow key={sub.id}>
                         <TableCell className="ps-6 font-medium">{sub.invoice_number || "—"}</TableCell>
                         <TableCell>{sub.plan?.name || "—"}</TableCell>
-                        <TableCell>₹{Number(sub.amount).toLocaleString()}</TableCell>
+                        <TableCell>
+                          {isTestingRow(sub) ? (
+                            <span className="text-warning font-medium">Testing</span>
+                          ) : (
+                            <span>₹{Number(sub.amount).toLocaleString()} paid</span>
+                          )}
+                        </TableCell>
                         <TableCell>{sub.gateway_reference || "—"}</TableCell>
                         <TableCell>{new Date(sub.starts_at).toLocaleDateString()}</TableCell>
                         <TableCell>{sub.ends_at ? new Date(sub.ends_at).toLocaleDateString() : "—"}</TableCell>
@@ -149,7 +176,10 @@ export default function BillingPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-dark dark:text-white truncate">{sub.plan?.name || sub.invoice_number || "—"}</p>
-                    <p className="text-xs text-darklink truncate">₹{Number(sub.amount).toLocaleString()} · {new Date(sub.starts_at).toLocaleDateString()} – {sub.ends_at ? new Date(sub.ends_at).toLocaleDateString() : "—"}</p>
+                    <p className="text-xs text-darklink truncate">
+                      {isTestingRow(sub) ? <span className="text-warning font-medium">Testing</span> : `₹${Number(sub.amount).toLocaleString()} paid`}
+                      {" · "}{new Date(sub.starts_at).toLocaleDateString()} – {sub.ends_at ? new Date(sub.ends_at).toLocaleDateString() : "—"}
+                    </p>
                   </div>
                   <Badge variant="secondary" className={`border-none capitalize shrink-0 ${statusStyles[sub.status]}`}>
                     {sub.status.replace('_', ' ')}

@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import PasswordInput from "@/components/form/PasswordInput";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -49,8 +50,33 @@ const statusStyles: Record<TenantStatus, string> = {
   cancelled: "bg-lightsecondary text-secondary",
 };
 
-const emptyCreateForm = { library_name: "", admin_name: "", email: "", phone: "", password: "", subscription_plan_id: "" };
-const emptyEditForm = { name: "", email: "", phone: "", timezone: "", status: "active" as TenantStatus };
+const emptyCreateForm = {
+  library_name: "",
+  admin_name: "",
+  email: "",
+  phone: "",
+  password: "",
+  subscription_plan_id: "",
+  status: "active" as TenantStatus,
+  trial_days: "14",
+};
+const emptyEditForm = { name: "", email: "", phone: "", timezone: "", status: "active" as TenantStatus, trial_ends_at: "" };
+
+function addDays(days: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+function formatDate(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function daysUntil(date: string): number {
+  const ms = new Date(date).getTime() - Date.now();
+  return Math.ceil(ms / (1000 * 60 * 60 * 24));
+}
 
 export default function TenantsPage() {
   const toast = useToast();
@@ -100,6 +126,8 @@ export default function TenantsPage() {
         phone: createForm.phone || undefined,
         password: createForm.password,
         subscription_plan_id: createForm.subscription_plan_id ? Number(createForm.subscription_plan_id) : undefined,
+        status: createForm.status,
+        trial_days: createForm.status === "trial" ? Number(createForm.trial_days) || 14 : undefined,
       });
       setCreateOpen(false);
       mutate();
@@ -112,7 +140,14 @@ export default function TenantsPage() {
 
   const openEdit = (tenant: Tenant) => {
     setEditing(tenant);
-    setEditForm({ name: tenant.name, email: tenant.email, phone: tenant.phone || "", timezone: tenant.timezone || "", status: tenant.status });
+    setEditForm({
+      name: tenant.name,
+      email: tenant.email,
+      phone: tenant.phone || "",
+      timezone: tenant.timezone || "",
+      status: tenant.status,
+      trial_ends_at: tenant.trial_ends_at ? tenant.trial_ends_at.slice(0, 10) : "",
+    });
     setEditErrors({});
   };
 
@@ -122,7 +157,10 @@ export default function TenantsPage() {
     setSaving(true);
     setEditErrors({});
     try {
-      await api.put(`/super-admin/tenants/${editing.id}`, editForm);
+      await api.put(`/super-admin/tenants/${editing.id}`, {
+        ...editForm,
+        trial_ends_at: editForm.status === "trial" ? editForm.trial_ends_at || undefined : undefined,
+      });
       setEditing(null);
       mutate();
     } catch (err) {
@@ -332,7 +370,7 @@ export default function TenantsPage() {
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} required />
+              <PasswordInput id="password" value={createForm.password} onChange={(v) => setCreateForm({ ...createForm, password: v })} autoComplete="new-password" required />
               {fieldError(createErrors, "password") && <p className="text-xs text-error">{fieldError(createErrors, "password")}</p>}
             </div>
             <div className="flex flex-col gap-2">
@@ -349,6 +387,37 @@ export default function TenantsPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex flex-col gap-2">
+              <Label>Status</Label>
+              <Select value={createForm.status} onValueChange={(v) => setCreateForm({ ...createForm, status: v as TenantStatus })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="trial">Trial</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {createForm.status === "trial" && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="trial_days">Trial length (days)</Label>
+                <Input
+                  id="trial_days"
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={createForm.trial_days}
+                  onChange={(e) => setCreateForm({ ...createForm, trial_days: e.target.value })}
+                />
+                <p className="text-xs text-darklink">
+                  {Number(createForm.trial_days) > 0
+                    ? `Starts today, expires on ${formatDate(addDays(Number(createForm.trial_days)))}.`
+                    : "Enter how many days the trial should run."}
+                </p>
+              </div>
+            )}
 
             <DialogFooter className="lg:col-span-2 flex gap-2 mt-4">
               <Button type="submit" className="rounded-md" disabled={saving}>
@@ -400,6 +469,29 @@ export default function TenantsPage() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {editForm.status === "trial" && (
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="edit_trial_ends_at">Trial ends on</Label>
+                  <Input
+                    id="edit_trial_ends_at"
+                    type="date"
+                    value={editForm.trial_ends_at}
+                    onChange={(e) => setEditForm({ ...editForm, trial_ends_at: e.target.value })}
+                  />
+                  {editForm.trial_ends_at && (
+                    <p className="text-xs text-darklink">
+                      {(() => {
+                        const days = daysUntil(editForm.trial_ends_at);
+                        return days >= 0
+                          ? `${days} day${days === 1 ? "" : "s"} left — expires on ${formatDate(editForm.trial_ends_at)}. The library locks until renewed once this passes.`
+                          : `Expired ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} ago on ${formatDate(editForm.trial_ends_at)} — the library is locked until renewed.`;
+                      })()}
+                    </p>
+                  )}
+                  {fieldError(editErrors, "trial_ends_at") && <p className="text-xs text-error">{fieldError(editErrors, "trial_ends_at")}</p>}
+                </div>
+              )}
 
               <DialogFooter className="flex gap-2 mt-4">
                 <Button type="submit" className="rounded-md" disabled={saving}>

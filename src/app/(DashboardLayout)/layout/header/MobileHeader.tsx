@@ -5,6 +5,7 @@ import { Icon } from '@iconify/react'
 import Link from 'next/link'
 import Profile from './Profile'
 import Notifications from './Notifications'
+import PlanStatusBadge from './PlanStatusBadge'
 import FullLogo from '../shared/logo/FullLogo'
 import {
   DropdownMenu,
@@ -86,6 +87,7 @@ const MobileHeader = ({ onMenuClick }: { onMenuClick: () => void }) => {
             )}
           </button>
           <Notifications />
+          <PlanStatusBadge />
           <Profile />
         </div>
       </div>

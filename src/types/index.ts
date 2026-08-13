@@ -249,10 +249,29 @@ export interface Attendance {
   tenant_id: number
   member_id: number
   date: string
-  check_in: string
+  check_in: string | null
   check_out: string | null
   method: AttendanceMethod
+  status: 'present' | 'absent'
   member?: Member
+}
+
+export interface AttendanceRosterMember {
+  id: number
+  name: string
+  member_code: string
+  email: string | null
+  phone: string | null
+  photo_url: string | null
+  status: 'present' | 'absent' | null
+}
+
+export interface AttendanceRoster {
+  date: string
+  members: AttendanceRosterMember[]
+  present_count: number
+  absent_count: number
+  unmarked_count: number
 }
 
 export interface Payment {

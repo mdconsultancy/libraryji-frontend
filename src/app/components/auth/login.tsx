@@ -14,7 +14,7 @@ import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
 
 export const Login = () => {
-  const { login } = useAuth()
+  const { login, verifyTwoFactor, resendTwoFactor } = useAuth()
   const router = useRouter()
   const [loginType, setLoginType] = useState<'admin' | 'staff'>('admin')
   const [libraryCode, setLibraryCode] = useState('')
@@ -25,14 +25,26 @@ export const Login = () => {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(false)
 
+  // Set once login() comes back with two_factor_required — switches the form
+  // over to the OTP step instead of navigating home.
+  const [pendingUserId, setPendingUserId] = useState<number | null>(null)
+  const [otp, setOtp] = useState('')
+  const [otpError, setOtpError] = useState<string | null>(null)
+  const [verifying, setVerifying] = useState(false)
+  const [resending, setResending] = useState(false)
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
     setFieldErrors({})
     setLoading(true)
     try {
-      await login({ library_code: loginType === 'staff' ? libraryCode : undefined, email, password })
-      router.push('/')
+      const result = await login({ library_code: loginType === 'staff' ? libraryCode : undefined, email, password })
+      if (result.twoFactorRequired) {
+        setPendingUserId(result.userId)
+      } else {
+        router.push('/')
+      }
     } catch (err) {
       if (err instanceof ApiError) {
         setFieldErrors(err.errors || {})
@@ -43,6 +55,100 @@ export const Login = () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleVerifyOtp = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!pendingUserId) return
+    setOtpError(null)
+    setVerifying(true)
+    try {
+      await verifyTwoFactor(pendingUserId, otp)
+      router.push('/')
+    } catch (err) {
+      setOtpError(err instanceof ApiError ? err.message : 'Unable to verify that code. Please try again.')
+    } finally {
+      setVerifying(false)
+    }
+  }
+
+  const handleResendOtp = async () => {
+    if (!pendingUserId) return
+    setResending(true)
+    setOtpError(null)
+    try {
+      await resendTwoFactor(pendingUserId)
+    } catch {
+      setOtpError('Unable to resend the code. Please try again.')
+    } finally {
+      setResending(false)
+    }
+  }
+
+  if (pendingUserId) {
+    return (
+      <div className='min-h-screen w-full flex justify-center items-center bg-lightprimary px-3'>
+        <div className='w-full max-w-[450px] mx-auto'>
+          <CardBox className='p-4 sm:p-6'>
+            <form onSubmit={handleVerifyOtp}>
+              <div className='flex justify-center mb-4'>
+                <FullLogo />
+              </div>
+              <p className='text-sm text-charcoal text-center mb-1'>Two-factor verification</p>
+              <p className='text-xs text-darklink text-center mb-6'>
+                We&apos;ve emailed a 6-digit code to {email}. Enter it below to finish signing in.
+              </p>
+
+              {otpError && (
+                <div className='mb-4 rounded-md bg-lighterror px-3 py-2 text-sm text-error'>{otpError}</div>
+              )}
+
+              <div className='mb-4'>
+                <Input
+                  id='otp'
+                  type='text'
+                  inputMode='numeric'
+                  placeholder='6-digit code'
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className='text-center tracking-[0.5em] text-lg'
+                  maxLength={6}
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <Button className='w-full' type='submit' disabled={verifying || otp.length !== 6}>
+                {verifying ? 'Verifying...' : 'Verify & Sign In'}
+              </Button>
+
+              <div className='flex items-center justify-center gap-2 mt-6'>
+                <button
+                  type='button'
+                  onClick={handleResendOtp}
+                  disabled={resending}
+                  className='text-sm font-medium text-primary hover:text-primaryemphasis disabled:opacity-50'
+                >
+                  {resending ? 'Resending...' : 'Resend code'}
+                </button>
+                <span className='text-darklink'>·</span>
+                <button
+                  type='button'
+                  onClick={() => {
+                    setPendingUserId(null)
+                    setOtp('')
+                    setOtpError(null)
+                  }}
+                  className='text-sm font-medium text-link dark:text-darklink hover:text-primary'
+                >
+                  Back to sign in
+                </button>
+              </div>
+            </form>
+          </CardBox>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -135,6 +241,11 @@ export const Login = () => {
                     Remember this device
                   </Label>
                 </div>
+                <Link
+                  href='/auth/forgot-password'
+                  className='text-sm font-medium text-primary hover:text-primaryemphasis'>
+                  Forgot password?
+                </Link>
               </div>
               <Button className='w-full' type='submit' disabled={loading}>
                 {loading ? 'Signing in...' : 'Sign In'}

@@ -19,6 +19,7 @@ const Profile = () => {
   const router = useRouter();
   const canViewLibrary = usePermission("library", "view");
   const showLibraryInfo = (user?.role === "admin" || user?.role === "staff") && canViewLibrary;
+  const showSubscription = user?.role === "admin" || user?.role === "staff";
 
   const handleLogout = async () => {
     await logout();
@@ -57,6 +58,18 @@ const Profile = () => {
               My Profile
             </Link>
           </DropdownMenuItem>
+
+          {showSubscription && (
+            <DropdownMenuItem asChild>
+              <Link
+                href="/billing"
+                className="px-3 py-2 flex items-center w-full gap-3 text-darkLink hover:bg-lightprimary hover:text-primary"
+              >
+                <Icon icon="solar:card-outline" height={20} />
+                My Subscription
+              </Link>
+            </DropdownMenuItem>
+          )}
 
           {showLibraryInfo && (
             <DropdownMenuItem asChild>

@@ -86,8 +86,7 @@ function generatePassword(length = 12): string {
   return Array.from(values, (v) => chars[v % chars.length]).join("");
 }
 
-const emptyForm = (tenantId: number | null) => ({
-  tenant_id: tenantId ? String(tenantId) : "",
+const emptyForm = () => ({
   name: "",
   email: "",
   phone: "",
@@ -100,7 +99,6 @@ const emptyForm = (tenantId: number | null) => ({
 export default function StaffPage() {
   const { authorized } = useRoleGuard(["admin"]);
   const { user } = useAuth();
-  const libraries = user?.tenants ?? [];
   const toast = useToast();
   const [page, setPage] = useState(1);
 
@@ -110,7 +108,7 @@ export default function StaffPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [form, setForm] = useState(emptyForm(user?.current_tenant_id ?? null));
+  const [form, setForm] = useState(emptyForm());
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [saving, setSaving] = useState(false);
 
@@ -119,7 +117,7 @@ export default function StaffPage() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm(emptyForm(user?.current_tenant_id ?? null));
+    setForm(emptyForm());
     setFieldErrors({});
     setDialogOpen(true);
   };
@@ -134,7 +132,6 @@ export default function StaffPage() {
       // staff member — fetch the full detail so the matrix can be prefilled.
       const detail = await api.get<StaffDetail>(`/admin/staff/${member.id}`);
       setForm({
-        tenant_id: String(user?.current_tenant_id ?? ""),
         name: detail.name,
         email: detail.email || "",
         phone: detail.phone || "",
@@ -190,7 +187,8 @@ export default function StaffPage() {
         await api.put(`/admin/staff/${editing.id}`, payload);
         toast.success("Staff member updated.");
       } else {
-        payload.tenant_id = form.tenant_id ? Number(form.tenant_id) : undefined;
+        // No tenant_id here — a single admin/user only ever has one Library
+        // now, so the backend just defaults to the caller's current one.
         payload.password = form.password;
         await api.post("/admin/staff", payload);
         toast.success("Staff member added.");
@@ -281,14 +279,16 @@ export default function StaffPage() {
                         <Button variant="outline" size="sm" onClick={() => openEdit(member)}>
                           <Icon icon="ic:outline-edit" width={16} height={16} />
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-error hover:bg-error hover:text-white"
-                          onClick={() => setDeleteTarget(member)}
-                        >
-                          <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} />
-                        </Button>
+                        {member.role !== "admin" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-error hover:bg-error hover:text-white"
+                            onClick={() => setDeleteTarget(member)}
+                          >
+                            <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -359,10 +359,12 @@ export default function StaffPage() {
                         <Icon icon="ic:outline-edit" width={16} height={16} className="mr-2" />
                         Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setDeleteTarget(member)} className="text-error">
-                        <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} className="mr-2" />
-                        Delete
-                      </DropdownMenuItem>
+                      {member.role !== "admin" && (
+                        <DropdownMenuItem onClick={() => setDeleteTarget(member)} className="text-error">
+                          <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} className="mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -383,26 +385,6 @@ export default function StaffPage() {
             <p className="text-sm text-darklink py-6 text-center">Loading...</p>
           ) : (
             <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4">
-              {!editing && (
-                <div className="flex flex-col gap-2">
-                  <Label>Library *</Label>
-                  <Select
-                    value={form.tenant_id}
-                    onValueChange={(v) => setForm({ ...form, tenant_id: v })}
-                    disabled={libraries.length <= 1}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select library" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {libraries.map((lib) => (
-                        <SelectItem key={lib.id} value={String(lib.id)}>{lib.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {fieldError("tenant_id") && <p className="text-xs text-error">{fieldError("tenant_id")}</p>}
-                </div>
-              )}
               <div className="flex flex-col gap-2">
                 <Label htmlFor="name">Name *</Label>
                 <Input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
