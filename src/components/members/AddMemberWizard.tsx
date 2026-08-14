@@ -19,12 +19,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Icon } from "@iconify/react";
 import DatePicker from "@/components/form/DatePicker";
 import PhoneInput from "@/components/form/PhoneInput";
 import ImageUploadField from "@/components/form/ImageUploadField";
 import FileUploadField from "@/components/form/FileUploadField";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, invalidateMembers } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/context/ToastContext";
@@ -329,8 +330,17 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
   const selectedSeat = useMemo(() => seats?.find((s) => s.id === membership.seat_id), [seats, membership.seat_id]);
 
   const canGoStep2 = details.name.trim() !== "" && details.phone.trim() !== "";
+  // Amount is the subscription's total fee, independent of whether it's
+  // been collected yet — always required, "Pending" or not. Hiding it for
+  // Pending used to mean the fee was never actually recorded (silently
+  // saved as ₹0 on the backend), which broke the fee-status/amount shown
+  // everywhere downstream (member list, dashboard, statements).
   const canSubmit =
-    !!membership.start_date && !!membership.end_date && !!membership.payment_type && !!membership.amount && !!membership.seat_id;
+    !!membership.start_date &&
+    !!membership.end_date &&
+    !!membership.payment_type &&
+    !!membership.seat_id &&
+    !!membership.amount;
 
   const recomputeEndDate = (start: string, unit: DurationUnit, count: string) => {
     if (unit === "custom") return undefined;
@@ -418,6 +428,7 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
               ? `Student updated, but seat/membership update failed: ${subErr.message}`
               : "Student updated, but seat/membership update failed."
           );
+          invalidateMembers();
           onSaved();
           onClose();
           return;
@@ -434,6 +445,7 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
               : "Member created, but seat/membership setup failed."
           );
           if (prefill?.leadId) await markLeadConverted(prefill.leadId, member.id);
+          invalidateMembers();
           onSaved();
           onClose();
           return;
@@ -442,6 +454,7 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
         toast.success("Member added.");
       }
 
+      invalidateMembers();
       onSaved();
       onClose();
     } catch (err) {
@@ -461,9 +474,14 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         {loadingInitialData ? (
-          <div className="flex items-center justify-center py-16">
-            <Icon icon="svg-spinners:180-ring" width={32} height={32} className="text-primary" />
-          </div>
+          <>
+            <VisuallyHidden>
+              <DialogTitle>Edit Member</DialogTitle>
+            </VisuallyHidden>
+            <div className="flex items-center justify-center py-16">
+              <Icon icon="svg-spinners:180-ring" width={32} height={32} className="text-primary" />
+            </div>
+          </>
         ) : (
           <>
             <DialogHeader>
@@ -582,6 +600,10 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
                   </div>
                 </div>
 
+                {/* Total fee for this plan — always required, whether it's
+                    being paid now or is Pending, so the real amount is never
+                    lost. "Pending" below only controls whether a Payment
+                    record gets created right away; it isn't "amount owed". */}
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="w-fees">Fees Amount (₹) *</Label>
                   <div className="relative">

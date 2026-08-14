@@ -7,10 +7,11 @@ import Sidebar from './layout/sidebar/Sidebar'
 import MobileBottomNav from './layout/footer/MobileBottomNav'
 import FullLogo from './layout/shared/logo/FullLogo'
 import { useAuth } from '@/context/AuthContext'
-import { tenantNeedsPlan, tenantNeedsOnboarding } from '@/lib/tenant'
+import { tenantNeedsPlan, tenantNeedsOnboarding, tenantIsReadOnly } from '@/lib/tenant'
 import { PlanPicker } from '@/components/billing/PlanPicker'
 import OnboardingFlow from '@/components/onboarding/OnboardingFlow'
 import GlobalPreloader from '@/components/shared/GlobalPreloader'
+import ReadOnlyBanner from '@/components/shared/ReadOnlyBanner'
 
 // Routes any authenticated role may reach regardless of the super_admin/tenant split below.
 const SHARED_ROUTES = ['/user-profile']
@@ -24,6 +25,7 @@ export default function Layout({
   const router = useRouter()
   const pathname = usePathname()
   const needsPlan = user?.role !== 'super_admin' && tenantNeedsPlan(user?.current_tenant)
+  const readOnly = user?.role !== 'super_admin' && tenantIsReadOnly(user?.current_tenant)
   // Onboarding is admin-only (its API routes are role:admin-gated — a staff
   // member has no library-details/Halls/Seats access to complete it with),
   // and must be resolved before the plan gate below can ever be reached.
@@ -104,6 +106,7 @@ export default function Layout({
           <div className='body-wrapper w-full'>
             {/* Top Header  */}
             <Header />
+            {readOnly && <ReadOnlyBanner />}
             {/* Body Content  */}
             <div className="bg-lightgray dark:bg-dark mr-3 rounded-3xl min-h-[90vh]">
               <div className={`container mx-auto px-6 py-30 max-xl:pb-24`}>{children}</div>

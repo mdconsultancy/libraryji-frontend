@@ -22,7 +22,7 @@ import type { User } from "@/types";
 const UserProfile = () => {
     const { user, refreshMe } = useAuth();
     const [openModal, setOpenModal] = useState(false);
-    const [modalType, setModalType] = useState<"personal" | "password" | null>(null);
+    const [modalType, setModalType] = useState<"personal" | "password" | "payment" | null>(null);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [savingTwoFactor, setSavingTwoFactor] = useState(false);
@@ -56,6 +56,7 @@ const UserProfile = () => {
         password: "",
         password_confirmation: "",
     });
+    const [paymentForm, setPaymentForm] = useState({ upi_id: "", payment_number: "" });
 
     const openPersonalModal = () => {
         setPersonalForm({ name: user?.name || "", phone: user?.phone || "" });
@@ -71,6 +72,13 @@ const UserProfile = () => {
         setOpenModal(true);
     };
 
+    const openPaymentModal = () => {
+        setPaymentForm({ upi_id: user?.upi_id || "", payment_number: user?.payment_number || "" });
+        setModalType("payment");
+        setError(null);
+        setOpenModal(true);
+    };
+
     const handleSave = async () => {
         setSaving(true);
         setError(null);
@@ -79,6 +87,8 @@ const UserProfile = () => {
                 await api.put<{ user: User }>("/auth/profile", personalForm);
             } else if (modalType === "password") {
                 await api.put<{ user: User }>("/auth/profile", passwordForm);
+            } else if (modalType === "payment") {
+                await api.put<{ user: User }>("/auth/profile", paymentForm);
             }
             await refreshMe();
             setOpenModal(false);
@@ -144,6 +154,26 @@ const UserProfile = () => {
                             </Button>
                         </div>
 
+                        {user.role === "admin" && (
+                            <div className="rounded-lg border border-border dark:border-darkborder p-4 mt-2">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div>
+                                        <p className="font-medium text-sm">Payment Details</p>
+                                        <p className="text-xs text-gray-500 mt-0.5">
+                                            Shown in the WhatsApp fee-reminder message so students know where to pay.
+                                        </p>
+                                    </div>
+                                    <Button onClick={openPaymentModal} variant="outline" size="sm" className="flex items-center gap-1.5 rounded-md shrink-0">
+                                        <Icon icon="ic:outline-edit" width="16" height="16" /> Edit
+                                    </Button>
+                                </div>
+                                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                    <div><p className="text-xs text-gray-500">UPI ID</p><p>{user.upi_id || '—'}</p></div>
+                                    <div><p className="text-xs text-gray-500">Payment Number</p><p>{user.payment_number || '—'}</p></div>
+                                </div>
+                            </div>
+                        )}
+
                         {user.role === "super_admin" && (
                             <div className="flex items-center justify-between rounded-lg border border-border dark:border-darkborder p-4 mt-2">
                                 <div>
@@ -177,7 +207,11 @@ const UserProfile = () => {
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
                         <DialogTitle className="mb-4">
-                            {modalType === "personal" ? "Edit Personal Information" : "Change Password"}
+                            {modalType === "personal"
+                                ? "Edit Personal Information"
+                                : modalType === "payment"
+                                    ? "Edit Payment Details"
+                                    : "Change Password"}
                         </DialogTitle>
                     </DialogHeader>
 
@@ -203,6 +237,27 @@ const UserProfile = () => {
                                     placeholder="Phone"
                                     value={personalForm.phone}
                                     onChange={(e) => setPersonalForm({ ...personalForm, phone: e.target.value })}
+                                />
+                            </div>
+                        </div>
+                    ) : modalType === "payment" ? (
+                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                            <div className="flex flex-col gap-2">
+                                <Label htmlFor="upi_id">UPI ID</Label>
+                                <Input
+                                    id="upi_id"
+                                    placeholder="e.g. yourname@upi"
+                                    value={paymentForm.upi_id}
+                                    onChange={(e) => setPaymentForm({ ...paymentForm, upi_id: e.target.value })}
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <Label htmlFor="payment_number">Payment Number</Label>
+                                <Input
+                                    id="payment_number"
+                                    placeholder="e.g. 9876543210"
+                                    value={paymentForm.payment_number}
+                                    onChange={(e) => setPaymentForm({ ...paymentForm, payment_number: e.target.value })}
                                 />
                             </div>
                         </div>

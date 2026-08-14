@@ -14,9 +14,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@iconify/react";
-import Link from "next/link";
 import { api } from "@/lib/api";
 import { getPlanStatus } from "@/lib/planStatus";
+import { PlanPicker } from "@/components/billing/PlanPicker";
+import { usePlanCheckout } from "@/hooks/usePlanCheckout";
 import type { Tenant, TenantSubscription, TenantSubscriptionStatus } from "@/types";
 
 const isTestingRow = (sub: TenantSubscription) => sub.status === "trialing" || sub.payment_gateway === "trial";
@@ -37,19 +38,41 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    api
+  const loadBilling = () => {
+    return api
       .get<{ tenant: Tenant; subscriptions: TenantSubscription[] }>("/admin/billing")
       .then((data) => {
         setTenant(data.tenant);
         setSubscriptions(data.subscriptions);
       })
-      .catch(() => setError("Unable to load billing information."))
-      .finally(() => setLoading(false));
+      .catch(() => setError("Unable to load billing information."));
+  };
+
+  useEffect(() => {
+    loadBilling().finally(() => setLoading(false));
   }, []);
+
+  // After a plan is paid/activated, PlanPicker already refreshes the auth
+  // context (so the rest of the app sees the new plan) — this additionally
+  // re-fetches this page's own tenant/subscriptions so the "Current Plan"
+  // summary and Payment History table update immediately too.
+  const handleActivated = () => {
+    loadBilling();
+  };
+
+  const { pay: renewPlan, payingId: renewingId } = usePlanCheckout(handleActivated);
 
   const active = tenant?.active_subscription;
   const planStatus = getPlanStatus(tenant);
+
+  // Renewing while there's still plenty of time left on the current plan
+  // doesn't map to anything meaningful (it isn't "extend from ends_at",
+  // it's a brand-new subscription row) — so the button only goes live once
+  // the plan is within its last week, same window most subscription
+  // products use to nudge a renewal without allowing a confusing early one.
+  const RENEW_WINDOW_DAYS = 7;
+  const activeDaysLeft = active?.ends_at ? Math.ceil((new Date(active.ends_at).getTime() - Date.now()) / 86400000) : null;
+  const canRenewNow = activeDaysLeft === null || activeDaysLeft <= RENEW_WINDOW_DAYS;
 
   return (
     <>
@@ -99,17 +122,41 @@ export default function BillingPage() {
                     {active.status.replace('_', ' ')}
                   </Badge>
                 )}
-                <Button asChild variant="outline" className="flex items-center gap-1.5">
-                  <Link href="/select-plan">
-                    <Icon icon="tabler:refresh" width={16} height={16} />
-                    Change / Renew Plan
-                  </Link>
-                </Button>
+                {/* Trial rows have no real plan to re-charge for — renewing
+                    means picking an actual paid plan in the grid below. */}
+                {active?.plan && !isTestingRow(active) && (
+                  <div className="flex flex-col items-end gap-1">
+                    <Button
+                      size="sm"
+                      className="flex items-center gap-1.5"
+                      disabled={renewingId !== null || !canRenewNow}
+                      onClick={() => active.plan && renewPlan(active.plan)}
+                    >
+                      <Icon icon="tabler:refresh" width={16} height={16} />
+                      {renewingId === active.plan.id ? "Processing..." : "Renew"}
+                    </Button>
+                    {!canRenewNow && activeDaysLeft !== null && (
+                      <p className="text-xs text-gray-500 max-w-[180px] text-right">
+                        {activeDaysLeft} day{activeDaysLeft === 1 ? "" : "s"} left — renew opens up in the last {RENEW_WINDOW_DAYS} days.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
             <p className="text-xs text-gray-500 mt-4">
               Plan changes and renewals are handled through secure Razorpay checkout — subscriptions cannot be created manually.
             </p>
+          </CardBox>
+
+          <CardBox className="p-6 bg-background border-none rounded-xl shadow-xs">
+            <h5 className="card-title mb-1">Available Plans</h5>
+            <p className="text-sm text-gray-500 mb-6">
+              {planStatus?.expired
+                ? "Your plan has expired — pick a plan below to renew and reactivate instantly."
+                : "Upgrade anytime. Downgrading is locked while a higher plan is active."}
+            </p>
+            <PlanPicker isUpgrading onActivated={handleActivated} />
           </CardBox>
 
           {/* Desktop (xl and up) — unchanged */}
@@ -139,10 +186,13 @@ export default function BillingPage() {
                     subscriptions.map((sub) => (
                       <TableRow key={sub.id}>
                         <TableCell className="ps-6 font-medium">{sub.invoice_number || "—"}</TableCell>
-                        <TableCell>{sub.plan?.name || "—"}</TableCell>
+                        <TableCell>
+                          {sub.plan?.name || "—"}
+                          {isTestingRow(sub) && <span className="text-warning font-medium"> (Trial)</span>}
+                        </TableCell>
                         <TableCell>
                           {isTestingRow(sub) ? (
-                            <span className="text-warning font-medium">Testing</span>
+                            <span className="text-gray-400">—</span>
                           ) : (
                             <span>₹{Number(sub.amount).toLocaleString()} paid</span>
                           )}
@@ -175,9 +225,12 @@ export default function BillingPage() {
                     <Icon icon="solar:bill-list-bold-duotone" width={22} height={22} className="text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-dark dark:text-white truncate">{sub.plan?.name || sub.invoice_number || "—"}</p>
+                    <p className="font-semibold text-dark dark:text-white truncate">
+                      {sub.plan?.name || sub.invoice_number || "—"}
+                      {isTestingRow(sub) && <span className="text-warning font-medium"> (Trial)</span>}
+                    </p>
                     <p className="text-xs text-darklink truncate">
-                      {isTestingRow(sub) ? <span className="text-warning font-medium">Testing</span> : `₹${Number(sub.amount).toLocaleString()} paid`}
+                      {isTestingRow(sub) ? <span className="text-gray-400">—</span> : `₹${Number(sub.amount).toLocaleString()} paid`}
                       {" · "}{new Date(sub.starts_at).toLocaleDateString()} – {sub.ends_at ? new Date(sub.ends_at).toLocaleDateString() : "—"}
                     </p>
                   </div>

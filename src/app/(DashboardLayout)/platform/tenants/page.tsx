@@ -59,8 +59,9 @@ const emptyCreateForm = {
   subscription_plan_id: "",
   status: "active" as TenantStatus,
   trial_days: "14",
+  seat_limit: "",
 };
-const emptyEditForm = { name: "", email: "", phone: "", timezone: "", status: "active" as TenantStatus, trial_ends_at: "" };
+const emptyEditForm = { name: "", email: "", phone: "", timezone: "", status: "active" as TenantStatus, trial_ends_at: "", seat_limit: "" };
 
 function addDays(days: number): Date {
   const d = new Date();
@@ -128,6 +129,7 @@ export default function TenantsPage() {
         subscription_plan_id: createForm.subscription_plan_id ? Number(createForm.subscription_plan_id) : undefined,
         status: createForm.status,
         trial_days: createForm.status === "trial" ? Number(createForm.trial_days) || 14 : undefined,
+        seat_limit: createForm.seat_limit ? Number(createForm.seat_limit) : undefined,
       });
       setCreateOpen(false);
       mutate();
@@ -147,6 +149,7 @@ export default function TenantsPage() {
       timezone: tenant.timezone || "",
       status: tenant.status,
       trial_ends_at: tenant.trial_ends_at ? tenant.trial_ends_at.slice(0, 10) : "",
+      seat_limit: tenant.seat_limit != null ? String(tenant.seat_limit) : "",
     });
     setEditErrors({});
   };
@@ -160,6 +163,7 @@ export default function TenantsPage() {
       await api.put(`/super-admin/tenants/${editing.id}`, {
         ...editForm,
         trial_ends_at: editForm.status === "trial" ? editForm.trial_ends_at || undefined : undefined,
+        seat_limit: editForm.seat_limit ? Number(editForm.seat_limit) : undefined,
       });
       setEditing(null);
       mutate();
@@ -400,6 +404,19 @@ export default function TenantsPage() {
               </Select>
             </div>
 
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="seat_limit">Seats Allocated (optional)</Label>
+              <Input
+                id="seat_limit"
+                type="number"
+                min={1}
+                placeholder="Uses plan limit if left blank"
+                value={createForm.seat_limit}
+                onChange={(e) => setCreateForm({ ...createForm, seat_limit: e.target.value })}
+              />
+              {fieldError(createErrors, "seat_limit") && <p className="text-xs text-error">{fieldError(createErrors, "seat_limit")}</p>}
+            </div>
+
             {createForm.status === "trial" && (
               <div className="flex flex-col gap-2">
                 <Label htmlFor="trial_days">Trial length (days)</Label>
@@ -455,6 +472,18 @@ export default function TenantsPage() {
               <div className="flex flex-col gap-2">
                 <Label htmlFor="edit_timezone">Timezone</Label>
                 <Input id="edit_timezone" value={editForm.timezone} onChange={(e) => setEditForm({ ...editForm, timezone: e.target.value })} />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="edit_seat_limit">Seats Allocated (optional)</Label>
+                <Input
+                  id="edit_seat_limit"
+                  type="number"
+                  min={1}
+                  placeholder="Uses plan limit if left blank"
+                  value={editForm.seat_limit}
+                  onChange={(e) => setEditForm({ ...editForm, seat_limit: e.target.value })}
+                />
+                {fieldError(editErrors, "seat_limit") && <p className="text-xs text-error">{fieldError(editErrors, "seat_limit")}</p>}
               </div>
               <div className="flex flex-col gap-2">
                 <Label>Status</Label>

@@ -1,5 +1,7 @@
 // Thin fetch wrapper around the Laravel API (JWT access/refresh bearer auth).
 
+import { mutate as swrMutate } from 'swr'
+
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api').replace(/\/+$/, '')
 const STORAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '')
 const ACCESS_TOKEN_KEY = 'libraryji_access_token'
@@ -156,4 +158,53 @@ export const api = {
   put: <T>(path: string, body?: RequestOptions['body']) => request<T>(path, { method: 'PUT', body }),
   patch: <T>(path: string, body?: RequestOptions['body']) => request<T>(path, { method: 'PATCH', body }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+}
+
+/**
+ * Revalidates every cached dashboard-summary-ish SWR key so counts update
+ * immediately after a member/staff create-delete-restore, instead of only
+ * refreshing whichever list page triggered the change (dashboard stats are
+ * fetched under a separate SWR key and were going stale until the next
+ * full page load/manual refresh).
+ */
+export function invalidateDashboard() {
+  swrMutate((key) => typeof key === 'string' && key.includes('/dashboard'))
+}
+
+/**
+ * Revalidates every cached `/admin/members...` SWR key — the list, any
+ * open member's `/admin/members/{id}` detail (e.g. the View modal), and its
+ * `/history` — after a create/edit/delete. Without this, a page like the
+ * members list only refreshes its own list-query key; a detail view fetched
+ * under a different key (like the member id it's currently showing) keeps
+ * serving stale cached data until something else happens to revalidate it.
+ */
+export function invalidateMembers() {
+  swrMutate((key) => typeof key === 'string' && key.includes('/admin/members'))
+}
+
+/**
+ * Downloads a file (PDF/Excel export) from an authenticated endpoint and
+ * saves it via a throwaway <a download> link — plain <a href> can't carry
+ * the Bearer token, so the file has to be fetched as a blob first.
+ */
+export async function downloadFile(path: string, params: RequestOptions['params'], filename: string): Promise<void> {
+  const token = getToken()
+  const headers: Record<string, string> = {}
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  const response = await fetch(buildUrl(path, params), { headers })
+  if (!response.ok) {
+    throw new ApiError(`Download failed with status ${response.status}`, response.status)
+  }
+
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
 }

@@ -7,22 +7,29 @@
   font-size: x-small;
 }
 
+/* The sidebar itself is now a solid --color-primary background (see
+   Sidebar.tsx), not the light/white sidebar this package was designed
+   for — the light-tinted hover/open colors below (--color-lightprimary bg +
+   --color-primary text) used to wash out to near-invisible against that
+   same-hue dark background, which is what made hovering/opening a submenu
+   look like it "disappeared". Swapped for translucent-white-on-dark,
+   matching the rest of the sidebar's hover treatment. */
 [data-slot='collapsible'] [data-state="open"] button:hover,
 [data-slot='collapsible'] button:hover {
-  background-color: var(--color-lightprimary) !important;
-  color: var(--color-primary) !important;
+  background-color: rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
 }
 
 [data-slot='collapsible'] [data-state="open"] button {
-  background-color: var(--color-lightprimary) !important;
-  color: var(--color-primary) !important;
+  background-color: rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
 }
 
 [data-slot="sidebar"] [data-state="open"] button {
-  background-color: var(--color-lightprimary) !important;
-  color: var(--color-primary) !important;
+  background-color: rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
 }
 
 [data-slot="sidebar-menu-button"] .side_sub:hover {
-  color: var(--color-primary) !important;
+  color: #ffffff !important;
 }

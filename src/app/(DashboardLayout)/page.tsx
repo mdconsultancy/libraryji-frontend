@@ -7,6 +7,7 @@ import NewCustomers from "../components/dashboard/NewCustomers";
 import TotalIncome from "../components/dashboard/TotalIncome";
 import ProductRevenue from "../components/dashboard/ProductRevenue";
 import DailyActivity from "../components/dashboard/DailyActivity";
+import InquiryCard from "../components/dashboard/InquiryCard";
 import StaffOverview from "../components/dashboard/StaffOverview";
 import RecentActivities from "../components/dashboard/RecentActivities";
 import MobileGreeting from "../components/dashboard/mobile/MobileGreeting";
@@ -58,6 +59,15 @@ const Page = () => {
         <div className="col-span-12">
           {summary && <MobileStatsGrid summary={summary} gridClassName="grid-cols-4" />}
         </div>
+        {/* Expiring-soon memberships + Inquiries surfaced right under the
+            stats grid — these need same-day action, so they shouldn't sit
+            below the fold behind revenue charts. */}
+        <div className="lg:col-span-8 col-span-12">
+          <DailyActivity subscriptions={expiring ?? []} />
+        </div>
+        <div className="lg:col-span-4 col-span-12">
+          <InquiryCard summary={summary ?? null} />
+        </div>
         <div className="lg:col-span-8 col-span-12">
           <RevenueForecast data={revenueChart ?? []} months={revenueMonths} onMonthsChange={setRevenueMonths} />
         </div>
@@ -75,13 +85,10 @@ const Page = () => {
           <ProductRevenue members={recentMembers ?? []} />
         </div>
         <div className="lg:col-span-4 col-span-12">
-          <DailyActivity subscriptions={expiring ?? []} />
-        </div>
-        <div className="lg:col-span-8 col-span-12">
-          <RecentActivities activity={activity ?? []} />
-        </div>
-        <div className="lg:col-span-4 col-span-12">
           <StaffOverview summary={summary ?? null} />
+        </div>
+        <div className="col-span-12">
+          <RecentActivities activity={activity ?? []} />
         </div>
         <div className="col-span-12 text-center">
           <p className="text-base">
@@ -100,6 +107,8 @@ const Page = () => {
       {/* Mobile (below xl) — separate layout, same underlying data */}
       <div className="xl:hidden flex flex-col gap-4">
         {summary && <MobileStatsGrid summary={summary} />}
+        <DailyActivity subscriptions={expiring ?? []} />
+        <InquiryCard summary={summary ?? null} />
         <MobileRecentActivity activity={activity ?? []} loading={loadingActivity} />
         <p className="text-sm text-center py-2">
           Design and Developed by{" "}

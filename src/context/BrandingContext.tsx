@@ -22,6 +22,11 @@ interface BrandingContextValue {
   isLoading: boolean
 }
 
+/** Only accept values that are safe to write straight into a CSS custom
+ *  property (hex/rgb/hsl/named colors) — guards against a stray value in
+ *  Platform Settings breaking the stylesheet for every tenant. */
+const isSafeCssColor = (value: string) => /^[#a-zA-Z0-9(),.%\s-]{1,64}$/.test(value)
+
 const defaults: BrandingContextValue = {
   siteName: 'LibraryJi',
   logoUrl: null,
@@ -73,6 +78,20 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     link.removeAttribute('type')
     link.href = value.faviconUrl
   }, [value.faviconUrl])
+
+  // Push the tenant's configured brand colors onto the CSS custom properties
+  // that drive --color-primary/--color-secondary (and everything derived
+  // from them, e.g. sidebar bg, buttons, lightprimary) — see
+  // frontend/src/app/css/theme/default-colors.css.
+  useEffect(() => {
+    const root = document.documentElement
+    if (data?.primary_color && isSafeCssColor(data.primary_color)) {
+      root.style.setProperty('--color-primary', data.primary_color)
+    }
+    if (data?.secondary_color && isSafeCssColor(data.secondary_color)) {
+      root.style.setProperty('--color-secondary', data.secondary_color)
+    }
+  }, [data?.primary_color, data?.secondary_color])
 
   return <BrandingContext.Provider value={value}>{children}</BrandingContext.Provider>
 }

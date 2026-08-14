@@ -129,7 +129,12 @@ export default function PlatformSubscriptionPlansPage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await api.delete(`/super-admin/subscription-plans/${deleteTarget.id}`);
+      const res = await api.delete<{ message: string; deactivated?: boolean }>(`/super-admin/subscription-plans/${deleteTarget.id}`);
+      if (res.deactivated) {
+        toast.info(res.message);
+      } else {
+        toast.success(res.message);
+      }
       setDeleteTarget(null);
       mutate();
     } catch (err) {

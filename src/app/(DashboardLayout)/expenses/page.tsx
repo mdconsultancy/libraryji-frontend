@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Icon } from "@iconify/react";
 import DeleteConfirmDialog from "@/components/shared/DeleteConfirmDialog";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, downloadFile } from "@/lib/api";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/context/ToastContext";
 import type { Expense, Payment, Paginated } from "@/types";
@@ -76,6 +76,23 @@ export default function StatementsPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const [downloading, setDownloading] = useState<"pdf" | "xlsx" | null>(null);
+
+  const handleDownload = async (format: "pdf" | "xlsx") => {
+    setDownloading(format);
+    try {
+      await downloadFile(
+        "/admin/statement/export",
+        { from, to, format },
+        `income-expense-statement-${from}-to-${to}.${format}`
+      );
+    } catch {
+      toast.error("Unable to download the statement. Please try again.");
+    } finally {
+      setDownloading(null);
+    }
+  };
 
   const openCreate = () => {
     setEditing(null);
@@ -157,6 +174,16 @@ export default function StatementsPage() {
           <Button type="button" variant="outline" onClick={resetToThisMonth}>
             This Month
           </Button>
+          <div className="flex gap-2 ms-auto">
+            <Button type="button" variant="outline" disabled={downloading === "pdf"} onClick={() => handleDownload("pdf")}>
+              <Icon icon="solar:file-text-linear" width={16} height={16} className="mr-1.5" />
+              {downloading === "pdf" ? "Downloading..." : "PDF"}
+            </Button>
+            <Button type="button" variant="outline" disabled={downloading === "xlsx"} onClick={() => handleDownload("xlsx")}>
+              <Icon icon="solar:file-download-linear" width={16} height={16} className="mr-1.5" />
+              {downloading === "xlsx" ? "Downloading..." : "Excel"}
+            </Button>
+          </div>
         </div>
       </CardBox>
 
@@ -337,6 +364,7 @@ export default function StatementsPage() {
         onCancel={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
       />
+
     </>
   );
 }

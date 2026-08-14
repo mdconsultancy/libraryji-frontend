@@ -70,7 +70,7 @@ const renderSidebarItems = (
         <div className='mb-1' key={item.heading}>
           <AMMenu
             subHeading={item.heading}
-            ClassName={`hide-menu leading-21 text-charcoal font-bold uppercase text-xs dark:text-darkcharcoal`}
+            ClassName={`hide-menu leading-21 text-white/70 font-bold uppercase text-xs`}
           />
         </div>
       )
@@ -83,7 +83,14 @@ const renderSidebarItems = (
           key={item.id}
           icon={iconElement}
           title={item.name}
-          ClassName={`mt-1.5 text-link dark:text-darklink`}>
+          // Hover/open colors are handled globally in css/layouts/sidebar.css
+          // (`[data-slot='collapsible'] button` rules) — NOT here, because
+          // this ClassName prop is applied to the *entire* submenu block
+          // (header + expanded items), not just the toggle button, so any
+          // `hover:` utility on it lights up the whole block together
+          // instead of just the row the mouse is actually over.
+          ClassName={`mt-1.5 text-white!`}
+          openClassName="text-white!">
           {renderSidebarItems(item.children, currentPath, onClose, true)}
         </AMSubmenu>
       )
@@ -93,9 +100,9 @@ const renderSidebarItems = (
     const linkTarget = item.url?.startsWith('https') ? '_blank' : '_self'
 
     const itemClassNames = isSubItem
-      ? `mt-1.5 text-link dark:text-darklink !hover:bg-transparent ${isSelected ? '!bg-transparent !text-primary' : ''
+      ? `mt-1.5 text-white !hover:bg-white/10 ${isSelected ? '!bg-white !text-black' : ''
       } !px-1.5 `
-      : `hover:bg-lightprimary! hover:text-primary! mt-1.5 text-link dark:text-darklink ${isSelected ? '!bg-lightprimary !text-primary !hover-bg-lightprimary' : ' '}`
+      : `hover:bg-white/10! hover:text-white! mt-1.5 text-white ${isSelected ? '!bg-white !text-black !hover-bg-white' : ' '}`
 
     return (
       <div onClick={onClose} key={index}>
@@ -142,10 +149,19 @@ const SidebarLayout = ({ onClose }: { onClose?: () => void }) => {
       width={'270px'}
       showTrigger={false}
       mode={sidebarMode}
-      className='fixed left-0 top-0 border-none bg-background z-10 h-screen'>
-      {/* Logo — from Admin Settings -> Theme via FullLogo/BrandingContext, same as every other panel. */}
-      <div className='px-4 flex items-center brand-logo overflow-hidden'>
-        <FullLogo />
+      // Library defaults (themeColor #5d87ff, textColor #2b2b2b) assume a
+      // light sidebar — ours is dark (bg-primary), so an open submenu's own
+      // background and the closed-state text color need to track our actual
+      // theme instead, or they render mismatched/near-invisible.
+      themeColor='var(--color-primary)'
+      textColor='#ffffff'
+      className='fixed left-0 top-0 border-none bg-primary z-10 h-screen'>
+      {/* Logo — from Admin Settings -> Theme via FullLogo/BrandingContext, same as every other panel.
+          Wrapped in a light chip so a dark-text logo stays legible on the blue sidebar bg. */}
+      <div className='px-4 py-2 flex items-center brand-logo overflow-hidden'>
+        <div className='bg-white rounded-md px-2 py-1.5 inline-flex'>
+          <FullLogo />
+        </div>
       </div>
 
       {/* Sidebar items */}

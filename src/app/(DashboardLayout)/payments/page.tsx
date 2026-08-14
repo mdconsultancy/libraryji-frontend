@@ -235,7 +235,7 @@ export default function PaymentsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="ps-6">Invoice</TableHead>
+                <TableHead className="ps-6">Seat / Invoice</TableHead>
                 <TableHead>Member</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Method</TableHead>
@@ -254,7 +254,11 @@ export default function PaymentsPage() {
               ) : (
                 payments?.data.map((payment) => (
                   <TableRow key={payment.id}>
-                    <TableCell className="ps-6 font-medium">{payment.invoice_number}</TableCell>
+                    <TableCell className="ps-6 font-medium">
+                      {payment.subscription?.seat?.seat_number
+                        ? `Seat ${payment.subscription.seat.seat_number}`
+                        : payment.invoice_number}
+                    </TableCell>
                     <TableCell>{payment.member?.name || "—"}</TableCell>
                     <TableCell>₹{Number(payment.amount).toLocaleString()}</TableCell>
                     <TableCell className="capitalize">{payment.payment_method.replace('_', ' ')}</TableCell>

@@ -42,7 +42,7 @@ import TableSkeleton from "@/components/shared/TableSkeleton";
 import DeleteConfirmDialog from "@/components/shared/DeleteConfirmDialog";
 import PasswordInput from "@/components/form/PasswordInput";
 import PhoneInput from "@/components/form/PhoneInput";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, invalidateDashboard } from "@/lib/api";
 import { useApi } from "@/hooks/useApi";
 import { useRoleGuard } from "@/hooks/useRoleGuard";
 import { useAuth } from "@/context/AuthContext";
@@ -213,6 +213,7 @@ export default function StaffPage() {
       toast.success("Staff member removed.");
       setDeleteTarget(null);
       mutate();
+      invalidateDashboard();
     } catch (err) {
       if (err instanceof ApiError) toast.error(err.message);
     } finally {
@@ -420,18 +421,23 @@ export default function StaffPage() {
                 />
                 {fieldError("password") && <p className="text-xs text-error">{fieldError("password")}</p>}
               </div>
-              <div className="flex flex-col gap-2">
-                <Label>Role *</Label>
-                <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as "admin" | "staff" })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="staff">Staff</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Only editing an existing account can change its role — adding
+                  a new one here is always "add a Staff member", so there's
+                  nothing to pick (Admin accounts are created elsewhere). */}
+              {editing && (
+                <div className="flex flex-col gap-2">
+                  <Label>Role *</Label>
+                  <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as "admin" | "staff" })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="staff">Staff</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="flex flex-col gap-2">
                 <Label>Status</Label>
                 <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as "active" | "inactive" })}>

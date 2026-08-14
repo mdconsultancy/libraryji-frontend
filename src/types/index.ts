@@ -75,6 +75,7 @@ export interface Tenant {
   logo_path: string | null
   timezone: string
   status: TenantStatus
+  seat_limit?: number | null
   trial_ends_at: string | null
   onboarding_completed_at: string | null
   has_active_plan?: boolean
@@ -114,6 +115,9 @@ export interface User {
   email: string | null
   phone: string | null
   avatar_path: string | null
+  /** Admin's own UPI ID / payment contact number, surfaced in the WhatsApp fee-reminder template. */
+  upi_id?: string | null
+  payment_number?: string | null
   status: 'active' | 'inactive'
   two_factor_enabled: boolean
   last_login_at: string | null
@@ -200,6 +204,15 @@ export interface Member {
   payments?: Payment[]
   created_at?: string
   deleted_at?: string | null
+  last_updated_by?: string | null
+  last_updated_at?: string | null
+}
+
+export interface MemberHistoryEntry {
+  action: string
+  user_name: string
+  created_at: string
+  changes: Record<string, unknown> | null
 }
 
 export type LeadStatus = 'new' | 'contacted' | 'converted' | 'lost'
@@ -340,6 +353,8 @@ export interface DashboardSummary {
   fee_paid_students: number
   partial_fee_students: number
   fee_pending_students: number
+  total_inquiries: number
+  today_inquiries: number
 }
 
 export type RecentActivityType = 'member_joined' | 'payment_received' | 'attendance_check_in'

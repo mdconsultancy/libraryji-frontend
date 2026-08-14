@@ -8,17 +8,9 @@ import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/hooks/useApi";
-import { openRazorpayCheckout } from "@/lib/razorpay";
+import { usePlanCheckout } from "@/hooks/usePlanCheckout";
 import { normalizePlanFeatures } from "@/lib/planFeatures";
 import type { SubscriptionPlan } from "@/types";
-
-interface OrderResponse {
-  order_id: string;
-  amount: number;
-  currency: string;
-  key_id: string;
-  plan: SubscriptionPlan;
-}
 
 interface PlanPickerProps {
   /** Explicit opt-in upgrade (an already-active tenant hit a limit) vs. the forced "no active plan" gate. */
@@ -33,7 +25,7 @@ export function PlanPicker({ isUpgrading = false, onActivated, showLogout = fals
   const { user, refreshMe, logout } = useAuth();
   const toast = useToast();
   const router = useRouter();
-  const [payingId, setPayingId] = useState<number | null>(null);
+  const { pay: handlePay, payingId } = usePlanCheckout(onActivated);
   const [trialingId, setTrialingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { data: plansData, isLoading: loadingPlans } = useApi<SubscriptionPlan[]>("/plans");
@@ -43,6 +35,20 @@ export function PlanPicker({ isUpgrading = false, onActivated, showLogout = fals
   // lapses) — see PlanSelectionController::startTrial — so its presence is
   // exactly "has this tenant already had their one free month".
   const trialAvailable = !isUpgrading && !user?.current_tenant?.trial_ends_at;
+
+  // While a higher-priced plan is active, cheaper plans are locked — an
+  // active_subscription only exists while trialing/active (not once
+  // expired), so this naturally stops applying once the plan lapses and
+  // everything becomes pickable again for renewal.
+  const currentPlanPrice = isUpgrading ? Number(user?.current_tenant?.active_subscription?.plan?.price ?? 0) : 0;
+
+  // Same "renew only in the last week" window as the billing page's Current
+  // Plan card — renewing with weeks still left doesn't extend the existing
+  // plan, it just creates a confusing extra subscription row.
+  const RENEW_WINDOW_DAYS = 7;
+  const activeEndsAt = user?.current_tenant?.active_subscription?.ends_at;
+  const activeDaysLeft = activeEndsAt ? Math.ceil((new Date(activeEndsAt).getTime() - Date.now()) / 86400000) : null;
+  const canRenewNow = activeDaysLeft === null || activeDaysLeft <= RENEW_WINDOW_DAYS;
 
   const handleStartTrial = async (plan: SubscriptionPlan) => {
     setTrialingId(plan.id);
@@ -58,69 +64,6 @@ export function PlanPicker({ isUpgrading = false, onActivated, showLogout = fals
       toast.error(message);
     } finally {
       setTrialingId(null);
-    }
-  };
-
-  const handlePay = async (plan: SubscriptionPlan) => {
-    setPayingId(plan.id);
-    setError(null);
-    try {
-      const order = await api.post<OrderResponse>("/admin/select-plan/order", {
-        subscription_plan_id: plan.id,
-      });
-
-      await openRazorpayCheckout(
-        {
-          key: order.key_id,
-          amount: order.amount,
-          currency: order.currency,
-          order_id: order.order_id,
-          name: "LibraryJi",
-          description: `${plan.name} subscription`,
-          prefill: {
-            name: user?.name,
-            email: user?.email || undefined,
-            contact: user?.phone || undefined,
-          },
-          theme: { color: "#5D87FF" },
-          handler: async (response) => {
-            try {
-              const result = await api.post<{ tenant: { library_code: string | null } }>("/admin/select-plan/verify", {
-                subscription_plan_id: plan.id,
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-              });
-              await refreshMe();
-              const code = result.tenant?.library_code;
-              toast.success(
-                code
-                  ? `Payment successful! Your library is now active. Your Library Code is ${code} — you'll need it to log in.`
-                  : "Payment successful! Your library is now active."
-              );
-              onActivated?.();
-            } catch (err) {
-              setError(err instanceof ApiError ? err.message : "Payment verification failed.");
-              toast.error("We couldn't verify your payment. Please contact support if you were charged.");
-            } finally {
-              setPayingId(null);
-            }
-          },
-          modal: {
-            ondismiss: () => setPayingId(null),
-          },
-        },
-        (message) => {
-          setError(message);
-          toast.error(message);
-          setPayingId(null);
-        }
-      );
-    } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Unable to start payment. Please try again.";
-      setError(message);
-      toast.error(message);
-      setPayingId(null);
     }
   };
 
@@ -144,6 +87,7 @@ export function PlanPicker({ isUpgrading = false, onActivated, showLogout = fals
           {plans.map((plan) => {
             const features = normalizePlanFeatures(plan.features);
             const isCurrentPlan = isUpgrading && user?.current_tenant?.active_subscription?.subscription_plan_id === plan.id;
+            const isLockedDowngrade = !isCurrentPlan && currentPlanPrice > 0 && Number(plan.price) < currentPlanPrice;
             const busy = payingId !== null || trialingId !== null;
 
             return (
@@ -156,6 +100,12 @@ export function PlanPicker({ isUpgrading = false, onActivated, showLogout = fals
                 {isCurrentPlan && (
                   <span className="absolute top-4 right-4 text-[11px] font-semibold uppercase tracking-wide bg-lightprimary text-primary px-2.5 py-1 rounded-full">
                     Current Plan
+                  </span>
+                )}
+                {isLockedDowngrade && (
+                  <span className="absolute top-4 right-4 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide bg-lighterror text-error px-2.5 py-1 rounded-full">
+                    <Icon icon="solar:lock-linear" width={13} height={13} />
+                    Locked
                   </span>
                 )}
                 {trialAvailable && !isCurrentPlan && (
@@ -229,22 +179,39 @@ export function PlanPicker({ isUpgrading = false, onActivated, showLogout = fals
                       </Button>
                     </div>
                   ) : (
-                    <Button
-                      className="w-full flex items-center justify-center gap-1.5 mt-6"
-                      onClick={() => handlePay(plan)}
-                      disabled={busy || isCurrentPlan}
-                    >
-                      {isCurrentPlan ? (
-                        "Your Current Plan"
-                      ) : payingId === plan.id ? (
-                        "Processing..."
-                      ) : (
-                        <>
-                          <Icon icon="tabler:credit-card" width={18} height={18} />
-                          Pay & Activate
-                        </>
+                    <div className="mt-6">
+                      <Button
+                        className="w-full flex items-center justify-center gap-1.5"
+                        onClick={() => handlePay(plan)}
+                        disabled={busy || isLockedDowngrade || (isCurrentPlan && !canRenewNow)}
+                      >
+                        {isLockedDowngrade ? (
+                          "Downgrade Locked"
+                        ) : payingId === plan.id ? (
+                          "Processing..."
+                        ) : isCurrentPlan ? (
+                          <>
+                            <Icon icon="tabler:refresh" width={18} height={18} />
+                            Renew
+                          </>
+                        ) : (
+                          <>
+                            <Icon icon="tabler:credit-card" width={18} height={18} />
+                            Pay & Activate
+                          </>
+                        )}
+                      </Button>
+                      {isLockedDowngrade && (
+                        <p className="text-xs text-error text-center mt-2">
+                          Downgrade not allowed while a higher plan is active.
+                        </p>
                       )}
-                    </Button>
+                      {isCurrentPlan && !canRenewNow && activeDaysLeft !== null && (
+                        <p className="text-xs text-darklink text-center mt-2">
+                          {activeDaysLeft} day{activeDaysLeft === 1 ? "" : "s"} left — renew opens up in the last {RENEW_WINDOW_DAYS} days.
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

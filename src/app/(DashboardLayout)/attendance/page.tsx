@@ -8,11 +8,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Icon } from "@iconify/react";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, downloadFile } from "@/lib/api";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/context/ToastContext";
+import { useReadOnly } from "@/hooks/useReadOnly";
 import type { AttendanceRoster } from "@/types";
 
 const BCrumb = [{ to: "/", title: "Home" }, { title: "Attendance" }];
@@ -38,8 +42,28 @@ export default function AttendancePage() {
   const [marking, setMarking] = useState<"present" | "absent" | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("all");
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportFrom, setReportFrom] = useState(() => toDateString(new Date(new Date().setDate(new Date().getDate() - 30))));
+  const [reportTo, setReportTo] = useState(TODAY);
+  const [downloading, setDownloading] = useState<"pdf" | "xlsx" | null>(null);
 
-  const editable = selectedDate === TODAY;
+  const handleReportDownload = async (format: "pdf" | "xlsx") => {
+    setDownloading(format);
+    try {
+      await downloadFile(
+        "/admin/attendance/export",
+        { from: reportFrom, to: reportTo, format },
+        `attendance-report-${reportFrom}-to-${reportTo}.${format}`
+      );
+    } catch {
+      toast.error("Unable to download the attendance report. Please try again.");
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  const readOnly = useReadOnly();
+  const editable = selectedDate === TODAY && !readOnly;
 
   const { data: roster, isLoading, error: loadError, mutate } = useApi<AttendanceRoster>(
     "/admin/attendance/roster",
@@ -122,12 +146,18 @@ export default function AttendancePage() {
                 {editable ? "Today's Attendance" : `Attendance — ${new Date(selectedDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`}
               </h5>
             </div>
-            {!editable && (
-              <div className="flex items-center gap-1.5 text-xs font-medium text-warning bg-lightwarning rounded-md px-3 py-1.5">
-                <Icon icon="solar:eye-linear" width={14} height={14} />
-                Read-only — only today can be edited
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              {!editable && (
+                <div className="flex items-center gap-1.5 text-xs font-medium text-warning bg-lightwarning rounded-md px-3 py-1.5">
+                  <Icon icon="solar:eye-linear" width={14} height={14} />
+                  {readOnly ? "Read-only — renew your subscription to mark attendance" : "Read-only — only today can be edited"}
+                </div>
+              )}
+              <Button type="button" variant="outline" size="sm" onClick={() => setReportOpen(true)}>
+                <Icon icon="solar:document-text-linear" width={16} height={16} className="mr-1.5" />
+                Report
+              </Button>
+            </div>
           </div>
 
           {error && <p className="px-6 pb-4 text-sm text-error">{error}</p>}
@@ -271,6 +301,34 @@ export default function AttendancePage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Attendance Report</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="report_from">From</Label>
+              <Input id="report_from" type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} max={reportTo} />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="report_to">To</Label>
+              <Input id="report_to" type="date" value={reportTo} onChange={(e) => setReportTo(e.target.value)} min={reportFrom} max={TODAY} />
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2 mt-4">
+            <Button type="button" variant="outline" disabled={downloading === "pdf"} onClick={() => handleReportDownload("pdf")}>
+              <Icon icon="solar:file-text-linear" width={16} height={16} className="mr-1.5" />
+              {downloading === "pdf" ? "Downloading..." : "Download PDF"}
+            </Button>
+            <Button type="button" variant="outline" disabled={downloading === "xlsx"} onClick={() => handleReportDownload("xlsx")}>
+              <Icon icon="solar:file-download-linear" width={16} height={16} className="mr-1.5" />
+              {downloading === "xlsx" ? "Downloading..." : "Download Excel"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
