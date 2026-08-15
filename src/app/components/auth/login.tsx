@@ -4,6 +4,7 @@ import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import FullLogo from '@/app/(DashboardLayout)/layout/shared/logo/FullLogo'
 import CardBox from '../shared/CardBox'
+import PolicyLinks from '../shared/PolicyLinks'
 import Link from 'next/link'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -146,6 +147,7 @@ export const Login = () => {
               </div>
             </form>
           </CardBox>
+          <PolicyLinks />
         </div>
       </div>
     )
@@ -262,6 +264,7 @@ export const Login = () => {
               </div>
             </form>
           </CardBox>
+          <PolicyLinks />
         </div>
       </div>
     </>

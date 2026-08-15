@@ -4,6 +4,7 @@ import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import FullLogo from '@/app/(DashboardLayout)/layout/shared/logo/FullLogo'
 import CardBox from '../shared/CardBox'
+import PolicyLinks from '../shared/PolicyLinks'
 import Link from 'next/link'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -205,6 +206,7 @@ export const Register = () => {
               </div>
             </form>
           </CardBox>
+          <PolicyLinks />
         </div>
       </div>
     </>

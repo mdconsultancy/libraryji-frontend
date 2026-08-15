@@ -16,6 +16,7 @@ import MobileRecentActivity from "../components/dashboard/mobile/MobileRecentAct
 import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
 import DashboardSkeleton from "@/components/shared/DashboardSkeleton";
+import PolicyLinks from "@/app/components/shared/PolicyLinks";
 import { useAuth } from "@/context/AuthContext";
 import type { DashboardSummary, RevenueChartPoint, RecentActivityItem, Member } from "@/types";
 
@@ -93,6 +94,7 @@ const Page = () => {
               Hinguland Digital Marketing
             </Link>
           </p>
+          <PolicyLinks />
         </div>
       </div>
 
@@ -101,16 +103,19 @@ const Page = () => {
         {summary && <MobileStatsGrid summary={summary} />}
         <InquiryCard summary={summary ?? null} />
         <MobileRecentActivity activity={activity ?? []} loading={loadingActivity} />
-        <p className="text-sm text-center py-2">
-          Design and Developed by{" "}
-          <Link
-            href="https://hinguland.com/"
-            target="_blank"
-            className="pl-1 text-primary underline decoration-primary"
-          >
-            Hinguland Digital Marketing
-          </Link>
-        </p>
+        <div className="text-center py-2">
+          <p className="text-sm">
+            Design and Developed by{" "}
+            <Link
+              href="https://hinguland.com/"
+              target="_blank"
+              className="pl-1 text-primary underline decoration-primary"
+            >
+              Hinguland Digital Marketing
+            </Link>
+          </p>
+          <PolicyLinks />
+        </div>
       </div>
     </>
   );
