@@ -21,6 +21,10 @@ const blocks: LegalBlock[] = [
       "Email: libraryji54@gmail.com",
     ],
   },
+  {
+    type: "p",
+    text: "To request deletion of your personal data, contact us",
+  },
 ];
 
 export default function ContactUsPage() {
