@@ -7,7 +7,7 @@ const NewCustomers = ({ summary }: { summary: DashboardSummary | null }) => {
   const rate = summary?.occupancy_rate ?? 0;
 
   return (
-    <div className="bg-white dark:bg-darkgray rounded-xl shadow-xs p-8">
+    <div className="bg-lightsecondary/40 dark:bg-secondary/10 border border-secondary/30 rounded-xl shadow-xs p-8">
       <div className="flex items-center gap-4 mb-8">
         <div className="bg-lightsecondary text-secondary p-3 rounded-md">
           <Icon icon="tabler:armchair" height={24} />

@@ -67,7 +67,7 @@ const TotalIncome = ({
   };
 
   return (
-    <div className="bg-white dark:bg-darkgray rounded-xl shadow-xs p-8">
+    <div className="bg-lighterror/40 dark:bg-error/10 border border-error/30 rounded-xl shadow-xs p-8">
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
         <div className="bg-lighterror text-error p-3 rounded-md">

@@ -71,10 +71,10 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
       document.head.appendChild(link)
     }
 
-    // The static default is an SVG (type="image/svg+xml" is correct for it),
-    // but an uploaded favicon can be a jpg/png/ico — a mismatched `type`
-    // makes some browsers ignore the link entirely rather than fetch and
-    // sniff it. Drop the attribute so the browser figures it out itself.
+    // The static default is a PNG (type="image/png" is correct for it), but
+    // an uploaded favicon can be a jpg/png/ico — a mismatched `type` makes
+    // some browsers ignore the link entirely rather than fetch and sniff
+    // it. Drop the attribute so the browser figures it out itself.
     link.removeAttribute('type')
     link.href = value.faviconUrl
   }, [value.faviconUrl])

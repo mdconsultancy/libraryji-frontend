@@ -49,7 +49,7 @@ import type { Payment, PaymentMethod, PaymentStatus, Paginated } from "@/types";
 
 const BCrumb = [{ to: "/", title: "Home" }, { title: "Students Fee" }];
 
-const methods: PaymentMethod[] = ["cash", "card", "upi", "bank_transfer", "razorpay", "stripe", "other"];
+const methods: PaymentMethod[] = ["cash", "online", "offline", "upi"];
 const statuses: PaymentStatus[] = ["pending", "paid", "failed", "refunded"];
 
 const statusStyles: Record<PaymentStatus, string> = {

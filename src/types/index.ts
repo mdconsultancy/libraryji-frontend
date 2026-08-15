@@ -10,7 +10,7 @@ export type MemberGender = 'male' | 'female' | 'other'
 export type SubscriptionStatus = 'active' | 'expired' | 'cancelled'
 export type AttendanceMethod = 'manual' | 'qr' | 'self'
 export type PaymentType = 'subscription' | 'other'
-export type PaymentMethod = 'cash' | 'card' | 'upi' | 'bank_transfer' | 'razorpay' | 'stripe' | 'other'
+export type PaymentMethod = 'cash' | 'online' | 'offline' | 'upi'
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded'
 export type BillingCycle = 'monthly' | 'quarterly' | 'yearly'
 export type TenantSubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'cancelled' | 'expired'
@@ -27,7 +27,11 @@ export interface SubscriptionPlan {
   slug: string
   description: string | null
   price: string | number
+  /** Struck-through "was" price shown next to the real price — null means no discount badge. */
+  original_price: string | number | null
   billing_cycle: BillingCycle
+  /** Short ribbon text on the pricing card, e.g. "BEST VALUE". */
+  badge_text: string | null
   /** Seats, members & staff are unlimited on every plan; these are legacy columns kept for reference and are always null. */
   max_seats: number | null
   max_members: number | null
@@ -89,18 +93,22 @@ export interface Tenant {
   created_at?: string
 }
 
-export type PermissionModule = 'library' | 'halls' | 'members' | 'payments'
-export type PermissionAction = 'view' | 'add' | 'edit' | 'delete'
+export type PermissionModule = 'library' | 'halls' | 'members' | 'payments' | 'expenses' | 'statement' | 'attendance' | 'dashboard' | 'reports'
+export type PermissionAction = 'view' | 'add' | 'edit' | 'delete' | 'pdf_download' | 'excel_download' | 'download'
 
-/** One module's action flags. Every module shares the same shape so
- *  `permissions[module][action]` indexes cleanly — `library` just never
- *  populates `add`/`delete` in the UI (it's a single settings resource). */
-export type ModulePermissions = { view?: boolean; add?: boolean; edit?: boolean; delete?: boolean }
+/** Flat list of "module.action" keys a staff member has been granted — see
+ *  App\Support\Permissions on the backend, the single source of truth this
+ *  mirrors. Only ever meaningful for role=staff — admin/super_admin always
+ *  have full access regardless of what's stored here. */
+export type StaffPermissions = string[]
 
-/** Granular per-module permissions for a staff member on one Library. Only
- *  ever meaningful for role=staff — admin/super_admin always have full
- *  access regardless of what's stored here. */
-export type StaffPermissions = Partial<Record<PermissionModule, ModulePermissions>>
+/** One entry from `GET admin/permissions/definitions` — drives the Staff
+ *  permission panel so it never hardcodes the list of grantable keys. */
+export interface PermissionDefinition {
+  key: string
+  label: string
+  group: string
+}
 
 /** A Library this user has access to, with their role and (for staff) granular permissions in that specific Library. */
 export type TenantMembership = Tenant & { pivot: { role: 'admin' | 'staff'; permissions?: StaffPermissions | null } }
@@ -303,6 +311,10 @@ export interface Payment {
   member?: Member
   subscription?: MemberSubscription
   created_at?: string
+  created_by?: number | null
+  created_by_name?: string | null
+  created_by_role?: string | null
+  creator?: { id: number; name: string; role: string } | null
 }
 
 export interface Expense {
@@ -312,7 +324,12 @@ export interface Expense {
   title: string
   amount: string | number
   expense_date: string
+  payment_mode?: PaymentMethod
   notes: string | null
+  created_by?: number | null
+  created_by_name?: string | null
+  created_by_role?: string | null
+  creator?: { id: number; name: string; role: string } | null
 }
 
 export interface AuditLog {
@@ -369,6 +386,7 @@ export interface RecentActivityItem {
 export interface RevenueChartPoint {
   month: string
   revenue: number
+  expenses: number
 }
 
 export interface AttendanceChartPoint {

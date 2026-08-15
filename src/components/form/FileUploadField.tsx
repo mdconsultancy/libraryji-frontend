@@ -2,6 +2,7 @@
 
 import { useRef, useState, DragEvent } from "react";
 import { Icon } from "@iconify/react";
+import CameraCaptureModal from "./CameraCaptureModal";
 
 interface FileUploadFieldProps {
   value: File | null;
@@ -25,9 +26,9 @@ export default function FileUploadField({
   id,
 }: FileUploadFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const acceptsImages = /image|\.(jpe?g|png|webp|svg)/i.test(accept);
 
   const fileName = value?.name || (existingUrl ? existingUrl.split("/").pop() : null);
@@ -75,7 +76,7 @@ export default function FileUploadField({
                 <>
                   <button
                     type="button"
-                    onClick={() => cameraInputRef.current?.click()}
+                    onClick={() => setCameraOpen(true)}
                     className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                   >
                     <Icon icon="tabler:camera" width={15} height={15} />
@@ -118,22 +119,16 @@ export default function FileUploadField({
             e.target.value = "";
           }}
         />
-        {acceptsImages && (
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) validateAndSet(file);
-              e.target.value = "";
-            }}
-          />
-        )}
       </div>
       {error && <p className="text-xs text-error mt-1">{error}</p>}
+
+      {acceptsImages && (
+        <CameraCaptureModal
+          open={cameraOpen}
+          onClose={() => setCameraOpen(false)}
+          onCapture={(file) => validateAndSet(file)}
+        />
+      )}
     </div>
   );
 }

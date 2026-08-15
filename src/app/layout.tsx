@@ -41,7 +41,8 @@ export default function RootLayout({
     <html lang='en' suppressHydrationWarning>
       <head>
         {/* Single favicon link, id'd so BrandingContext can reliably find and update it. */}
-        <link id='app-favicon' rel='icon' href='/favicon.svg' type='image/svg+xml' />
+        <link id='app-favicon' rel='icon' href='/favicon.png' type='image/png' />
+        <link rel='apple-touch-icon' href='/apple-touch-icon.png' />
         {/* {typeof window !== 'undefined' && <ThemeModeScript />} */}
       </head>
       <body className={`${manrope.className}`}>

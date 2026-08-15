@@ -5,7 +5,7 @@ import type { DashboardSummary } from "@/types";
 
 const StaffOverview = ({ summary }: { summary: DashboardSummary | null }) => {
   return (
-    <div className="bg-white dark:bg-darkgray rounded-xl shadow-xs p-8">
+    <div className="bg-lightinfo/40 dark:bg-info/10 border border-info/30 rounded-xl shadow-xs p-8">
       <div className="flex items-center gap-4 mb-8">
         <div className="bg-lightprimary text-primary p-3 rounded-md">
           <Icon icon="solar:shield-user-outline" height={24} />

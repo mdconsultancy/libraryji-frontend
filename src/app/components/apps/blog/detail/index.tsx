@@ -72,7 +72,7 @@ const BlogDetailData = ({ slug }: BlogDetailDataProps) => {
               <div className="overflow-hidden max-h-[440px]">
                 <Image
                   src={post?.coverImg}
-                  alt="Matdash"
+                  alt="LibraryJi"
                   height={440}
                   width={1500}
                   className="w-full object-cover object-center"

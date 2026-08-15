@@ -21,20 +21,18 @@ interface PlanPickerProps {
   showLogout?: boolean;
 }
 
+const cycleLabel = (cycle: string) =>
+  cycle === "yearly" ? "1 year" : cycle === "quarterly" ? "3 months" : "1 month";
+
 export function PlanPicker({ isUpgrading = false, onActivated, showLogout = false }: PlanPickerProps) {
   const { user, refreshMe, logout } = useAuth();
   const toast = useToast();
   const router = useRouter();
   const { pay: handlePay, payingId } = usePlanCheckout(onActivated);
-  const [trialingId, setTrialingId] = useState<number | null>(null);
+  const [activatingId, setActivatingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { data: plansData, isLoading: loadingPlans } = useApi<SubscriptionPlan[]>("/plans");
   const plans = plansData ?? [];
-
-  // trial_ends_at is set the moment a trial is ever granted (even after it
-  // lapses) — see PlanSelectionController::startTrial — so its presence is
-  // exactly "has this tenant already had their one free month".
-  const trialAvailable = !isUpgrading && !user?.current_tenant?.trial_ends_at;
 
   // While a higher-priced plan is active, cheaper plans are locked — an
   // active_subscription only exists while trialing/active (not once
@@ -50,20 +48,23 @@ export function PlanPicker({ isUpgrading = false, onActivated, showLogout = fals
   const activeDaysLeft = activeEndsAt ? Math.ceil((new Date(activeEndsAt).getTime() - Date.now()) / 86400000) : null;
   const canRenewNow = activeDaysLeft === null || activeDaysLeft <= RENEW_WINDOW_DAYS;
 
-  const handleStartTrial = async (plan: SubscriptionPlan) => {
-    setTrialingId(plan.id);
+  // Free (₹0) plans activate directly for their own billing-cycle duration —
+  // no payment step, and not a one-time-ever freebie: any ₹0 plan can be
+  // (re)activated this way once the current period is over/about to end.
+  const handleActivateFree = async (plan: SubscriptionPlan) => {
+    setActivatingId(plan.id);
     setError(null);
     try {
       await api.post("/admin/select-plan/trial", { subscription_plan_id: plan.id });
       await refreshMe();
-      toast.success(`Your free month of ${plan.name} has started! No payment needed until it ends.`);
+      toast.success(`${plan.name} is now active for ${cycleLabel(plan.billing_cycle)} — completely free.`);
       onActivated?.();
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Unable to start your free trial. Please try again.";
+      const message = err instanceof ApiError ? err.message : "Unable to activate this plan. Please try again.";
       setError(message);
       toast.error(message);
     } finally {
-      setTrialingId(null);
+      setActivatingId(null);
     }
   };
 
@@ -88,7 +89,12 @@ export function PlanPicker({ isUpgrading = false, onActivated, showLogout = fals
             const features = normalizePlanFeatures(plan.features);
             const isCurrentPlan = isUpgrading && user?.current_tenant?.active_subscription?.subscription_plan_id === plan.id;
             const isLockedDowngrade = !isCurrentPlan && currentPlanPrice > 0 && Number(plan.price) < currentPlanPrice;
-            const busy = payingId !== null || trialingId !== null;
+            const busy = payingId !== null || activatingId !== null;
+            const isFree = Number(plan.price) === 0;
+            const originalPrice = plan.original_price ? Number(plan.original_price) : null;
+            const discountPct = originalPrice && originalPrice > Number(plan.price)
+              ? Math.round((1 - Number(plan.price) / originalPrice) * 100)
+              : null;
 
             return (
               <div
@@ -97,35 +103,38 @@ export function PlanPicker({ isUpgrading = false, onActivated, showLogout = fals
                   isCurrentPlan ? "border-primary ring-2 ring-primary/30" : "border-border dark:border-darkborder"
                 }`}
               >
-                {isCurrentPlan && (
+                {isCurrentPlan ? (
                   <span className="absolute top-4 right-4 text-[11px] font-semibold uppercase tracking-wide bg-lightprimary text-primary px-2.5 py-1 rounded-full">
                     Current Plan
                   </span>
-                )}
-                {isLockedDowngrade && (
+                ) : isLockedDowngrade ? (
                   <span className="absolute top-4 right-4 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide bg-lighterror text-error px-2.5 py-1 rounded-full">
                     <Icon icon="solar:lock-linear" width={13} height={13} />
                     Locked
                   </span>
-                )}
-                {trialAvailable && !isCurrentPlan && (
-                  <span className="absolute top-4 right-4 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide bg-lightsuccess text-success px-2.5 py-1 rounded-full">
-                    <Icon icon="solar:gift-bold" width={13} height={13} />
-                    First Month Free
+                ) : plan.badge_text ? (
+                  <span className="absolute top-4 right-4 text-[11px] font-semibold uppercase tracking-wide bg-lightwarning text-warning px-2.5 py-1 rounded-full">
+                    {plan.badge_text}
                   </span>
-                )}
+                ) : null}
 
                 <div className="p-6 pb-5 border-b border-border dark:border-darkborder">
                   <h5 className="text-lg font-bold text-dark dark:text-white">{plan.name}</h5>
                   {plan.description && <p className="text-sm text-darklink mt-1">{plan.description}</p>}
-                  <div className="flex items-baseline gap-1.5 mt-4">
+                  <div className="flex items-baseline gap-1.5 mt-4 flex-wrap">
+                    {originalPrice && originalPrice > Number(plan.price) && (
+                      <span className="text-base text-darklink line-through">₹{originalPrice.toLocaleString()}</span>
+                    )}
                     <span className="text-3xl font-extrabold text-dark dark:text-white">
                       ₹{Number(plan.price).toLocaleString()}
                     </span>
-                    <span className="text-sm text-darklink">/ {plan.billing_cycle}</span>
+                    <span className="text-sm text-darklink">/ {cycleLabel(plan.billing_cycle)}</span>
                   </div>
-                  {trialAvailable && !isCurrentPlan && (
-                    <p className="text-xs text-success font-medium mt-1.5">Free for your first month, then ₹{Number(plan.price).toLocaleString()}/{plan.billing_cycle}</p>
+                  {discountPct !== null && (
+                    <p className="text-xs text-success font-semibold mt-1.5">{discountPct}% OFF</p>
+                  )}
+                  {isFree && !isCurrentPlan && (
+                    <p className="text-xs text-success font-medium mt-1.5">Free for {cycleLabel(plan.billing_cycle)} — no payment needed</p>
                   )}
                 </div>
 
@@ -153,30 +162,32 @@ export function PlanPicker({ isUpgrading = false, onActivated, showLogout = fals
                     ))}
                   </ul>
 
-                  {trialAvailable && !isCurrentPlan ? (
-                    <div className="flex flex-col gap-2 mt-6">
+                  {isFree ? (
+                    <div className="mt-6">
                       <Button
                         className="w-full flex items-center justify-center gap-1.5 bg-success hover:bg-success/90"
-                        onClick={() => handleStartTrial(plan)}
-                        disabled={busy}
+                        onClick={() => handleActivateFree(plan)}
+                        disabled={busy || (isCurrentPlan && !canRenewNow)}
                       >
-                        {trialingId === plan.id ? (
-                          "Starting..."
+                        {activatingId === plan.id ? (
+                          "Activating..."
+                        ) : isCurrentPlan ? (
+                          <>
+                            <Icon icon="tabler:refresh" width={18} height={18} />
+                            Renew Free
+                          </>
                         ) : (
                           <>
                             <Icon icon="solar:gift-bold" width={18} height={18} />
-                            Start Free Trial
+                            Activate Free
                           </>
                         )}
                       </Button>
-                      <Button
-                        variant="outline"
-                        className="w-full flex items-center justify-center gap-1.5"
-                        onClick={() => handlePay(plan)}
-                        disabled={busy}
-                      >
-                        {payingId === plan.id ? "Processing..." : "Pay now instead"}
-                      </Button>
+                      {isCurrentPlan && !canRenewNow && activeDaysLeft !== null && (
+                        <p className="text-xs text-darklink text-center mt-2">
+                          {activeDaysLeft} day{activeDaysLeft === 1 ? "" : "s"} left — renew opens up in the last {RENEW_WINDOW_DAYS} days.
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div className="mt-6">

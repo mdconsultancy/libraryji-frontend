@@ -47,25 +47,11 @@ import { useApi } from "@/hooks/useApi";
 import { useRoleGuard } from "@/hooks/useRoleGuard";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
-import type { User, Paginated, StaffPermissions, PermissionModule } from "@/types";
+import type { User, Paginated, StaffPermissions, PermissionDefinition } from "@/types";
 
 const BCrumb = [{ to: "/", title: "Home" }, { title: "Staff" }];
 
 type StaffDetail = User & { permissions?: StaffPermissions | null };
-
-const emptyPermissions: Required<StaffPermissions> = {
-  library: { view: false, edit: false },
-  halls: { view: false, add: false, edit: false, delete: false },
-  members: { view: false, add: false, edit: false, delete: false },
-  payments: { view: false, add: false, edit: false, delete: false },
-};
-
-const PERMISSION_MODULES: { key: PermissionModule; label: string; actions: ("view" | "add" | "edit" | "delete")[] }[] = [
-  { key: "library", label: "Library", actions: ["view", "edit"] },
-  { key: "halls", label: "Hall", actions: ["view", "add", "edit", "delete"] },
-  { key: "members", label: "Members", actions: ["view", "add", "edit", "delete"] },
-  { key: "payments", label: "Payments", actions: ["view", "add", "edit", "delete"] },
-];
 
 const avatarPalette = [
   "bg-lightsuccess text-success",
@@ -93,7 +79,7 @@ const emptyForm = () => ({
   password: "",
   role: "staff" as "admin" | "staff",
   status: "active" as "active" | "inactive",
-  permissions: emptyPermissions,
+  permissions: [] as StaffPermissions,
 });
 
 export default function StaffPage() {
@@ -104,6 +90,15 @@ export default function StaffPage() {
 
   const { data: staff, isLoading: loading, error: loadError, mutate } = useApi<Paginated<User>>("/admin/staff", { page });
   const error = loadError ? "Unable to load staff." : null;
+
+  // Single source of truth for the grantable permission list — never
+  // hardcoded here, so a new key added to App\Support\Permissions on the
+  // backend shows up in this panel automatically.
+  const { data: permissionDefs } = useApi<PermissionDefinition[]>("/admin/permissions/definitions");
+  const permissionGroups = (permissionDefs ?? []).reduce<Record<string, PermissionDefinition[]>>((acc, def) => {
+    (acc[def.group] ??= []).push(def);
+    return acc;
+  }, {});
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
@@ -138,12 +133,7 @@ export default function StaffPage() {
         password: "",
         role: detail.role as "admin" | "staff",
         status: detail.status,
-        permissions: {
-          library: { ...emptyPermissions.library, ...detail.permissions?.library },
-          halls: { ...emptyPermissions.halls, ...detail.permissions?.halls },
-          members: { ...emptyPermissions.members, ...detail.permissions?.members },
-          payments: { ...emptyPermissions.payments, ...detail.permissions?.payments },
-        },
+        permissions: detail.permissions ?? [],
       });
     } catch {
       toast.error("Unable to load staff details.");
@@ -157,13 +147,12 @@ export default function StaffPage() {
     setForm((f) => ({ ...f, password: generatePassword() }));
   };
 
-  const togglePermission = (module: PermissionModule, action: "view" | "add" | "edit" | "delete") => {
+  const togglePermission = (key: string) => {
     setForm((f) => ({
       ...f,
-      permissions: {
-        ...f.permissions,
-        [module]: { ...f.permissions[module], [action]: !f.permissions[module]?.[action] },
-      },
+      permissions: f.permissions.includes(key)
+        ? f.permissions.filter((k) => k !== key)
+        : [...f.permissions, key],
     }));
   };
 
@@ -392,8 +381,8 @@ export default function StaffPage() {
                 {fieldError("name") && <p className="text-xs text-error">{fieldError("name")}</p>}
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="email">Email Address (optional)</Label>
-                <Input id="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                <Label htmlFor="email">Email Address {!editing && "*"}</Label>
+                <Input id="email" type="email" required={!editing} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
                 {fieldError("email") && <p className="text-xs text-error">{fieldError("email")}</p>}
               </div>
               <div className="flex flex-col gap-2">
@@ -455,39 +444,29 @@ export default function StaffPage() {
                 <div className="flex flex-col gap-2">
                   <Label>Permissions</Label>
                   <p className="text-xs text-darklink -mt-1">
-                    Controls exactly what this staff member can see and do — enforced by the server, not just hidden in the UI.
+                    Controls exactly what this staff member can see and do — enforced by the server, not just hidden in the UI. Toggle any permission on or off individually.
                   </p>
-                  <div className="overflow-x-auto rounded-lg border border-border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="ps-4">Module</TableHead>
-                          <TableHead className="text-center">View</TableHead>
-                          <TableHead className="text-center">Add</TableHead>
-                          <TableHead className="text-center">Edit</TableHead>
-                          <TableHead className="text-center">Delete</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {PERMISSION_MODULES.map((mod) => (
-                          <TableRow key={mod.key}>
-                            <TableCell className="ps-4 font-medium">{mod.label}</TableCell>
-                            {(["view", "add", "edit", "delete"] as const).map((action) => (
-                              <TableCell key={action} className="text-center">
-                                {mod.actions.includes(action) ? (
-                                  <Checkbox
-                                    checked={Boolean(form.permissions[mod.key]?.[action])}
-                                    onCheckedChange={() => togglePermission(mod.key, action)}
-                                  />
-                                ) : (
-                                  <span className="text-darklink">—</span>
-                                )}
-                              </TableCell>
+                  <div className="flex flex-col gap-3 rounded-lg border border-border p-4 max-h-72 overflow-y-auto">
+                    {Object.keys(permissionGroups).length === 0 ? (
+                      <p className="text-sm text-darklink">Loading permissions...</p>
+                    ) : (
+                      Object.entries(permissionGroups).map(([group, defs]) => (
+                        <div key={group}>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-darklink mb-2">{group}</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {defs.map((def) => (
+                              <label key={def.key} className="flex items-center gap-2 text-sm cursor-pointer">
+                                <Checkbox
+                                  checked={form.permissions.includes(def.key)}
+                                  onCheckedChange={() => togglePermission(def.key)}
+                                />
+                                {def.label}
+                              </label>
                             ))}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}

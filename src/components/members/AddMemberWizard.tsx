@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -55,12 +56,9 @@ type PaymentTypeChoice = PaymentMethod | "pending";
 const PAYMENT_METHODS: { label: string; value: PaymentTypeChoice }[] = [
   { label: "Pending / Pay Later", value: "pending" },
   { label: "Cash", value: "cash" },
-  { label: "Card", value: "card" },
+  { label: "Online", value: "online" },
+  { label: "Offline", value: "offline" },
   { label: "UPI", value: "upi" },
-  { label: "Bank Transfer", value: "bank_transfer" },
-  { label: "Razorpay", value: "razorpay" },
-  { label: "Stripe", value: "stripe" },
-  { label: "Other", value: "other" },
 ];
 
 const seatCardStyles: Record<SeatStatus, { face: string; ring: string }> = {
@@ -98,7 +96,7 @@ function formatDisplay(iso: string) {
 
 const todayIso = () => toIso(new Date());
 
-const emptyDetails = { name: "", phone: "", whatsapp: "", whatsappSameAsPhone: true };
+const emptyDetails = { name: "", phone: "", whatsapp: "", whatsappSameAsPhone: true, notes: "" };
 const freshMembership = () => ({
   start_date: todayIso(),
   durationUnit: "month" as DurationUnit,
@@ -273,6 +271,7 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
             phone: prefill.phone ?? "",
             whatsapp: prefill.whatsapp_number ?? "",
             whatsappSameAsPhone: !prefill.whatsapp_number || prefill.whatsapp_number === prefill.phone,
+            notes: "",
           }
         : emptyDetails
     );
@@ -295,6 +294,7 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
       phone: editingMember.phone,
       whatsapp: editingMember.whatsapp_number ?? "",
       whatsappSameAsPhone: !editingMember.whatsapp_number || editingMember.whatsapp_number === editingMember.phone,
+      notes: editingMember.notes ?? "",
     });
 
     // Older subscriptions (created before duration_unit/duration_days were
@@ -391,6 +391,7 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
       memberFd.append("name", details.name);
       memberFd.append("phone", details.phone);
       memberFd.append("whatsapp_number", whatsapp);
+      memberFd.append("notes", details.notes ?? "");
       if (!isEdit) {
         memberFd.append("join_date", membership.start_date);
         memberFd.append("status", "active");
@@ -407,7 +408,12 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
         start_date: membership.start_date,
         end_date: membership.end_date,
         amount: Number(membership.amount),
-        payment_type: membership.payment_type && membership.payment_type !== "pending" ? membership.payment_type : undefined,
+        // "pending" is sent explicitly (not stripped) on edit — it tells the
+        // server to revert/clear any existing payment for this membership
+        // cycle, not just "no change". On create, the store endpoint only
+        // records a payment for the 4 real methods, so "pending" there is a
+        // no-op either way.
+        payment_type: membership.payment_type || undefined,
       };
 
       let member: Member;
@@ -600,26 +606,32 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
                   </div>
                 </div>
 
-                {/* Total fee for this plan — always required, whether it's
-                    being paid now or is Pending, so the real amount is never
-                    lost. "Pending" below only controls whether a Payment
-                    record gets created right away; it isn't "amount owed". */}
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="w-fees">Fees Amount (₹) *</Label>
-                  <div className="relative">
-                    <Icon icon="solar:rupee-linear" width={16} height={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-darklink" />
-                    <Input
-                      id="w-fees"
-                      type="number"
-                      min="0"
-                      inputMode="decimal"
-                      placeholder="e.g. 500"
-                      className="pl-9"
-                      value={membership.amount}
-                      onChange={(e) => setMembership((m) => ({ ...m, amount: e.target.value }))}
-                    />
+                {/* Total fee for this plan — always required at least once, so
+                    the real amount owed is never lost (it's what drives Fee
+                    Status everywhere: Dashboard, Statement, member list).
+                    Once a fee has been entered, this box is hidden while
+                    Payment Type is Pending — the value stays saved as-is, it
+                    just isn't shown/editable in this mode. It reappears the
+                    moment Payment Type is switched to an actual method, or
+                    if no fee has been entered yet (still needed to set one). */}
+                {!(membership.payment_type === "pending" && membership.amount) && (
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="w-fees">Fees Amount (₹) *</Label>
+                    <div className="relative">
+                      <Icon icon="solar:rupee-linear" width={16} height={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-darklink" />
+                      <Input
+                        id="w-fees"
+                        type="number"
+                        min="0"
+                        inputMode="decimal"
+                        placeholder="e.g. 500"
+                        className="pl-9"
+                        value={membership.amount}
+                        onChange={(e) => setMembership((m) => ({ ...m, amount: e.target.value }))}
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="flex flex-col gap-2">
                   <Label>Payment Type *</Label>
@@ -702,6 +714,17 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
                     maxSizeMb={4}
                   />
                   {fieldError("id_proof_back") && <p className="text-xs text-error">{fieldError("id_proof_back")}</p>}
+                </div>
+                <div className="flex flex-col gap-2 sm:col-span-2">
+                  <Label htmlFor="w-notes">Notes (Optional)</Label>
+                  <Textarea
+                    id="w-notes"
+                    placeholder="Any additional notes about this student..."
+                    value={details.notes}
+                    onChange={(e) => setDetails({ ...details, notes: e.target.value })}
+                    rows={3}
+                  />
+                  {fieldError("notes") && <p className="text-xs text-error">{fieldError("notes")}</p>}
                 </div>
               </div>
             )}

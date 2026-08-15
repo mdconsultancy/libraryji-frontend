@@ -1,4 +1,5 @@
 import { uniqueId } from 'lodash'
+import type { PermissionModule } from '@/types'
 
 export interface ChildItem {
   id?: number | string
@@ -14,8 +15,8 @@ export interface ChildItem {
   badgeType?: string
   isPro?: boolean
   roles?: string[]
-  /** For staff, also hidden unless they have `view` on this module (Library/Halls/Members/Payments). Admin/super_admin ignore this — they always have full access. */
-  permissionModule?: 'library' | 'halls' | 'members' | 'payments'
+  /** For staff, also hidden unless they have `view` on this module. Admin/super_admin ignore this — they always have full access. */
+  permissionModule?: PermissionModule
 }
 
 export interface MenuItem {
@@ -54,6 +55,7 @@ const SidebarContent: MenuItem[] = [
         id: uniqueId(),
         url: '/',
         roles: ['admin', 'staff'],
+        permissionModule: 'dashboard',
       },
       {
         name: 'Manage Students',
@@ -77,6 +79,7 @@ const SidebarContent: MenuItem[] = [
         id: uniqueId(),
         url: '/expenses',
         roles: ['admin', 'staff'],
+        permissionModule: 'statement',
       },
       {
         name: 'Waiting List',
@@ -106,7 +109,7 @@ const SidebarContent: MenuItem[] = [
             id: uniqueId(),
             url: '/attendance',
             roles: ['admin', 'staff'],
-            permissionModule: 'members',
+            permissionModule: 'attendance',
           },
           {
             name: 'Shifts',
@@ -114,15 +117,6 @@ const SidebarContent: MenuItem[] = [
             id: uniqueId(),
             url: '/shifts',
             roles: ['admin', 'staff'],
-          },
-          {
-            // Library Admin no longer manages Membership Plans at all (product
-            // decision) — staff-only now, both here and enforced server-side.
-            name: 'Membership Plans',
-            icon: 'solar:document-text-line-duotone',
-            id: uniqueId(),
-            url: '/membership-plans',
-            roles: ['staff'],
           },
           {
             name: 'Staff',

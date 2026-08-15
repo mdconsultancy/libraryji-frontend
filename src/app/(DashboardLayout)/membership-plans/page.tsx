@@ -63,9 +63,10 @@ const emptyForm = {
 };
 
 export default function MembershipPlansPage() {
-  // Library Admin no longer manages Membership Plans (product decision) —
-  // staff-only, enforced here and server-side (routes/api.php).
-  const { authorized } = useRoleGuard(["staff"]);
+  // Removed from the product entirely — no role can reach this page,
+  // enforced here and server-side (routes/api.php returns 403 for all
+  // methods now, not just write actions).
+  const { authorized } = useRoleGuard([]);
   const toast = useToast();
   const shifts = useShiftOptions();
   const { data: plansData, isLoading: loading, error: loadError, mutate } = useApi<MembershipPlan[]>("/admin/membership-plans");

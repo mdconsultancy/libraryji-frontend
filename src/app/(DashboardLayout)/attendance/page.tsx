@@ -17,6 +17,8 @@ import { api, ApiError, downloadFile } from "@/lib/api";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/context/ToastContext";
 import { useReadOnly } from "@/hooks/useReadOnly";
+import { usePermission } from "@/hooks/usePermission";
+import { usePermissionGuard } from "@/hooks/usePermissionGuard";
 import type { AttendanceRoster } from "@/types";
 
 const BCrumb = [{ to: "/", title: "Home" }, { title: "Attendance" }];
@@ -37,6 +39,9 @@ type Tab = "all" | "present" | "absent";
 
 export default function AttendancePage() {
   const toast = useToast();
+  const { authorized } = usePermissionGuard("attendance", "view");
+  const canMark = usePermission("attendance", "add");
+  const canDownloadReport = usePermission("reports", "download");
   const [selectedDate, setSelectedDate] = useState(TODAY);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [marking, setMarking] = useState<"present" | "absent" | null>(null);
@@ -63,7 +68,7 @@ export default function AttendancePage() {
   };
 
   const readOnly = useReadOnly();
-  const editable = selectedDate === TODAY && !readOnly;
+  const editable = selectedDate === TODAY && !readOnly && canMark;
 
   const { data: roster, isLoading, error: loadError, mutate } = useApi<AttendanceRoster>(
     "/admin/attendance/roster",
@@ -133,6 +138,8 @@ export default function AttendancePage() {
     setSelectedIds(new Set());
   };
 
+  if (!authorized) return null;
+
   return (
     <>
       <BreadcrumbComp title="Attendance" items={BCrumb} />
@@ -153,10 +160,12 @@ export default function AttendancePage() {
                   {readOnly ? "Read-only — renew your subscription to mark attendance" : "Read-only — only today can be edited"}
                 </div>
               )}
-              <Button type="button" variant="outline" size="sm" onClick={() => setReportOpen(true)}>
-                <Icon icon="solar:document-text-linear" width={16} height={16} className="mr-1.5" />
-                Report
-              </Button>
+              {canDownloadReport && (
+                <Button type="button" variant="outline" size="sm" onClick={() => setReportOpen(true)}>
+                  <Icon icon="solar:document-text-linear" width={16} height={16} className="mr-1.5" />
+                  Report
+                </Button>
+              )}
             </div>
           </div>
 

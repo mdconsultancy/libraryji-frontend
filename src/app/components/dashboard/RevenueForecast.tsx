@@ -30,11 +30,11 @@ const RevenueForecast = ({ data, months, onMonthsChange }: RevenueForecastProps)
     chart: {
       offsetX: 0,
       offsetY: 10,
-      stacked: true,
+      stacked: false,
       animations: { speed: 500 },
       toolbar: { show: false },
     },
-    colors: ["var(--color-primary)"],
+    colors: ["var(--color-primary)", "var(--color-error)"],
     dataLabels: { enabled: false },
     grid: {
       show: true,
@@ -47,10 +47,9 @@ const RevenueForecast = ({ data, months, onMonthsChange }: RevenueForecastProps)
       bar: {
         horizontal: false,
         barHeight: "60%",
-        columnWidth: "40%",
+        columnWidth: "60%",
         borderRadius: 5,
         borderRadiusApplication: "end",
-        borderRadiusWhenStacked: "all",
       },
     },
     xaxis: {
@@ -58,16 +57,19 @@ const RevenueForecast = ({ data, months, onMonthsChange }: RevenueForecastProps)
       axisBorder: { show: false },
       axisTicks: { show: false },
     },
-    legend: { show: false },
+    legend: { show: true, position: "top", horizontalAlign: "right" },
     tooltip: { theme: "dark" },
   };
 
-  const series = [{ name: "Revenue", data: data.map((d) => d.revenue) }];
+  const series = [
+    { name: "Income", data: data.map((d) => d.revenue) },
+    { name: "Expenses", data: data.map((d) => d.expenses) },
+  ];
 
   return (
     <div className="rounded-xl shadow-xs bg-white dark:bg-darkgray p-6 relative w-full words-break">
       <div className="flex justify-between items-center">
-        <h5 className="card-title">Revenue Forecast</h5>
+        <h5 className="card-title">Income &amp; Expenses</h5>
         <Select value={String(months)} onValueChange={(v) => onMonthsChange(Number(v))}>
           <SelectTrigger className="h-8 w-[150px] text-sm">
             <SelectValue />

@@ -40,7 +40,7 @@ export default function InquiryCard({ summary }: { summary: DashboardSummary | n
   };
 
   return (
-    <div className="rounded-xl h-full shadow-xs bg-white dark:bg-darkgray p-6 relative w-full">
+    <div className="rounded-xl h-full shadow-xs bg-lightprimary/40 dark:bg-primary/10 border border-primary/30 p-6 relative w-full">
       <div className="flex items-center justify-between gap-3 mb-4">
         <h5 className="card-title">Inquiries</h5>
         <Link href="/leads" className="text-xs text-primary hover:underline">

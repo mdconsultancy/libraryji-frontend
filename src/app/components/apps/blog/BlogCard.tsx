@@ -35,7 +35,7 @@ const BlogCard = ({ post }: Btype) => {
             <div className="overflow-hidden h-60">
               <Image
                 src={coverImg}
-                alt="Matdash"
+                alt="LibraryJi"
                 height={240}
                 width={500}
                 className="w-full"

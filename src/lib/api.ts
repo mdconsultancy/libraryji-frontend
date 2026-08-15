@@ -142,8 +142,14 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       }
     }
     if (response.status === 401) setTokens(null)
+    // Laravel's default validation-error JSON is {"message": "The given data
+    // was invalid.", "errors": {"field": ["the actual message"]}} — the
+    // generic top-level message is useless to show, so prefer the first
+    // field-specific message whenever one exists.
+    const errors = data?.errors as Record<string, string[]> | undefined
+    const firstFieldError = errors ? Object.values(errors)[0]?.[0] : undefined
     throw new ApiError(
-      data?.message || `Request failed with status ${response.status}`,
+      firstFieldError || data?.message || `Request failed with status ${response.status}`,
       response.status,
       data?.errors
     )

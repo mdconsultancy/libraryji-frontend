@@ -50,7 +50,7 @@ function SelectPlanContent() {
             ? "Complete payment below to activate your library."
             : user.current_tenant?.trial_ends_at
             ? "Your trial period has ended. Select a plan below to keep using LibraryJi."
-            : "Every plan starts with a free first month — no card required."}
+            : "Pick a plan below — free plans activate instantly, no card required."}
         </p>
         {!isUpgrading && user.current_tenant?.library_code && (
           <p className="text-xs text-charcoal mt-3">

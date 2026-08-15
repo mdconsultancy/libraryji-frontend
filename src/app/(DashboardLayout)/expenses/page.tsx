@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -26,7 +27,9 @@ import DeleteConfirmDialog from "@/components/shared/DeleteConfirmDialog";
 import { api, ApiError, downloadFile } from "@/lib/api";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/context/ToastContext";
-import type { Expense, Payment, Paginated } from "@/types";
+import { usePermission } from "@/hooks/usePermission";
+import { usePermissionGuard } from "@/hooks/usePermissionGuard";
+import type { Expense, Payment, PaymentMethod, Paginated } from "@/types";
 
 const BCrumb = [{ to: "/", title: "Home" }, { title: "Statements" }];
 
@@ -35,10 +38,18 @@ const currency = (value: number) => `₹${value.toLocaleString("en-IN", { maximu
 const monthStart = () => new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
 const today = () => new Date().toISOString().slice(0, 10);
 
-const emptyForm = { category: "", title: "", amount: "", expense_date: today(), notes: "" };
+const paymentModes: PaymentMethod[] = ["cash", "online", "offline", "upi"];
+
+const emptyForm = { category: "", title: "", amount: "", expense_date: today(), payment_mode: "cash" as PaymentMethod, notes: "" };
 
 export default function StatementsPage() {
   const toast = useToast();
+  const { authorized } = usePermissionGuard("statement", "view");
+  const canAddExpense = usePermission("expenses", "add");
+  const canEditExpense = usePermission("expenses", "edit");
+  const canDeleteExpense = usePermission("expenses", "delete");
+  const canDownloadPdf = usePermission("statement", "pdf_download");
+  const canDownloadExcel = usePermission("statement", "excel_download");
 
   const [from, setFrom] = useState(monthStart());
   const [to, setTo] = useState(today());
@@ -108,6 +119,7 @@ export default function StatementsPage() {
       title: expense.title,
       amount: String(expense.amount),
       expense_date: expense.expense_date,
+      payment_mode: (expense.payment_mode as PaymentMethod) || "cash",
       notes: expense.notes || "",
     });
     setFieldErrors({});
@@ -124,6 +136,7 @@ export default function StatementsPage() {
         title: form.title,
         amount: Number(form.amount),
         expense_date: form.expense_date,
+        payment_mode: form.payment_mode,
         notes: form.notes || null,
       };
       if (editing) {
@@ -156,6 +169,8 @@ export default function StatementsPage() {
 
   const fieldError = (field: string) => fieldErrors[field]?.[0];
 
+  if (!authorized) return null;
+
   return (
     <>
       <BreadcrumbComp title="Statements" items={BCrumb} />
@@ -175,14 +190,18 @@ export default function StatementsPage() {
             This Month
           </Button>
           <div className="flex gap-2 ms-auto">
-            <Button type="button" variant="outline" disabled={downloading === "pdf"} onClick={() => handleDownload("pdf")}>
-              <Icon icon="solar:file-text-linear" width={16} height={16} className="mr-1.5" />
-              {downloading === "pdf" ? "Downloading..." : "PDF"}
-            </Button>
-            <Button type="button" variant="outline" disabled={downloading === "xlsx"} onClick={() => handleDownload("xlsx")}>
-              <Icon icon="solar:file-download-linear" width={16} height={16} className="mr-1.5" />
-              {downloading === "xlsx" ? "Downloading..." : "Excel"}
-            </Button>
+            {canDownloadPdf && (
+              <Button type="button" variant="outline" disabled={downloading === "pdf"} onClick={() => handleDownload("pdf")}>
+                <Icon icon="solar:file-text-linear" width={16} height={16} className="mr-1.5" />
+                {downloading === "pdf" ? "Downloading..." : "PDF"}
+              </Button>
+            )}
+            {canDownloadExcel && (
+              <Button type="button" variant="outline" disabled={downloading === "xlsx"} onClick={() => handleDownload("xlsx")}>
+                <Icon icon="solar:file-download-linear" width={16} height={16} className="mr-1.5" />
+                {downloading === "xlsx" ? "Downloading..." : "Excel"}
+              </Button>
+            )}
           </div>
         </div>
       </CardBox>
@@ -218,7 +237,15 @@ export default function StatementsPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-dark dark:text-white truncate">{payment.member?.name || payment.invoice_number}</p>
-                    <p className="text-xs text-darklink truncate">{payment.paid_at ? new Date(payment.paid_at).toLocaleDateString() : "—"} · <span className="capitalize">{payment.payment_method.replace('_', ' ')}</span></p>
+                    <p className="text-xs text-darklink truncate">
+                      {payment.paid_at ? new Date(payment.paid_at).toLocaleDateString() : "—"} · <span className="capitalize">{payment.payment_method}</span>
+                      {payment.subscription?.seat?.seat_number && <> · Seat {payment.subscription.seat.seat_number}</>}
+                    </p>
+                    {payment.created_by_name && (
+                      <p className="text-xs text-darklink/70 truncate">
+                        Added by: {payment.created_by_name}{payment.created_by_role && <> ({payment.created_by_role.charAt(0).toUpperCase() + payment.created_by_role.slice(1)})</>}
+                      </p>
+                    )}
                   </div>
                   <span className="font-semibold text-success shrink-0">+{currency(Number(payment.amount))}</span>
                   <Icon icon="solar:alt-arrow-right-linear" width={16} height={16} className="text-success/70 shrink-0" />
@@ -232,10 +259,12 @@ export default function StatementsPage() {
         <CardBox className="p-0 bg-background overflow-hidden border-none rounded-xl shadow-xs">
           <div className="flex items-center justify-between gap-4 p-6 pb-4">
             <h5 className="text-lg font-semibold">Expenses</h5>
-            <Button onClick={openCreate} size="sm" className="flex items-center gap-1.5">
-              <Icon icon="solar:add-circle-linear" width={16} height={16} />
-              Add Expense
-            </Button>
+            {canAddExpense && (
+              <Button onClick={openCreate} size="sm" className="flex items-center gap-1.5">
+                <Icon icon="solar:add-circle-linear" width={16} height={16} />
+                Add Expense
+              </Button>
+            )}
           </div>
 
           {expensesError && <p className="px-6 pb-4 text-sm text-error">Unable to load expenses.</p>}
@@ -255,9 +284,18 @@ export default function StatementsPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-dark dark:text-white truncate">{expense.title}</p>
-                    <p className="text-xs text-darklink truncate">{expense.category} · {new Date(expense.expense_date).toLocaleDateString()}</p>
+                    <p className="text-xs text-darklink truncate">
+                      {expense.category} · {new Date(expense.expense_date).toLocaleDateString()}
+                      {expense.payment_mode && <> · <span className="capitalize">{expense.payment_mode}</span></>}
+                    </p>
+                    {expense.created_by_name && (
+                      <p className="text-xs text-darklink/70 truncate">
+                        Added by: {expense.created_by_name}{expense.created_by_role && <> ({expense.created_by_role.charAt(0).toUpperCase() + expense.created_by_role.slice(1)})</>}
+                      </p>
+                    )}
                   </div>
                   <span className="font-semibold text-error shrink-0">-{currency(Number(expense.amount))}</span>
+                  {(canEditExpense || canDeleteExpense) && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button type="button" aria-label="Expense actions" className="h-7 w-7 shrink-0 flex items-center justify-center rounded-full hover:bg-white dark:hover:bg-dark">
@@ -265,16 +303,21 @@ export default function StatementsPage() {
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEdit(expense)}>
-                        <Icon icon="ic:outline-edit" width={16} height={16} className="mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setDeleteTarget(expense)} className="text-error">
-                        <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} className="mr-2" />
-                        Delete
-                      </DropdownMenuItem>
+                      {canEditExpense && (
+                        <DropdownMenuItem onClick={() => openEdit(expense)}>
+                          <Icon icon="ic:outline-edit" width={16} height={16} className="mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                      )}
+                      {canDeleteExpense && (
+                        <DropdownMenuItem onClick={() => setDeleteTarget(expense)} className="text-error">
+                          <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} className="mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  )}
                 </div>
               ))
             )}
@@ -338,6 +381,20 @@ export default function StatementsPage() {
               <Label htmlFor="expense_date">Date</Label>
               <Input id="expense_date" type="date" value={form.expense_date} onChange={(e) => setForm({ ...form, expense_date: e.target.value })} required />
               {fieldError("expense_date") && <p className="text-xs text-error">{fieldError("expense_date")}</p>}
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label>Payment Mode</Label>
+              <Select value={form.payment_mode} onValueChange={(v) => setForm({ ...form, payment_mode: v as PaymentMethod })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {paymentModes.map((m) => (
+                    <SelectItem key={m} value={m} className="capitalize">{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {fieldError("payment_mode") && <p className="text-xs text-error">{fieldError("payment_mode")}</p>}
             </div>
             <div className="flex flex-col gap-2 xl:col-span-2">
               <Label htmlFor="notes">Notes</Label>

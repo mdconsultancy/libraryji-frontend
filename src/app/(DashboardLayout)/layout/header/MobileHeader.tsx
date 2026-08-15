@@ -5,6 +5,7 @@ import { Icon } from '@iconify/react'
 import Link from 'next/link'
 import Profile from './Profile'
 import Notifications from './Notifications'
+import SupportButton from './SupportButton'
 import PlanStatusBadge from './PlanStatusBadge'
 import FullLogo from '../shared/logo/FullLogo'
 import {
@@ -86,6 +87,7 @@ const MobileHeader = ({ onMenuClick }: { onMenuClick: () => void }) => {
               <Icon icon="solar:sun-bold-duotone" width={20} />
             )}
           </button>
+          <SupportButton />
           <Notifications />
           <PlanStatusBadge />
           <Profile />

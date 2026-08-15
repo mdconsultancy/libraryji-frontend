@@ -86,7 +86,7 @@ export default function Layout({
               ? 'Complete payment below to activate your library.'
               : user.current_tenant?.trial_ends_at
                 ? 'Select a plan below to keep using LibraryJi.'
-                : 'Every plan starts with a free first month — no card required.'}
+                : 'Pick a plan below — free plans activate instantly, no card required.'}
           </p>
         </div>
         <PlanPicker showLogout />

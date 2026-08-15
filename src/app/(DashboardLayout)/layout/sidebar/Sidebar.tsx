@@ -137,6 +137,11 @@ const SidebarLayout = ({ onClose }: { onClose?: () => void }) => {
     halls: usePermission('halls', 'view'),
     members: usePermission('members', 'view'),
     payments: usePermission('payments', 'view'),
+    expenses: usePermission('expenses', 'view'),
+    statement: usePermission('statement', 'view'),
+    attendance: usePermission('attendance', 'view'),
+    dashboard: usePermission('dashboard', 'view'),
+    reports: usePermission('reports', 'download'),
   }
 
   const visibleSections = SidebarContent.filter((section) => visibleFor(section.roles, user?.role))
@@ -150,12 +155,12 @@ const SidebarLayout = ({ onClose }: { onClose?: () => void }) => {
       showTrigger={false}
       mode={sidebarMode}
       // Library defaults (themeColor #5d87ff, textColor #2b2b2b) assume a
-      // light sidebar — ours is dark (bg-primary), so an open submenu's own
+      // light sidebar — ours is dark (navy), so an open submenu's own
       // background and the closed-state text color need to track our actual
       // theme instead, or they render mismatched/near-invisible.
-      themeColor='var(--color-primary)'
+      themeColor='#1c416d'
       textColor='#ffffff'
-      className='fixed left-0 top-0 border-none bg-primary z-10 h-screen'>
+      className='fixed left-0 top-0 border-none bg-[#1c416d] z-10 h-screen'>
       {/* Logo — from Admin Settings -> Theme via FullLogo/BrandingContext, same as every other panel.
           Wrapped in a light chip so a dark-text logo stays legible on the blue sidebar bg. */}
       <div className='px-4 py-2 flex items-center brand-logo overflow-hidden'>

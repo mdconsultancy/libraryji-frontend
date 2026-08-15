@@ -7,6 +7,7 @@ import { Icon } from '@iconify/react'
 import Link from 'next/link'
 import Profile from './Profile'
 import Notifications from './Notifications'
+import SupportButton from './SupportButton'
 import PlanStatusBadge from './PlanStatusBadge'
 import MobileHeader from './MobileHeader'
 import SidebarLayout from '../sidebar/Sidebar'
@@ -128,6 +129,7 @@ const Header = () => {
 
                 <div className='xl:block '>
                   <div className='flex gap-0 items-center relative'>
+                    <SupportButton />
                     {/* Chat */}
                     <Notifications />
                   </div>

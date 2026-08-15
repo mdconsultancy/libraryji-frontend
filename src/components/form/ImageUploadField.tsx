@@ -3,6 +3,7 @@
 import { useRef, useState, DragEvent } from "react";
 import Image from "next/image";
 import { Icon } from "@iconify/react";
+import CameraCaptureModal from "./CameraCaptureModal";
 
 const EXTENSION_MIME_TYPES: Record<string, string> = {
   jpg: "image/jpeg",
@@ -26,9 +27,9 @@ interface ImageUploadFieldProps {
 
 export default function ImageUploadField({ value, onChange, existingUrl, maxSizeMb = 2, acceptedExtensions, id }: ImageUploadFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   const preview = value ? URL.createObjectURL(value) : existingUrl || null;
   const acceptedMimes = acceptedExtensions?.map((ext) => EXTENSION_MIME_TYPES[ext.toLowerCase()]).filter((m): m is string => !!m);
@@ -86,7 +87,7 @@ export default function ImageUploadField({ value, onChange, existingUrl, maxSize
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => cameraInputRef.current?.click()}
+            onClick={() => setCameraOpen(true)}
             className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
           >
             <Icon icon="tabler:camera" width={15} height={15} />
@@ -114,20 +115,14 @@ export default function ImageUploadField({ value, onChange, existingUrl, maxSize
             e.target.value = "";
           }}
         />
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) validateAndSet(file);
-            e.target.value = "";
-          }}
-        />
       </div>
       {error && <p className="text-xs text-error mt-1">{error}</p>}
+
+      <CameraCaptureModal
+        open={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onCapture={(file) => validateAndSet(file)}
+      />
     </div>
   );
 }

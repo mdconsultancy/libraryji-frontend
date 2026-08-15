@@ -6,7 +6,6 @@ import RevenueForecast from "../components/dashboard/RevenueForecast";
 import NewCustomers from "../components/dashboard/NewCustomers";
 import TotalIncome from "../components/dashboard/TotalIncome";
 import ProductRevenue from "../components/dashboard/ProductRevenue";
-import DailyActivity from "../components/dashboard/DailyActivity";
 import InquiryCard from "../components/dashboard/InquiryCard";
 import StaffOverview from "../components/dashboard/StaffOverview";
 import RecentActivities from "../components/dashboard/RecentActivities";
@@ -18,7 +17,7 @@ import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
 import DashboardSkeleton from "@/components/shared/DashboardSkeleton";
 import { useAuth } from "@/context/AuthContext";
-import type { DashboardSummary, RevenueChartPoint, RecentActivityItem, Member, MemberSubscription } from "@/types";
+import type { DashboardSummary, RevenueChartPoint, RecentActivityItem, Member } from "@/types";
 
 const Page = () => {
   const { user } = useAuth();
@@ -38,11 +37,10 @@ const Page = () => {
   const { data: summary, isLoading: loadingSummary, error: errorSummary } = useApi<DashboardSummary>(isSuperAdmin ? null : "/admin/dashboard/summary");
   const { data: revenueChart, isLoading: loadingRevenue, error: errorRevenue } = useApi<RevenueChartPoint[]>(isSuperAdmin ? null : "/admin/dashboard/revenue-chart", { months: revenueMonths });
   const { data: recentMembers, isLoading: loadingMembers, error: errorMembers } = useApi<Member[]>(isSuperAdmin ? null : "/admin/dashboard/recent-members");
-  const { data: expiring, isLoading: loadingExpiring, error: errorExpiring } = useApi<MemberSubscription[]>(isSuperAdmin ? null : "/admin/dashboard/expiring-memberships");
   const { data: activity, isLoading: loadingActivity, error: errorActivity } = useApi<RecentActivityItem[]>(isSuperAdmin ? null : "/admin/dashboard/recent-activity");
 
-  const loading = isSuperAdmin || loadingSummary || loadingRevenue || loadingMembers || loadingExpiring || loadingActivity;
-  const error = !isSuperAdmin && (errorSummary || errorRevenue || errorMembers || errorExpiring || errorActivity);
+  const loading = isSuperAdmin || loadingSummary || loadingRevenue || loadingMembers || loadingActivity;
+  const error = !isSuperAdmin && (errorSummary || errorRevenue || errorMembers || errorActivity);
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -59,21 +57,15 @@ const Page = () => {
         <div className="col-span-12">
           {summary && <MobileStatsGrid summary={summary} gridClassName="grid-cols-4" />}
         </div>
-        {/* Expiring-soon memberships + Inquiries surfaced right under the
-            stats grid — these need same-day action, so they shouldn't sit
-            below the fold behind revenue charts. */}
-        <div className="lg:col-span-8 col-span-12">
-          <DailyActivity subscriptions={expiring ?? []} />
-        </div>
-        <div className="lg:col-span-4 col-span-12">
-          <InquiryCard summary={summary ?? null} />
-        </div>
         <div className="lg:col-span-8 col-span-12">
           <RevenueForecast data={revenueChart ?? []} months={revenueMonths} onMonthsChange={setRevenueMonths} />
         </div>
         <div className="lg:col-span-4 col-span-12">
-          <div className="grid grid-cols-12 h-full items-stretch">
-            <div className="col-span-12 mb-30">
+          <div className="grid grid-cols-12 h-full items-stretch gap-30">
+            <div className="col-span-12">
+              <InquiryCard summary={summary ?? null} />
+            </div>
+            <div className="col-span-12">
               <NewCustomers summary={summary ?? null} />
             </div>
             <div className="col-span-12">
@@ -107,7 +99,6 @@ const Page = () => {
       {/* Mobile (below xl) — separate layout, same underlying data */}
       <div className="xl:hidden flex flex-col gap-4">
         {summary && <MobileStatsGrid summary={summary} />}
-        <DailyActivity subscriptions={expiring ?? []} />
         <InquiryCard summary={summary ?? null} />
         <MobileRecentActivity activity={activity ?? []} loading={loadingActivity} />
         <p className="text-sm text-center py-2">
