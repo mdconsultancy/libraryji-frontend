@@ -118,7 +118,7 @@ export default function MembersTrashPage() {
                     <TableCell className="text-right pe-6">
                       <div className="flex justify-end gap-2">
                         <Button
-                          variant="outline"
+                          variant="lightprimary"
                           size="sm"
                           disabled={restoringId === member.id || readOnly}
                           onClick={() => handleRestore(member)}
@@ -127,10 +127,9 @@ export default function MembersTrashPage() {
                           {restoringId === member.id ? "Restoring..." : "Restore"}
                         </Button>
                         <Button
-                          variant="outline"
+                          variant="lighterror"
                           size="sm"
                           disabled={readOnly}
-                          className="text-error hover:bg-error hover:text-white"
                           onClick={() => setDeleteTarget(member)}
                         >
                           <Icon icon="solar:trash-bin-trash-bold" width={16} height={16} />

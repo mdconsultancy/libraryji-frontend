@@ -7,6 +7,7 @@ import NewCustomers from "../components/dashboard/NewCustomers";
 import TotalIncome from "../components/dashboard/TotalIncome";
 import ProductRevenue from "../components/dashboard/ProductRevenue";
 import InquiryCard from "../components/dashboard/InquiryCard";
+import AddMemberCard from "../components/dashboard/AddMemberCard";
 import StaffOverview from "../components/dashboard/StaffOverview";
 import RecentActivities from "../components/dashboard/RecentActivities";
 import MobileGreeting from "../components/dashboard/mobile/MobileGreeting";
@@ -62,23 +63,21 @@ const Page = () => {
           <RevenueForecast data={revenueChart ?? []} months={revenueMonths} onMonthsChange={setRevenueMonths} />
         </div>
         <div className="lg:col-span-4 col-span-12">
-          <div className="grid grid-cols-12 h-full items-stretch gap-30">
-            <div className="col-span-12">
-              <InquiryCard summary={summary ?? null} />
-            </div>
-            <div className="col-span-12">
-              <NewCustomers summary={summary ?? null} />
-            </div>
-            <div className="col-span-12">
-              <TotalIncome summary={summary ?? null} revenueChart={revenueChart ?? []} />
-            </div>
+          <NewCustomers summary={summary ?? null} />
+        </div>
+
+        {/* Quick-action row below the chart: Inquiries, Revenue, Staff & Halls, Add Member */}
+        <div className="col-span-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-30 items-stretch">
+            <InquiryCard summary={summary ?? null} />
+            <TotalIncome summary={summary ?? null} revenueChart={revenueChart ?? []} />
+            <StaffOverview summary={summary ?? null} />
+            <AddMemberCard />
           </div>
         </div>
-        <div className="lg:col-span-8 col-span-12">
+
+        <div className="col-span-12">
           <ProductRevenue members={recentMembers ?? []} />
-        </div>
-        <div className="lg:col-span-4 col-span-12">
-          <StaffOverview summary={summary ?? null} />
         </div>
         <div className="col-span-12">
           <RecentActivities activity={activity ?? []} />
@@ -101,6 +100,7 @@ const Page = () => {
       {/* Mobile (below xl) — separate layout, same underlying data */}
       <div className="xl:hidden flex flex-col gap-4">
         {summary && <MobileStatsGrid summary={summary} />}
+        <AddMemberCard />
         <InquiryCard summary={summary ?? null} />
         <MobileRecentActivity activity={activity ?? []} loading={loadingActivity} />
         <div className="text-center py-2">

@@ -310,7 +310,7 @@ export default function StatementsPage() {
                         </DropdownMenuItem>
                       )}
                       {canDeleteExpense && (
-                        <DropdownMenuItem onClick={() => setDeleteTarget(expense)} className="text-error">
+                        <DropdownMenuItem onClick={() => setDeleteTarget(expense)} className="text-error hover:bg-lighterror focus:bg-lighterror">
                           <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} className="mr-2" />
                           Delete
                         </DropdownMenuItem>
@@ -327,31 +327,31 @@ export default function StatementsPage() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-30">
-        <div className="rounded-2xl bg-white dark:bg-darkgray p-4 shadow-xs flex items-center gap-3">
-          <div className="h-11 w-11 rounded-full bg-lightsuccess flex items-center justify-center shrink-0">
-            <Icon icon="solar:wallet-money-bold-duotone" width={22} height={22} className="text-success" />
+        <div className="rounded-2xl bg-[#16A34A]/20 dark:bg-[#16A34A]/15 p-4 shadow-xs flex items-center gap-3">
+          <div className="h-11 w-11 rounded-full bg-[#16A34A] flex items-center justify-center shrink-0">
+            <Icon icon="solar:wallet-money-bold-duotone" width={22} height={22} className="text-white" />
           </div>
           <div>
             <p className="text-xs text-darklink">Total Income</p>
             <p className="text-xl font-bold text-dark dark:text-white">{currency(totalIncome)}</p>
           </div>
         </div>
-        <div className="rounded-2xl bg-white dark:bg-darkgray p-4 shadow-xs flex items-center gap-3">
-          <div className="h-11 w-11 rounded-full bg-lighterror flex items-center justify-center shrink-0">
-            <Icon icon="solar:wallet-money-bold-duotone" width={22} height={22} className="text-error" />
+        <div className="rounded-2xl bg-[#DC2626]/20 dark:bg-[#DC2626]/15 p-4 shadow-xs flex items-center gap-3">
+          <div className="h-11 w-11 rounded-full bg-[#DC2626] flex items-center justify-center shrink-0">
+            <Icon icon="solar:wallet-money-bold-duotone" width={22} height={22} className="text-white" />
           </div>
           <div>
             <p className="text-xs text-darklink">Total Expenses</p>
             <p className="text-xl font-bold text-dark dark:text-white">{currency(totalExpenses)}</p>
           </div>
         </div>
-        <div className="rounded-2xl bg-white dark:bg-darkgray p-4 shadow-xs flex items-center gap-3">
-          <div className={`h-11 w-11 rounded-full flex items-center justify-center shrink-0 ${netBalance >= 0 ? "bg-lightsuccess" : "bg-lighterror"}`}>
-            <Icon icon="solar:chart-2-bold-duotone" width={22} height={22} className={netBalance >= 0 ? "text-success" : "text-error"} />
+        <div className={`rounded-2xl p-4 shadow-xs flex items-center gap-3 ${netBalance >= 0 ? "bg-[#2563EB]/20 dark:bg-[#2563EB]/15" : "bg-[#DC2626]/20 dark:bg-[#DC2626]/15"}`}>
+          <div className={`h-11 w-11 rounded-full flex items-center justify-center shrink-0 ${netBalance >= 0 ? "bg-[#2563EB]" : "bg-[#DC2626]"}`}>
+            <Icon icon="solar:chart-2-bold-duotone" width={22} height={22} className="text-white" />
           </div>
           <div>
             <p className="text-xs text-darklink">Net Balance</p>
-            <p className={`text-xl font-bold ${netBalance >= 0 ? "text-success" : "text-error"}`}>{currency(netBalance)}</p>
+            <p className={`text-xl font-bold ${netBalance >= 0 ? "text-[#2563EB]" : "text-[#DC2626]"}`}>{currency(netBalance)}</p>
           </div>
         </div>
       </div>

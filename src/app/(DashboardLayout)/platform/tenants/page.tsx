@@ -317,20 +317,19 @@ export default function TenantsPage() {
                     <TableCell className="text-right pe-6">
                       <div className="flex justify-end gap-2">
                         <Button
-                          variant="outline"
+                          variant="lightprimary"
                           size="sm"
                           disabled={actioningId === tenant.id}
                           onClick={() => handleToggleStatus(tenant)}
                         >
                           <Icon icon={tenant.status === "suspended" ? "solar:play-circle-linear" : "solar:pause-circle-linear"} width={16} height={16} />
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => openEdit(tenant)}>
+                        <Button variant="lightprimary" size="sm" onClick={() => openEdit(tenant)}>
                           <Icon icon="ic:outline-edit" width={16} height={16} />
                         </Button>
                         <Button
-                          variant="outline"
+                          variant="lighterror"
                           size="sm"
-                          className="text-error hover:bg-error hover:text-white"
                           onClick={() => setDeleteTarget(tenant)}
                         >
                           <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} />

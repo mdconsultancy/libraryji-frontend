@@ -10,9 +10,9 @@ const iconByType: Record<RecentActivityType, { icon: string; color: "success" | 
 };
 
 const colorClasses = {
-  success: "bg-lightsuccess text-success",
-  primary: "bg-lightprimary text-primary",
-  info: "bg-lightinfo text-info",
+  success: "bg-success text-white",
+  primary: "bg-primary text-white",
+  info: "bg-info text-dark",
 };
 
 const timeAgo = (iso?: string | null) => {

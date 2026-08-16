@@ -15,16 +15,16 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Member } from "@/types";
 
 const statusStyles: Record<string, string> = {
-  active: "text-green-600 bg-green-100",
-  inactive: "text-yellow-600 bg-yellow-100",
-  expired: "text-red-600 bg-red-100",
+  active: "text-white bg-success hover:bg-success/90",
+  inactive: "text-dark bg-warning hover:bg-warning/90",
+  expired: "text-white bg-error hover:bg-error/90",
 };
 
 const feeStatusStyles: Record<string, string> = {
-  paid: "text-green-600 bg-green-100",
-  partial: "text-yellow-600 bg-yellow-100",
-  pending: "text-red-600 bg-red-100",
-  none: "text-gray-500 bg-gray-100",
+  paid: "text-white bg-success hover:bg-success/90",
+  partial: "text-dark bg-warning hover:bg-warning/90",
+  pending: "text-white bg-error hover:bg-error/90",
+  none: "text-white bg-gray-400 hover:bg-gray-400/90",
 };
 
 const ProductRevenue = ({ members }: { members: Member[] }) => {

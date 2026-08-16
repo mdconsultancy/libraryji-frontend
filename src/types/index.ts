@@ -113,6 +113,8 @@ export interface PermissionDefinition {
 /** A Library this user has access to, with their role and (for staff) granular permissions in that specific Library. */
 export type TenantMembership = Tenant & { pivot: { role: 'admin' | 'staff'; permissions?: StaffPermissions | null } }
 
+export type WhatsAppLanguage = 'en' | 'hi' | 'gu'
+
 export interface User {
   id: number
   /** The Library workspace currently selected — null for super_admin, and
@@ -126,6 +128,8 @@ export interface User {
   /** Admin's own UPI ID / payment contact number, surfaced in the WhatsApp fee-reminder template. */
   upi_id?: string | null
   payment_number?: string | null
+  /** Which language(s) WhatsApp templates go out in — member gets the message once per selected language. Defaults to English only. */
+  whatsapp_languages?: WhatsAppLanguage[] | null
   status: 'active' | 'inactive'
   two_factor_enabled: boolean
   last_login_at: string | null

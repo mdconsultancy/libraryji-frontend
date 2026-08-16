@@ -263,13 +263,12 @@ export default function PlatformSubscriptionPlansPage() {
                     </TableCell>
                     <TableCell className="text-right pe-6">
                       <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => openEdit(plan)}>
+                        <Button variant="lightprimary" size="sm" onClick={() => openEdit(plan)}>
                           <Icon icon="ic:outline-edit" width={16} height={16} />
                         </Button>
                         <Button
-                          variant="outline"
+                          variant="lighterror"
                           size="sm"
-                          className="text-error hover:bg-error hover:text-white"
                           onClick={() => setDeleteTarget(plan)}
                         >
                           <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} />
@@ -320,14 +319,14 @@ export default function PlatformSubscriptionPlansPage() {
                 <span className="text-lg font-bold text-dark dark:text-white">₹{Number(plan.price).toLocaleString()}</span>
               </div>
               <div className="mt-3 flex gap-2">
-                <Button variant="outline" size="sm" className="flex-1" onClick={() => openEdit(plan)}>
+                <Button variant="lightprimary" size="sm" className="flex-1" onClick={() => openEdit(plan)}>
                   <Icon icon="ic:outline-edit" width={16} height={16} className="mr-1.5" />
                   Edit
                 </Button>
                 <Button
-                  variant="outline"
+                  variant="lighterror"
                   size="sm"
-                  className="flex-1 text-error hover:bg-error hover:text-white"
+                  className="flex-1"
                   onClick={() => setDeleteTarget(plan)}
                 >
                   <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} className="mr-1.5" />
@@ -417,9 +416,9 @@ export default function PlatformSubscriptionPlansPage() {
                       />
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="lighterror"
                         size="sm"
-                        className="text-error hover:bg-error hover:text-white shrink-0"
+                        className="shrink-0"
                         onClick={() => removeFeatureRow(index)}
                         aria-label="Remove feature"
                       >

@@ -5,12 +5,15 @@ import type { DashboardSummary } from "@/types";
 
 const StaffOverview = ({ summary }: { summary: DashboardSummary | null }) => {
   return (
-    <div className="bg-lightinfo/40 dark:bg-info/10 border border-info/30 rounded-xl shadow-xs p-8">
+    <Link
+      href="/staff"
+      className="block bg-[#2563EB]/20 border border-[#2563EB]/20 dark:bg-[#2563EB]/15 dark:border-[#2563EB]/20 rounded-xl shadow-xs p-8 hover:shadow-md transition-shadow cursor-pointer"
+    >
       <div className="flex items-center gap-4 mb-8">
-        <div className="bg-lightprimary text-primary p-3 rounded-md">
+        <div className="bg-[#2563EB] text-white p-3 rounded-md">
           <Icon icon="solar:shield-user-outline" height={24} />
         </div>
-        <p className="text-lg card-title">Staff & Halls</p>
+        <p className="text-lg font-semibold text-dark dark:text-white">Staff & Halls</p>
       </div>
 
       <div className="flex items-center justify-between">
@@ -24,10 +27,10 @@ const StaffOverview = ({ summary }: { summary: DashboardSummary | null }) => {
         </div>
       </div>
 
-      <Link href="/staff" className="text-sm text-primary mt-6 inline-block">
+      <span className="text-sm text-[#2563EB] dark:text-[#60A5FA] underline underline-offset-2 mt-6 inline-block">
         Manage staff
-      </Link>
-    </div>
+      </span>
+    </Link>
   );
 };
 

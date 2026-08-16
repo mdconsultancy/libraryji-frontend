@@ -87,7 +87,7 @@ const RevenueForecast = ({ data, months, onMonthsChange }: RevenueForecastProps)
           options={optionsBarChart}
           series={series}
           type="bar"
-          height="315px"
+          height="210px"
           width="100%"
         />
       </div>

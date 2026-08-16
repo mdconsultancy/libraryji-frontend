@@ -83,6 +83,16 @@ const Profile = () => {
             </DropdownMenuItem>
           )}
 
+          <DropdownMenuItem asChild>
+            <Link
+              href="/help"
+              className="px-3 py-2 flex items-center w-full gap-3 text-darkLink hover:bg-lightprimary hover:text-primary"
+            >
+              <Icon icon="solar:question-circle-outline" height={20} />
+              Help
+            </Link>
+          </DropdownMenuItem>
+
           <div className="p-3 pt-0">
             <Button
               variant="outline"

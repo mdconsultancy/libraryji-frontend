@@ -1,32 +1,55 @@
 "use client";
+import dynamic from "next/dynamic";
+const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
+import Link from "next/link";
 import { Icon } from "@iconify/react";
-import { Progress } from "@/components/ui/progress";
 import type { DashboardSummary } from "@/types";
 
 const NewCustomers = ({ summary }: { summary: DashboardSummary | null }) => {
   const rate = summary?.occupancy_rate ?? 0;
 
+  const chartOptions: any = {
+    chart: { type: "radialBar", sparkline: { enabled: true } },
+    colors: ["#0F766E"],
+    plotOptions: {
+      radialBar: {
+        hollow: { size: "68%" },
+        track: { background: "#0F766E33" },
+        dataLabels: {
+          name: { show: false },
+          value: {
+            fontSize: "26px",
+            fontWeight: 700,
+            color: "#0F766E",
+            offsetY: 8,
+            formatter: (val: number) => `${val}%`,
+          },
+        },
+      },
+    },
+    stroke: { lineCap: "round" },
+  };
+
   return (
-    <div className="bg-lightsecondary/40 dark:bg-secondary/10 border border-secondary/30 rounded-xl shadow-xs p-8">
-      <div className="flex items-center gap-4 mb-8">
-        <div className="bg-lightsecondary text-secondary p-3 rounded-md">
+    <Link
+      href="/seats"
+      className="block h-full bg-[#0F766E]/20 border border-[#0F766E]/20 dark:bg-[#0F766E]/15 dark:border-[#0F766E]/20 rounded-xl shadow-xs p-8 hover:shadow-md transition-shadow cursor-pointer"
+    >
+      <div className="flex items-center gap-4 mb-2">
+        <div className="bg-[#0F766E] text-white p-3 rounded-md">
           <Icon icon="tabler:armchair" height={24} />
         </div>
-        <p className="text-lg card-title">Seat Occupancy</p>
+        <p className="text-lg font-semibold text-dark dark:text-white">Seat Occupancy</p>
       </div>
 
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-sm text-ld">
-          {summary ? `${summary.occupied_seats} / ${summary.total_seats} seats occupied` : 'Occupied seats'}
-        </p>
-        <p className="text-sm text-ld">{rate}%</p>
+      <div className="flex justify-center">
+        <Chart options={chartOptions} series={[rate]} type="radialBar" height={200} width="100%" />
       </div>
 
-      <Progress
-        value={rate}
-        className="h-2 bg-lightsecondary [&>div]:bg-secondary"
-      />
-    </div>
+      <p className="text-sm text-darklink text-center -mt-2">
+        {summary ? `${summary.occupied_seats} / ${summary.total_seats} seats occupied` : 'Occupied seats'}
+      </p>
+    </Link>
   );
 };
 

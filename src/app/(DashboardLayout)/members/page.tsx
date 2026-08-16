@@ -53,9 +53,9 @@ const BCrumb = [{ to: "/", title: "Home" }, { title: "Members / Students" }];
 const statuses: MemberStatus[] = ["active", "inactive", "expired"];
 
 const statusStyles: Record<MemberStatus, string> = {
-  active: "bg-lightsuccess text-success",
-  inactive: "bg-lightwarning text-warning",
-  expired: "bg-lighterror text-error",
+  active: "bg-success text-white hover:bg-success/90",
+  inactive: "bg-warning text-dark hover:bg-warning/90",
+  expired: "bg-error text-white hover:bg-error/90",
 };
 
 const avatarPalette = [
@@ -76,9 +76,8 @@ function daysLeftLabel(member: Member): { text: string; className: string } {
   const days = sub.days_left ?? Math.ceil((new Date(sub.end_date.slice(0, 10) + "T00:00:00").getTime() - Date.now()) / 86400000);
   if (days < 0) return { text: "Expired", className: "text-error font-medium" };
   if (days === 0) return { text: "Today", className: "text-error font-medium" };
-  if (days <= 3) return { text: `${days} day${days > 1 ? "s" : ""} left`, className: "text-error font-medium" };
-  if (days <= 7) return { text: `${days} days left`, className: "text-warning font-medium" };
-  return { text: `${days} days left`, className: "text-darklink" };
+  if (days <= 5) return { text: `${days} day${days > 1 ? "s" : ""} left`, className: "text-warning font-medium" };
+  return { text: `${days} days left`, className: "text-success font-medium" };
 }
 
 /** Mirrors DashboardController::summary()'s fee-status split (paid/partial/pending)
@@ -128,7 +127,7 @@ function WhatsAppMenu({ member }: { member: Member }) {
       key: "welcome",
       label: "Send Welcome Message",
       icon: "solar:letter-linear",
-      href: whatsappLink(member, buildAdmissionMessage(member, libraryName)),
+      href: whatsappLink(member, buildAdmissionMessage(member, libraryName, user?.whatsapp_languages)),
     },
     ...(sub && daysRemaining !== null
       ? [
@@ -141,7 +140,7 @@ function WhatsAppMenu({ member }: { member: Member }) {
               buildPaymentReminderMessage(member, libraryName, daysRemaining, {
                 upiId: user?.upi_id,
                 paymentNumber: user?.payment_number,
-              })
+              }, user?.whatsapp_languages)
             ),
           },
         ]
@@ -156,9 +155,8 @@ function WhatsAppMenu({ member }: { member: Member }) {
     return (
       <>
         <Button
-          variant="outline"
+          variant="lightsuccess"
           size="sm"
-          className="text-success hover:bg-success hover:text-white"
           title="WhatsApp"
           onClick={() => setMobileOpen(true)}
         >
@@ -193,7 +191,7 @@ function WhatsAppMenu({ member }: { member: Member }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="text-success hover:bg-success hover:text-white" title="WhatsApp">
+        <Button variant="lightsuccess" size="sm" title="WhatsApp">
           <Icon icon="ic:baseline-whatsapp" width={16} height={16} />
         </Button>
       </DropdownMenuTrigger>
@@ -306,6 +304,16 @@ export default function MembersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
+  // Arrived via the dashboard's "Add Member" card (?add=1) — open the wizard directly.
+  useEffect(() => {
+    if (!searchParams.get("add") || !canAdd) return;
+    setEditingMemberId(null);
+    setConvertPrefill(null);
+    setWizardOpen(true);
+    router.replace("/members");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const openCreate = () => {
     setEditingMemberId(null);
     setConvertPrefill(null);
@@ -354,36 +362,36 @@ export default function MembersPage() {
       {/* Desktop (xl and up) — unchanged */}
       <div className="hidden xl:block">
       <div className="grid grid-cols-4 gap-4 mb-4">
-        <CardBox className="p-4 bg-background border-none rounded-xl shadow-xs flex items-center gap-4">
-          <div className="h-12 w-12 rounded-full bg-lightprimary flex items-center justify-center shrink-0">
-            <Icon icon="solar:users-group-rounded-bold-duotone" width={24} height={24} className="text-primary" />
+        <CardBox className="p-4 bg-[#7C3AED]/20 border border-[#7C3AED]/20 dark:bg-[#7C3AED]/15 dark:border-[#7C3AED]/20 rounded-xl shadow-xs flex items-center gap-4">
+          <div className="h-12 w-12 rounded-full bg-[#7C3AED] flex items-center justify-center shrink-0">
+            <Icon icon="solar:users-group-rounded-bold-duotone" width={24} height={24} className="text-white" />
           </div>
           <div>
             <p className="text-2xl font-semibold leading-none">{members?.total ?? 0}</p>
             <p className="text-sm text-darklink mt-1">Total Students</p>
           </div>
         </CardBox>
-        <CardBox className="p-4 bg-background border-none rounded-xl shadow-xs flex items-center gap-4">
-          <div className="h-12 w-12 rounded-full bg-lightsuccess flex items-center justify-center shrink-0">
-            <Icon icon="solar:check-circle-bold-duotone" width={24} height={24} className="text-success" />
+        <CardBox className="p-4 bg-[#16A34A]/20 border border-[#16A34A]/20 dark:bg-[#16A34A]/15 dark:border-[#16A34A]/20 rounded-xl shadow-xs flex items-center gap-4">
+          <div className="h-12 w-12 rounded-full bg-[#16A34A] flex items-center justify-center shrink-0">
+            <Icon icon="solar:check-circle-bold-duotone" width={24} height={24} className="text-white" />
           </div>
           <div>
             <p className="text-2xl font-semibold leading-none">{dashboardSummary?.fee_paid_students ?? 0}</p>
             <p className="text-sm text-darklink mt-1">Fee Paid</p>
           </div>
         </CardBox>
-        <CardBox className="p-4 bg-background border-none rounded-xl shadow-xs flex items-center gap-4">
-          <div className="h-12 w-12 rounded-full bg-lightwarning flex items-center justify-center shrink-0">
-            <Icon icon="solar:hourglass-line-bold-duotone" width={24} height={24} className="text-warning" />
+        <CardBox className="p-4 bg-[#EA580C]/20 border border-[#EA580C]/20 dark:bg-[#EA580C]/15 dark:border-[#EA580C]/20 rounded-xl shadow-xs flex items-center gap-4">
+          <div className="h-12 w-12 rounded-full bg-[#EA580C] flex items-center justify-center shrink-0">
+            <Icon icon="solar:hourglass-line-bold-duotone" width={24} height={24} className="text-white" />
           </div>
           <div>
             <p className="text-2xl font-semibold leading-none">{dashboardSummary?.partial_fee_students ?? 0}</p>
             <p className="text-sm text-darklink mt-1">Partial Fee</p>
           </div>
         </CardBox>
-        <CardBox className="p-4 bg-background border-none rounded-xl shadow-xs flex items-center gap-4">
-          <div className="h-12 w-12 rounded-full bg-lighterror flex items-center justify-center shrink-0">
-            <Icon icon="solar:danger-circle-bold-duotone" width={24} height={24} className="text-error" />
+        <CardBox className="p-4 bg-[#DC2626]/20 border border-[#DC2626]/20 dark:bg-[#DC2626]/15 dark:border-[#DC2626]/20 rounded-xl shadow-xs flex items-center gap-4">
+          <div className="h-12 w-12 rounded-full bg-[#DC2626] flex items-center justify-center shrink-0">
+            <Icon icon="solar:danger-circle-bold-duotone" width={24} height={24} className="text-white" />
           </div>
           <div>
             <p className="text-2xl font-semibold leading-none">{dashboardSummary?.fee_pending_students ?? 0}</p>
@@ -517,19 +525,18 @@ export default function MembersPage() {
                     <TableCell className="text-right pe-6">
                       <div className="flex justify-end gap-2">
                         {whatsappHref(member) && <WhatsAppMenu member={member} />}
-                        <Button variant="outline" size="sm" title="View" onClick={() => setViewTargetId(member.id)}>
+                        <Button variant="lightprimary" size="sm" title="View" onClick={() => setViewTargetId(member.id)}>
                           <Icon icon="solar:eye-linear" width={16} height={16} />
                         </Button>
                         {canEdit && (
-                          <Button variant="outline" size="sm" onClick={() => openEdit(member)}>
+                          <Button variant="lightprimary" size="sm" onClick={() => openEdit(member)}>
                             <Icon icon="ic:outline-edit" width={16} height={16} />
                           </Button>
                         )}
                         {canDelete && (
                           <Button
-                            variant="outline"
+                            variant="lighterror"
                             size="sm"
-                            className="text-error hover:bg-error hover:text-white"
                             onClick={() => setDeleteTarget(member)}
                           >
                             <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} />
@@ -584,10 +591,10 @@ export default function MembersPage() {
           </Select>
         )}
 
-        <div className="rounded-2xl bg-white dark:bg-darkgray p-4 shadow-xs flex items-center justify-between">
+        <div className="rounded-2xl bg-[#7C3AED]/20 dark:bg-[#7C3AED]/15 p-4 shadow-xs flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-full bg-lightprimary flex items-center justify-center shrink-0">
-              <Icon icon="solar:users-group-rounded-bold-duotone" width={22} height={22} className="text-primary" />
+            <div className="h-11 w-11 rounded-full bg-[#7C3AED] flex items-center justify-center shrink-0">
+              <Icon icon="solar:users-group-rounded-bold-duotone" width={22} height={22} className="text-white" />
             </div>
             <div>
               <p className="text-xs text-darklink">Total Members</p>
@@ -601,16 +608,16 @@ export default function MembersPage() {
         </div>
 
         <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-2xl bg-white dark:bg-darkgray p-3 shadow-xs text-center">
-            <p className="text-lg font-bold text-success">{dashboardSummary?.fee_paid_students ?? 0}</p>
+          <div className="rounded-2xl bg-[#16A34A]/20 dark:bg-[#16A34A]/15 p-3 shadow-xs text-center">
+            <p className="text-lg font-bold text-[#16A34A]">{dashboardSummary?.fee_paid_students ?? 0}</p>
             <p className="text-[11px] text-darklink">Fee Paid</p>
           </div>
-          <div className="rounded-2xl bg-white dark:bg-darkgray p-3 shadow-xs text-center">
-            <p className="text-lg font-bold text-warning">{dashboardSummary?.partial_fee_students ?? 0}</p>
+          <div className="rounded-2xl bg-[#EA580C]/20 dark:bg-[#EA580C]/15 p-3 shadow-xs text-center">
+            <p className="text-lg font-bold text-[#EA580C]">{dashboardSummary?.partial_fee_students ?? 0}</p>
             <p className="text-[11px] text-darklink">Partial</p>
           </div>
-          <div className="rounded-2xl bg-white dark:bg-darkgray p-3 shadow-xs text-center">
-            <p className="text-lg font-bold text-error">{dashboardSummary?.fee_pending_students ?? 0}</p>
+          <div className="rounded-2xl bg-[#DC2626]/20 dark:bg-[#DC2626]/15 p-3 shadow-xs text-center">
+            <p className="text-lg font-bold text-[#DC2626]">{dashboardSummary?.fee_pending_students ?? 0}</p>
             <p className="text-[11px] text-darklink">Pending</p>
           </div>
         </div>

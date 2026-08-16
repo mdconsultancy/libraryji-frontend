@@ -198,15 +198,14 @@ export default function LeadsPage() {
                           </Button>
                         )}
                         {canEdit && (
-                          <Button variant="outline" size="sm" onClick={() => openEdit(lead)}>
+                          <Button variant="lightprimary" size="sm" onClick={() => openEdit(lead)}>
                             <Icon icon="ic:outline-edit" width={16} height={16} />
                           </Button>
                         )}
                         {canDelete && (
                           <Button
-                            variant="outline"
+                            variant="lighterror"
                             size="sm"
-                            className="text-error hover:bg-error hover:text-white"
                             onClick={() => setDeleteTarget(lead)}
                           >
                             <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} />

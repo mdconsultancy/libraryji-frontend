@@ -243,18 +243,17 @@ export default function SubscriptionsPage() {
                     <TableCell className="text-right pe-6">
                       <div className="flex justify-end gap-2">
                         {sub.status === "active" && (
-                          <Button variant="outline" size="sm" onClick={() => openRenew(sub)}>
+                          <Button variant="lightprimary" size="sm" onClick={() => openRenew(sub)}>
                             <Icon icon="solar:refresh-linear" width={16} height={16} />
                           </Button>
                         )}
-                        <Button variant="outline" size="sm" onClick={() => openEdit(sub)}>
+                        <Button variant="lightprimary" size="sm" onClick={() => openEdit(sub)}>
                           <Icon icon="ic:outline-edit" width={16} height={16} />
                         </Button>
                         {sub.status === "active" && (
                           <Button
-                            variant="outline"
+                            variant="lighterror"
                             size="sm"
-                            className="text-error hover:bg-error hover:text-white"
                             onClick={() => setCancelTarget(sub)}
                           >
                             <Icon icon="solar:close-circle-linear" width={16} height={16} />

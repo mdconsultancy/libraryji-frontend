@@ -270,7 +270,7 @@ export default function PaymentsPage() {
                     <TableCell>{payment.paid_at ? new Date(payment.paid_at).toLocaleDateString() : "—"}</TableCell>
                     <TableCell className="text-right pe-6">
                       {canEdit && (
-                        <Button variant="outline" size="sm" onClick={() => openEdit(payment)}>
+                        <Button variant="lightprimary" size="sm" onClick={() => openEdit(payment)}>
                           <Icon icon="ic:outline-edit" width={16} height={16} />
                         </Button>
                       )}
@@ -389,7 +389,7 @@ export default function PaymentsPage() {
                   {canEdit && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button type="button" aria-label="Payment actions" className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-lightprimary hover:text-primary">
+                        <button type="button" aria-label="Payment actions" className="h-7 w-7 flex items-center justify-center rounded-full bg-lightprimary/60 text-primary hover:bg-lightprimary hover:text-primary">
                           <Icon icon="tabler:dots-vertical" width={18} height={18} />
                         </button>
                       </DropdownMenuTrigger>

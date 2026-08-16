@@ -266,14 +266,13 @@ export default function StaffPage() {
                     </TableCell>
                     <TableCell className="text-right pe-6">
                       <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => openEdit(member)}>
+                        <Button variant="lightprimary" size="sm" onClick={() => openEdit(member)}>
                           <Icon icon="ic:outline-edit" width={16} height={16} />
                         </Button>
                         {member.role !== "admin" && (
                           <Button
-                            variant="outline"
+                            variant="lighterror"
                             size="sm"
-                            className="text-error hover:bg-error hover:text-white"
                             onClick={() => setDeleteTarget(member)}
                           >
                             <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} />

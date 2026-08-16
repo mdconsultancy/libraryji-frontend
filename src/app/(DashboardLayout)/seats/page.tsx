@@ -308,7 +308,7 @@ export default function SeatsPage() {
                         e.stopPropagation();
                         setDeleteTarget(seat);
                       }}
-                      className="absolute -right-1.5 -top-1.5 hidden h-6 w-6 items-center justify-center rounded-full bg-white text-error shadow-md group-hover:flex dark:bg-dark"
+                      className="absolute -right-1.5 -top-1.5 hidden h-6 w-6 items-center justify-center rounded-full bg-lighterror text-error shadow-md group-hover:flex dark:bg-error/20"
                     >
                       <Icon icon="solar:trash-bin-trash-linear" width={14} height={14} />
                     </button>

@@ -189,15 +189,14 @@ export default function HallsPage() {
                     <TableCell className="text-right pe-6">
                       <div className="flex justify-end gap-2">
                         {canEdit && (
-                          <Button variant="outline" size="sm" onClick={() => openEdit(hall)}>
+                          <Button variant="lightprimary" size="sm" onClick={() => openEdit(hall)}>
                             <Icon icon="ic:outline-edit" width={16} height={16} />
                           </Button>
                         )}
                         {canDelete && (
                           <Button
-                            variant="outline"
+                            variant="lighterror"
                             size="sm"
-                            className="text-error hover:bg-error hover:text-white"
                             onClick={() => setDeleteTarget(hall)}
                           >
                             <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} />

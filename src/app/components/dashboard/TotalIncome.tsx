@@ -1,6 +1,7 @@
 "use client";
 import dynamic from "next/dynamic";
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
+import Link from "next/link";
 import { Icon } from "@iconify/react";
 import { Badge } from "@/components/ui/badge";
 import type { DashboardSummary, RevenueChartPoint } from "@/types";
@@ -22,7 +23,7 @@ const TotalIncome = ({
     series: [
       {
         name: "monthly revenue",
-        color: "var(--color-error)",
+        color: "#FB7185",
         data: revenueChart.map((d) => d.revenue),
       },
     ],
@@ -67,13 +68,16 @@ const TotalIncome = ({
   };
 
   return (
-    <div className="bg-lighterror/40 dark:bg-error/10 border border-error/30 rounded-xl shadow-xs p-8">
+    <Link
+      href="/payments"
+      className="block bg-[#FB7185]/20 border border-[#FB7185]/20 dark:bg-[#FB7185]/15 dark:border-[#FB7185]/20 rounded-xl shadow-xs p-8 hover:shadow-md transition-shadow cursor-pointer"
+    >
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
-        <div className="bg-lighterror text-error p-3 rounded-md">
+        <div className="bg-[#FB7185] text-white p-3 rounded-md">
           <Icon icon="tabler:box" height={24} />
         </div>
-        <p className="text-lg card-title">Revenue This Month</p>
+        <p className="text-lg font-semibold text-dark dark:text-white">Revenue This Month</p>
       </div>
 
       {/* Body */}
@@ -101,7 +105,7 @@ const TotalIncome = ({
           />
         </div>
       </div>
-    </div>
+    </Link>
   );
 };
 

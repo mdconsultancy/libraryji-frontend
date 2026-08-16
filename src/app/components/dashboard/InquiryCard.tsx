@@ -40,20 +40,20 @@ export default function InquiryCard({ summary }: { summary: DashboardSummary | n
   };
 
   return (
-    <div className="rounded-xl h-full shadow-xs bg-lightprimary/40 dark:bg-primary/10 border border-primary/30 p-6 relative w-full">
+    <div className="rounded-xl h-full shadow-xs bg-[#7C3AED]/20 border border-[#7C3AED]/20 dark:bg-[#7C3AED]/15 dark:border-[#7C3AED]/20 p-6 relative w-full">
       <div className="flex items-center justify-between gap-3 mb-4">
-        <h5 className="card-title">Inquiries</h5>
-        <Link href="/leads" className="text-xs text-primary hover:underline">
+        <h5 className="text-lg font-semibold text-dark dark:text-white">Inquiries</h5>
+        <Link href="/leads" className="text-xs text-[#7C3AED] dark:text-[#A78BFA] hover:underline">
           View all
         </Link>
       </div>
 
       <div className="flex items-center gap-4 mb-4">
-        <div className="h-12 w-12 rounded-full bg-lightprimary flex items-center justify-center shrink-0">
-          <Icon icon="solar:chat-round-line-bold-duotone" width={24} height={24} className="text-primary" />
+        <div className="h-12 w-12 rounded-full bg-[#7C3AED] flex items-center justify-center shrink-0">
+          <Icon icon="solar:chat-round-line-bold-duotone" width={24} height={24} className="text-white" />
         </div>
         <div>
-          <p className="text-2xl font-bold leading-none">{summary?.total_inquiries ?? 0}</p>
+          <p className="text-2xl font-bold leading-none text-dark dark:text-white">{summary?.total_inquiries ?? 0}</p>
           <p className="text-xs text-darklink mt-1">Total Inquiries · {summary?.today_inquiries ?? 0} today</p>
         </div>
       </div>

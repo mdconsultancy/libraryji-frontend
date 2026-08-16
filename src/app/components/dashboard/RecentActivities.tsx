@@ -4,9 +4,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import type { RecentActivityItem, RecentActivityType } from "@/types";
 
 const iconByType: Record<RecentActivityType, { icon: string; tone: string }> = {
-  member_joined: { icon: "solar:user-plus-bold-duotone", tone: "bg-lightprimary text-primary" },
-  payment_received: { icon: "solar:wallet-money-bold-duotone", tone: "bg-lightsuccess text-success" },
-  attendance_check_in: { icon: "solar:login-3-bold-duotone", tone: "bg-lightinfo text-info" },
+  member_joined: { icon: "solar:user-plus-bold-duotone", tone: "bg-primary text-white" },
+  payment_received: { icon: "solar:wallet-money-bold-duotone", tone: "bg-success text-white" },
+  attendance_check_in: { icon: "solar:login-3-bold-duotone", tone: "bg-info text-dark" },
 };
 
 function timeAgo(iso: string): string {

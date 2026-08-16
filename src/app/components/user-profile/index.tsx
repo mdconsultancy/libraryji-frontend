@@ -14,10 +14,12 @@ import BreadcrumbComp from "@/app/(DashboardLayout)/layout/shared/breadcrumb/Bre
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import PasswordInput from "@/components/form/PasswordInput";
 import { useAuth } from "@/context/AuthContext";
 import { api, ApiError } from "@/lib/api";
-import type { User } from "@/types";
+import { WHATSAPP_LANGUAGE_ORDER, WHATSAPP_LANGUAGE_LABELS, normalizeWhatsAppLanguages } from "@/lib/whatsapp";
+import type { User, WhatsAppLanguage } from "@/types";
 
 const UserProfile = () => {
     const { user, refreshMe } = useAuth();
@@ -26,6 +28,29 @@ const UserProfile = () => {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [savingTwoFactor, setSavingTwoFactor] = useState(false);
+    const [savingLanguages, setSavingLanguages] = useState(false);
+
+    const selectedLanguages = normalizeWhatsAppLanguages(user?.whatsapp_languages);
+
+    const toggleLanguage = async (lang: WhatsAppLanguage) => {
+        if (!user) return;
+        const isSelected = selectedLanguages.includes(lang);
+        // At least one language must stay selected — a member with none
+        // picked would get an empty WhatsApp message.
+        if (isSelected && selectedLanguages.length === 1) return;
+        const next = isSelected
+            ? selectedLanguages.filter((l) => l !== lang)
+            : [...selectedLanguages, lang];
+        setSavingLanguages(true);
+        try {
+            await api.put<{ user: User }>("/auth/profile", { whatsapp_languages: next });
+            await refreshMe();
+        } catch {
+            // Best-effort — the checkbox just won't visually flip since refreshMe() re-reads the unchanged value.
+        } finally {
+            setSavingLanguages(false);
+        }
+    };
 
     const toggleTwoFactor = async () => {
         if (!user) return;
@@ -170,6 +195,27 @@ const UserProfile = () => {
                                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                     <div><p className="text-xs text-gray-500">UPI ID</p><p>{user.upi_id || '—'}</p></div>
                                     <div><p className="text-xs text-gray-500">Payment Number</p><p>{user.payment_number || '—'}</p></div>
+                                </div>
+                            </div>
+                        )}
+
+                        {(user.role === "admin" || user.role === "staff") && (
+                            <div className="rounded-lg border border-border dark:border-darkborder p-4 mt-2">
+                                <p className="font-medium text-sm">WhatsApp Message Language</p>
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                    Select one or more — a student gets the welcome/fee-reminder message once per language, in this order: English, Hindi, Gujarati.
+                                </p>
+                                <div className="flex flex-wrap gap-4 mt-3">
+                                    {WHATSAPP_LANGUAGE_ORDER.map((lang) => (
+                                        <label key={lang} className="flex items-center gap-2 text-sm cursor-pointer">
+                                            <Checkbox
+                                                checked={selectedLanguages.includes(lang)}
+                                                onCheckedChange={() => toggleLanguage(lang)}
+                                                disabled={savingLanguages}
+                                            />
+                                            {WHATSAPP_LANGUAGE_LABELS[lang]}
+                                        </label>
+                                    ))}
                                 </div>
                             </div>
                         )}

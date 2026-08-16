@@ -128,15 +128,14 @@ export default function UserManagementPage() {
                     <TableCell className="text-right pe-6">
                       <div className="flex justify-end gap-2">
                         <Link href={`/platform/users/${row.id}`}>
-                          <Button variant="outline" size="sm">
+                          <Button variant="lightprimary" size="sm">
                             <Icon icon="solar:eye-linear" width={16} height={16} />
                             View
                           </Button>
                         </Link>
                         <Button
-                          variant="outline"
+                          variant="lighterror"
                           size="sm"
-                          className="text-error hover:bg-error hover:text-white"
                           onClick={() => setDeleteTarget(row)}
                         >
                           <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} />
