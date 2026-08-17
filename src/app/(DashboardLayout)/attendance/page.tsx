@@ -19,6 +19,7 @@ import { useToast } from "@/context/ToastContext";
 import { useReadOnly } from "@/hooks/useReadOnly";
 import { usePermission } from "@/hooks/usePermission";
 import { usePermissionGuard } from "@/hooks/usePermissionGuard";
+import Avatar from "@/components/shared/Avatar";
 import type { AttendanceRoster } from "@/types";
 
 const BCrumb = [{ to: "/", title: "Home" }, { title: "Attendance" }];
@@ -31,9 +32,6 @@ function toDateString(d: Date): string {
 }
 
 const TODAY = toDateString(new Date());
-
-const initials = (name: string) =>
-  name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
 
 type Tab = "all" | "present" | "absent";
 
@@ -219,14 +217,7 @@ export default function AttendancePage() {
                       className={`flex items-center gap-3 px-6 py-3 ${editable ? "cursor-pointer hover:bg-lightprimary/40" : ""} ${selected ? "bg-lightprimary/60" : ""}`}
                     >
                       {editable && <Checkbox checked={selected} onCheckedChange={() => toggleOne(member.id)} onClick={(e) => e.stopPropagation()} />}
-                      <div className="h-10 w-10 rounded-full bg-lightprimary text-primary flex items-center justify-center font-semibold shrink-0 overflow-hidden">
-                        {member.photo_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={member.photo_url} alt={member.name} className="h-full w-full object-cover" />
-                        ) : (
-                          initials(member.name)
-                        )}
-                      </div>
+                      <Avatar src={member.photo_url} name={member.name} seed={member.id} size={40} />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-dark dark:text-white truncate">{member.name}</p>
                         <p className="text-xs text-darklink truncate">{member.email || member.member_code}</p>

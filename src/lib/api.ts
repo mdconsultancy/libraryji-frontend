@@ -190,6 +190,18 @@ export function invalidateMembers() {
 }
 
 /**
+ * Revalidates every cached `/admin/payments...` and `/admin/statement...` SWR
+ * key. Needed after a permanent member delete, which deletes that member's
+ * Payment rows server-side (see Member::forceDeleting) — without this, the
+ * Payments list and the Income/Expense Statement page keep showing the
+ * deleted member's payments from their pre-deletion cached snapshot until
+ * something else happens to revalidate those keys.
+ */
+export function invalidatePayments() {
+  swrMutate((key) => typeof key === 'string' && (key.includes('/admin/payments') || key.includes('/admin/statement')))
+}
+
+/**
  * Downloads a file (PDF/Excel export) from an authenticated endpoint and
  * saves it via a throwaway <a download> link — plain <a href> can't carry
  * the Bearer token, so the file has to be fetched as a blob first.

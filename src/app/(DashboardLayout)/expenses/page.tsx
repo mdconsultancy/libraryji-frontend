@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +40,20 @@ const monthStart = () => new Date(new Date().getFullYear(), new Date().getMonth(
 const today = () => new Date().toISOString().slice(0, 10);
 
 const paymentModes: PaymentMethod[] = ["cash", "online", "offline", "upi"];
+
+type ExportScope = "all" | "income" | "expenses";
+
+const exportFilenamePrefix: Record<ExportScope, string> = {
+  all: "income-expense-statement",
+  income: "income-statement",
+  expenses: "expense-statement",
+};
+
+const exportScopeOptions: { value: ExportScope; label: string }[] = [
+  { value: "all", label: "All (Income + Expenses)" },
+  { value: "income", label: "Income (Student Fees) only" },
+  { value: "expenses", label: "Expenses only" },
+];
 
 const emptyForm = { category: "", title: "", amount: "", expense_date: today(), payment_mode: "cash" as PaymentMethod, notes: "" };
 
@@ -89,15 +104,23 @@ export default function StatementsPage() {
   const [deleting, setDeleting] = useState(false);
 
   const [downloading, setDownloading] = useState<"pdf" | "xlsx" | null>(null);
+  const [exportFormat, setExportFormat] = useState<"pdf" | "xlsx" | null>(null);
+  const [exportScope, setExportScope] = useState<ExportScope>("all");
 
-  const handleDownload = async (format: "pdf" | "xlsx") => {
+  const openExportDialog = (format: "pdf" | "xlsx") => {
+    setExportScope("all");
+    setExportFormat(format);
+  };
+
+  const handleDownload = async (format: "pdf" | "xlsx", scope: ExportScope) => {
     setDownloading(format);
     try {
       await downloadFile(
         "/admin/statement/export",
-        { from, to, format },
-        `income-expense-statement-${from}-to-${to}.${format}`
+        { from, to, format, type: scope },
+        `${exportFilenamePrefix[scope]}-${from}-to-${to}.${format}`
       );
+      setExportFormat(null);
     } catch {
       toast.error("Unable to download the statement. Please try again.");
     } finally {
@@ -191,13 +214,13 @@ export default function StatementsPage() {
           </Button>
           <div className="flex gap-2 ms-auto">
             {canDownloadPdf && (
-              <Button type="button" variant="outline" disabled={downloading === "pdf"} onClick={() => handleDownload("pdf")}>
+              <Button type="button" variant="outline" disabled={downloading === "pdf"} onClick={() => openExportDialog("pdf")}>
                 <Icon icon="solar:file-text-linear" width={16} height={16} className="mr-1.5" />
                 {downloading === "pdf" ? "Downloading..." : "PDF"}
               </Button>
             )}
             {canDownloadExcel && (
-              <Button type="button" variant="outline" disabled={downloading === "xlsx"} onClick={() => handleDownload("xlsx")}>
+              <Button type="button" variant="outline" disabled={downloading === "xlsx"} onClick={() => openExportDialog("xlsx")}>
                 <Icon icon="solar:file-download-linear" width={16} height={16} className="mr-1.5" />
                 {downloading === "xlsx" ? "Downloading..." : "Excel"}
               </Button>
@@ -421,6 +444,40 @@ export default function StatementsPage() {
         onCancel={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
       />
+
+      <Dialog open={!!exportFormat} onOpenChange={(v) => !v && setExportFormat(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Export as {exportFormat === "pdf" ? "PDF" : "Excel"}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-darklink mb-2">Choose what to include in the statement.</p>
+          <RadioGroup value={exportScope} onValueChange={(v) => setExportScope(v as ExportScope)}>
+            {exportScopeOptions.map((option) => (
+              <label
+                key={option.value}
+                htmlFor={`export-scope-${option.value}`}
+                className="flex items-center gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-darkgray"
+              >
+                <RadioGroupItem value={option.value} id={`export-scope-${option.value}`} />
+                <span className="text-sm">{option.label}</span>
+              </label>
+            ))}
+          </RadioGroup>
+          <DialogFooter className="flex gap-2 mt-4">
+            <Button
+              type="button"
+              className="rounded-md"
+              disabled={downloading !== null}
+              onClick={() => exportFormat && handleDownload(exportFormat, exportScope)}
+            >
+              {downloading !== null ? "Downloading..." : "Download"}
+            </Button>
+            <Button type="button" variant="outline" className="rounded-md" onClick={() => setExportFormat(null)}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </>
   );

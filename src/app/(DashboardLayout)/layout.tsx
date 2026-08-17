@@ -109,7 +109,15 @@ export default function Layout({
             {readOnly && <ReadOnlyBanner />}
             {/* Body Content  */}
             <div className="bg-lightgray dark:bg-dark mr-3 rounded-3xl min-h-[90vh]">
-              <div className={`container mx-auto px-6 py-30 max-xl:pb-24`}>{children}</div>
+              {/* max-xl:pb-* reserves room below the last card (e.g. the
+                  dashboard's site-credit footer / Recent Activities) for the
+                  fixed MobileBottomNav below xl, which would otherwise sit on
+                  top of it. The nav's own height varies with its raised
+                  center button plus the device's safe-area inset, so the
+                  padding adds that inset on top of a flat buffer rather than
+                  a single fixed number that can fall short on tall-inset
+                  phones. */}
+              <div className="container mx-auto px-6 py-30 max-xl:pb-[calc(7rem+env(safe-area-inset-bottom))]">{children}</div>
             </div>
           </div>
         </div>

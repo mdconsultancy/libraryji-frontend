@@ -385,6 +385,19 @@ export interface RecentActivityItem {
   title: string
   subtitle: string
   occurred_at: string
+  /** Extra per-type context — currently only populated for `member_joined` rows. */
+  meta?: { seat_number?: string | null } | null
+}
+
+/** Shared "load more" pagination envelope for the dashboard's Recent
+ *  Activities / Recent Members feeds (`GET .../recent-activity`,
+ *  `GET .../recent-members`) — a merged/derived feed, not a Laravel
+ *  paginate() resource, hence the smaller shape than `Paginated<T>`. */
+export interface RecentFeedPage<T> {
+  data: T[]
+  page: number
+  per_page: number
+  has_more: boolean
 }
 
 export interface RevenueChartPoint {

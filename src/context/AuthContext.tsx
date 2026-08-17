@@ -1,8 +1,15 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react'
+import { mutate as globalMutate } from 'swr'
 import { api, getToken, getRefreshToken, setTokens, type TokenPair } from '@/lib/api'
 import type { User } from '@/types'
+
+// SWR's cache is a single app-lifetime store keyed only by API path (see lib/swr.ts),
+// not by user/tenant. Without flushing it on every identity change, switching users
+// via logout+login (no hard refresh) would keep serving the previous user's cached
+// dashboard/members/etc. data until something happened to revalidate those keys.
+const clearSwrCache = () => globalMutate(() => true, undefined, { revalidate: false })
 
 interface LoginPayload {
   library_code?: string
@@ -82,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const { user, ...tokens } = response
+    await clearSwrCache()
     setTokens(tokens)
     setUser(user)
     return { twoFactorRequired: false, user }
@@ -92,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user_id: userId,
       code,
     })
+    await clearSwrCache()
     setTokens(tokens)
     setUser(user)
     return user
@@ -103,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(async (payload: RegisterPayload) => {
     const { user: _registeredUser, ...tokens } = await api.post<{ user: User } & TokenPair>('/auth/register', payload)
+    await clearSwrCache()
     setTokens(tokens)
     // The register response doesn't eager-load `tenant`; fetch the full profile
     // so downstream checks like tenantNeedsPlan() have what they need.
@@ -119,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // ignore network errors on logout, still clear local state
     }
+    await clearSwrCache()
     setTokens(null)
     setUser(null)
   }, [])

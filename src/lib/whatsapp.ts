@@ -91,7 +91,6 @@ function admissionMessageIn(language: WhatsAppLanguage, member: Member, libraryN
       `💰 ફી: ₹${fees}`,
       ``,
       `📚 ${libraryName} પસંદ કરવા બદલ આભાર.`,
-      `અભ્યાસ - ફોકસ - સફળતા`,
     ].join("\n");
   }
 
@@ -139,15 +138,16 @@ function paymentReminderMessageIn(
 
   if (language === "gu") {
     return [
-      `📚 રિમાઇન્ડર - ${libraryName}`,
+      `📚 રિમાઇન્ડર – ${libraryName}`,
       ``,
       `👋 નમસ્તે ${member.name},`,
       ``,
       `⏳ તમારી લાઇબ્રેરી સબસ્ક્રિપ્શનમાં ${daysRemaining} દિવસ બાકી છે.`,
-      `🔄 તમારી સીટ વિના અડચણે ચાલુ રાખવા માટે જલદી રિન્યુ કરો.`,
+      ``,
+      `🔄 અભ્યાસમાં કોઈ વિરામ ન આવે તે માટે સમયસર તમારી Membership Renew કરો.`,
       ``,
       `💳 UPI: ${upiId}`,
-      `📱 પેમેન્ટ નંબર: ${paymentNumber}`,
+      `📱 Payment Number: ${paymentNumber}`,
       ``,
       `❤️ આભાર!`,
       `${libraryName}`,

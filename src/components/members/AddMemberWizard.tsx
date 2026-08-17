@@ -62,10 +62,10 @@ const PAYMENT_METHODS: { label: string; value: PaymentTypeChoice }[] = [
 ];
 
 const seatCardStyles: Record<SeatStatus, { face: string; ring: string }> = {
-  available: { face: "bg-lightprimary text-primary", ring: "" },
-  occupied: { face: "bg-lightgray dark:bg-white/5 text-darklink", ring: "" },
-  reserved: { face: "bg-lightwarning text-warning", ring: "" },
-  maintenance: { face: "bg-lightgray dark:bg-white/5 text-darklink", ring: "" },
+  available: { face: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400", ring: "" },
+  occupied: { face: "bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400", ring: "" },
+  reserved: { face: "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400", ring: "" },
+  maintenance: { face: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300", ring: "" },
 };
 
 function addDaysIso(iso: string, days: number): string {
@@ -175,8 +175,8 @@ function SelectSeatModal({
         </Tabs>
 
         <div className="flex items-center gap-4 text-xs text-darklink">
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-lightprimary border border-primary/40" /> Free</span>
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-lightgray dark:bg-white/10" /> Filled</span>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Free</span>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-rose-500" /> Filled</span>
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-primary" /> Selected</span>
         </div>
 

@@ -19,7 +19,9 @@ import { useApi } from "@/hooks/useApi";
 import DashboardSkeleton from "@/components/shared/DashboardSkeleton";
 import PolicyLinks from "@/app/components/shared/PolicyLinks";
 import { useAuth } from "@/context/AuthContext";
-import type { DashboardSummary, RevenueChartPoint, RecentActivityItem, Member } from "@/types";
+import type { DashboardSummary, RevenueChartPoint, RecentActivityItem, Member, RecentFeedPage } from "@/types";
+
+const FEED_PAGE_SIZE = 10;
 
 const Page = () => {
   const { user } = useAuth();
@@ -38,10 +40,39 @@ const Page = () => {
   // Skipped for super admins, who have no tenant and get redirected to /platform above.
   const { data: summary, isLoading: loadingSummary, error: errorSummary } = useApi<DashboardSummary>(isSuperAdmin ? null : "/admin/dashboard/summary");
   const { data: revenueChart, isLoading: loadingRevenue, error: errorRevenue } = useApi<RevenueChartPoint[]>(isSuperAdmin ? null : "/admin/dashboard/revenue-chart", { months: revenueMonths });
-  const { data: recentMembers, isLoading: loadingMembers, error: errorMembers } = useApi<Member[]>(isSuperAdmin ? null : "/admin/dashboard/recent-members");
-  const { data: activity, isLoading: loadingActivity, error: errorActivity } = useApi<RecentActivityItem[]>(isSuperAdmin ? null : "/admin/dashboard/recent-activity");
 
-  const loading = isSuperAdmin || loadingSummary || loadingRevenue || loadingMembers || loadingActivity;
+  // Recent Members and Recent Activities both use "Load more" pagination:
+  // each page bump fetches a new SWR key (page N), and the results are
+  // appended onto local accumulator state below.
+  const [membersPage, setMembersPage] = useState(1);
+  const [membersAccum, setMembersAccum] = useState<Member[]>([]);
+  const {
+    data: recentMembersPage,
+    isLoading: loadingMembers,
+    isValidating: loadingMoreMembers,
+    error: errorMembers,
+  } = useApi<RecentFeedPage<Member>>(isSuperAdmin ? null : "/admin/dashboard/recent-members", { page: membersPage, per_page: FEED_PAGE_SIZE });
+
+  useEffect(() => {
+    if (!recentMembersPage) return;
+    setMembersAccum((prev) => (recentMembersPage.page === 1 ? recentMembersPage.data : [...prev, ...recentMembersPage.data]));
+  }, [recentMembersPage]);
+
+  const [activityPage, setActivityPage] = useState(1);
+  const [activityAccum, setActivityAccum] = useState<RecentActivityItem[]>([]);
+  const {
+    data: activityPageData,
+    isLoading: loadingActivity,
+    isValidating: loadingMoreActivity,
+    error: errorActivity,
+  } = useApi<RecentFeedPage<RecentActivityItem>>(isSuperAdmin ? null : "/admin/dashboard/recent-activity", { page: activityPage, per_page: FEED_PAGE_SIZE });
+
+  useEffect(() => {
+    if (!activityPageData) return;
+    setActivityAccum((prev) => (activityPageData.page === 1 ? activityPageData.data : [...prev, ...activityPageData.data]));
+  }, [activityPageData]);
+
+  const loading = isSuperAdmin || loadingSummary || loadingRevenue || (membersPage === 1 && loadingMembers) || (activityPage === 1 && loadingActivity);
   const error = !isSuperAdmin && (errorSummary || errorRevenue || errorMembers || errorActivity);
 
   if (loading) {
@@ -77,10 +108,20 @@ const Page = () => {
         </div>
 
         <div className="col-span-12">
-          <ProductRevenue members={recentMembers ?? []} />
+          <ProductRevenue
+            members={membersAccum}
+            hasMore={recentMembersPage?.has_more}
+            loadingMore={loadingMoreMembers}
+            onLoadMore={() => setMembersPage((p) => p + 1)}
+          />
         </div>
         <div className="col-span-12">
-          <RecentActivities activity={activity ?? []} />
+          <RecentActivities
+            activity={activityAccum}
+            hasMore={activityPageData?.has_more}
+            loadingMore={loadingMoreActivity}
+            onLoadMore={() => setActivityPage((p) => p + 1)}
+          />
         </div>
         <div className="col-span-12 text-center">
           <p className="text-base">
@@ -102,7 +143,13 @@ const Page = () => {
         {summary && <MobileStatsGrid summary={summary} />}
         <AddMemberCard />
         <InquiryCard summary={summary ?? null} />
-        <MobileRecentActivity activity={activity ?? []} loading={loadingActivity} />
+        <MobileRecentActivity
+          activity={activityAccum}
+          loading={activityPage === 1 && loadingActivity}
+          hasMore={activityPageData?.has_more}
+          loadingMore={loadingMoreActivity}
+          onLoadMore={() => setActivityPage((p) => p + 1)}
+        />
         <div className="text-center py-2">
           <p className="text-sm">
             Design and Developed by{" "}

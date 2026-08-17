@@ -2,8 +2,8 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
+import Avatar from "@/components/shared/Avatar";
 import BreadcrumbComp from "@/app/(DashboardLayout)/layout/shared/breadcrumb/BreadcrumbComp";
 import CardBox from "@/app/components/shared/CardBox";
 import {
@@ -57,18 +57,6 @@ const statusStyles: Record<MemberStatus, string> = {
   inactive: "bg-warning text-dark hover:bg-warning/90",
   expired: "bg-error text-white hover:bg-error/90",
 };
-
-const avatarPalette = [
-  "bg-lightsuccess text-success",
-  "bg-lightinfo text-info",
-  "bg-lightwarning text-warning",
-  "bg-lightprimary text-primary",
-  "bg-lighterror text-error",
-  "bg-lightsecondary text-secondary",
-];
-const avatarColor = (id: number) => avatarPalette[id % avatarPalette.length];
-const initials = (name: string) =>
-  name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
 
 function daysLeftLabel(member: Member): { text: string; className: string } {
   const sub = member.active_subscription;
@@ -328,6 +316,8 @@ export default function MembersPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const [viewTargetId, setViewTargetId] = useState<number | null>(null);
   const { data: viewMember, isLoading: loadingViewMember } = useApi<Member>(
@@ -350,6 +340,23 @@ export default function MembersPage() {
       if (err instanceof ApiError) toast.error(err.message);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkDeleting(true);
+    try {
+      await api.post("/admin/members/bulk-delete", { ids: Array.from(selectedIds) });
+      toast.success(`${selectedIds.size} member(s) deleted.`);
+      setBulkDeleteOpen(false);
+      setSelectedIds(new Set());
+      mutate();
+      invalidateDashboard();
+    } catch (err) {
+      if (err instanceof ApiError) toast.error(err.message);
+    } finally {
+      setBulkDeleting(false);
     }
   };
 
@@ -429,9 +436,9 @@ export default function MembersPage() {
           <div className="flex flex-wrap gap-2">
             {canDelete && (
               <Button type="button" variant="outline" asChild>
-                <Link href="/members/trash">
+                <Link href="/members/old">
                   <Icon icon="solar:trash-bin-2-linear" width={16} height={16} className="mr-1.5" />
-                  Trash
+                  Old Students
                 </Link>
               </Button>
             )}
@@ -443,6 +450,12 @@ export default function MembersPage() {
               <Icon icon="solar:file-download-linear" width={16} height={16} className="mr-1.5" />
               {downloading === "xlsx" ? "Downloading..." : selectedIds.size > 0 ? `Excel (${selectedIds.size})` : "Excel"}
             </Button>
+            {canDelete && selectedIds.size > 0 && (
+              <Button type="button" variant="lighterror" onClick={() => setBulkDeleteOpen(true)}>
+                <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} className="mr-1.5" />
+                Delete selected ({selectedIds.size})
+              </Button>
+            )}
             {selectedIds.size > 0 && (
               <Button type="button" variant="ghost" onClick={() => setSelectedIds(new Set())}>
                 Clear selection
@@ -498,13 +511,7 @@ export default function MembersPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-3 items-center">
-                        <Image
-                          src={member.photo_url || "/images/profile/user-1.jpg"}
-                          alt={member.name}
-                          width={40}
-                          height={40}
-                          className="h-10 w-10 rounded-full object-cover"
-                        />
+                        <Avatar src={member.photo_url} name={member.name} seed={member.id} size={40} />
                         <div>
                           <p className="text-sm font-medium">{member.name}</p>
                           <p className="text-xs text-gray-500">{member.email || member.member_code}</p>
@@ -643,19 +650,7 @@ export default function MembersPage() {
           <div className="flex flex-col gap-3">
             {members?.data.map((member) => (
               <div key={member.id} className="rounded-2xl bg-white dark:bg-darkgray p-4 shadow-xs flex items-center gap-3">
-                {member.photo_url ? (
-                  <Image
-                    src={member.photo_url}
-                    alt={member.name}
-                    width={48}
-                    height={48}
-                    className="h-12 w-12 rounded-full object-cover shrink-0"
-                  />
-                ) : (
-                  <div className={`h-12 w-12 rounded-full flex items-center justify-center shrink-0 font-semibold ${avatarColor(member.id)}`}>
-                    {initials(member.name)}
-                  </div>
-                )}
+                <Avatar src={member.photo_url} name={member.name} seed={member.id} size={48} className="shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-dark dark:text-white truncate">{member.name}</p>
                   <p className="text-xs text-darklink truncate">{member.email || member.member_code}</p>
@@ -720,6 +715,15 @@ export default function MembersPage() {
         onConfirm={handleDelete}
       />
 
+      <DeleteConfirmDialog
+        open={bulkDeleteOpen}
+        title={`Delete ${selectedIds.size} selected member(s)?`}
+        description="These members will be moved to Old Students. You can restore them from there, or delete them permanently."
+        loading={bulkDeleting}
+        onCancel={() => setBulkDeleteOpen(false)}
+        onConfirm={handleBulkDelete}
+      />
+
       <AddMemberWizard
         open={wizardOpen}
         onClose={() => {
@@ -740,19 +744,7 @@ export default function MembersPage() {
             <>
               <DialogHeader>
                 <div className="flex items-center gap-3">
-                  {viewMember.photo_url ? (
-                    <Image
-                      src={viewMember.photo_url}
-                      alt={viewMember.name}
-                      width={48}
-                      height={48}
-                      className="h-12 w-12 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className={`h-12 w-12 rounded-full flex items-center justify-center font-semibold ${avatarColor(viewMember.id)}`}>
-                      {initials(viewMember.name)}
-                    </div>
-                  )}
+                  <Avatar src={viewMember.photo_url} name={viewMember.name} seed={viewMember.id} size={48} />
                   <div>
                     <DialogTitle>{viewMember.name}</DialogTitle>
                     <p className="text-xs text-darklink">{viewMember.member_code}</p>

@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import PasswordInput from '@/components/form/PasswordInput'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
+import AuthImagePanel from './AuthImagePanel'
 
 interface FormState {
   library_name: string
@@ -73,13 +74,16 @@ export const Register = () => {
 
   return (
     <>
-      <div className='min-h-screen w-full flex justify-center items-center bg-lightprimary py-10 px-3'>
+      <div className='min-h-screen w-full flex bg-lightprimary'>
+        <AuthImagePanel variant='register' />
+        <div className='w-full lg:w-[40%] flex justify-center items-center py-10 px-3'>
         <div className='w-full max-w-[500px] mx-auto'>
           <CardBox className='p-4 sm:p-6'>
             <form onSubmit={handleSubmit}>
               <div className='flex justify-center mb-4'>
                 <FullLogo />
               </div>
+              <h1 className='text-xl font-bold text-dark text-center mb-1'>Register</h1>
               <p className='text-sm text-charcoal text-center mb-6'>
                 Create your library account — choose a plan and pay on the next step
               </p>
@@ -207,6 +211,7 @@ export const Register = () => {
             </form>
           </CardBox>
           <PolicyLinks />
+        </div>
         </div>
       </div>
     </>

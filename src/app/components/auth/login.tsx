@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input'
 import PasswordInput from '@/components/form/PasswordInput'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
+import AuthImagePanel from './AuthImagePanel'
 
 export const Login = () => {
   const { login, verifyTwoFactor, resendTwoFactor } = useAuth()
@@ -88,7 +89,9 @@ export const Login = () => {
 
   if (pendingUserId) {
     return (
-      <div className='min-h-screen w-full flex justify-center items-center bg-lightprimary px-3'>
+      <div className='min-h-screen w-full flex bg-lightprimary'>
+        <AuthImagePanel variant='login' />
+        <div className='w-full lg:w-[40%] flex justify-center items-center px-3 py-10'>
         <div className='w-full max-w-[450px] mx-auto'>
           <CardBox className='p-4 sm:p-6'>
             <form onSubmit={handleVerifyOtp}>
@@ -149,13 +152,16 @@ export const Login = () => {
           </CardBox>
           <PolicyLinks />
         </div>
+        </div>
       </div>
     )
   }
 
   return (
     <>
-      <div className='min-h-screen w-full flex justify-center items-center bg-lightprimary px-3'>
+      <div className='min-h-screen w-full flex bg-lightprimary'>
+        <AuthImagePanel variant='login' />
+        <div className='w-full lg:w-[40%] flex justify-center items-center px-3 py-10'>
         <div className='w-full max-w-[450px] mx-auto'>
           <CardBox className='p-4 sm:p-6'>
             <form onSubmit={handleSubmit}>
@@ -265,6 +271,7 @@ export const Login = () => {
             </form>
           </CardBox>
           <PolicyLinks />
+        </div>
         </div>
       </div>
     </>
