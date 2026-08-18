@@ -261,7 +261,19 @@ export default function PaymentsPage() {
                     </TableCell>
                     <TableCell>{payment.member?.name || "—"}</TableCell>
                     <TableCell>₹{Number(payment.amount).toLocaleString()}</TableCell>
-                    <TableCell className="capitalize">{payment.payment_method.replace('_', ' ')}</TableCell>
+                    <TableCell className="capitalize">
+                      <div>{payment.payment_method.replace('_', ' ')}</div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5">
+                        {payment.created_by_role === "staff" ? (
+                          <span className="text-amber-600 dark:text-amber-400 font-medium inline-flex items-center gap-0.5">
+                            <Icon icon="solar:user-hand-up-bold" width={11} height={11} />
+                            By Staff: {payment.created_by_name || "Staff"}
+                          </span>
+                        ) : (
+                          <span>By Admin {payment.created_by_name ? `(${payment.created_by_name})` : ""}</span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className={`border-none capitalize ${statusStyles[payment.status]}`}>
                         {payment.status}
@@ -343,9 +355,9 @@ export default function PaymentsPage() {
           </div>
         )}
 
-        <div className="rounded-2xl bg-white dark:bg-darkgray p-4 shadow-xs flex items-center gap-3">
-          <div className="h-11 w-11 rounded-full bg-lightprimary flex items-center justify-center shrink-0">
-            <Icon icon="solar:bill-check-bold-duotone" width={22} height={22} className="text-primary" />
+        <div className="rounded-2xl bg-lightprimary p-4 shadow-xs flex items-center gap-3">
+          <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center shrink-0">
+            <Icon icon="solar:wallet-bold-duotone" width={24} height={24} className="text-white" />
           </div>
           <div>
             <p className="text-xs text-darklink">Total Payments</p>
@@ -380,7 +392,12 @@ export default function PaymentsPage() {
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-dark dark:text-white truncate">{payment.member?.name || payment.invoice_number}</p>
                   <p className="text-xs text-darklink truncate">₹{Number(payment.amount).toLocaleString()} · <span className="capitalize">{payment.payment_method.replace('_', ' ')}</span></p>
-                  <p className="text-xs text-darklink mt-0.5">{payment.paid_at ? new Date(payment.paid_at).toLocaleDateString() : "—"}</p>
+                  <p className="text-xs text-darklink mt-0.5">
+                    {payment.paid_at ? new Date(payment.paid_at).toLocaleDateString() : "—"} ·{" "}
+                    <span className={payment.created_by_role === "staff" ? "text-amber-600 dark:text-amber-400 font-medium" : "text-muted-foreground"}>
+                      {payment.created_by_role === "staff" ? `By Staff (${payment.created_by_name || "Staff"})` : `By Admin ${payment.created_by_name ? `(${payment.created_by_name})` : ""}`}
+                    </span>
+                  </p>
                 </div>
                 <div className="flex flex-col items-end gap-2 shrink-0">
                   <Badge variant="secondary" className={`border-none capitalize ${statusStyles[payment.status]}`}>

@@ -513,7 +513,18 @@ export default function MembersPage() {
                       <div className="flex gap-3 items-center">
                         <Avatar src={member.photo_url} name={member.name} seed={member.id} size={40} />
                         <div>
-                          <p className="text-sm font-medium">{member.name}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm font-medium">{member.name}</p>
+                            {member.created_by_role === "staff" && (
+                              <span
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/15 text-[10px] font-semibold text-amber-700 dark:text-amber-300 border border-amber-500/30"
+                                title={`Created by Staff: ${member.created_by_name || "Staff"}`}
+                              >
+                                <Icon icon="solar:user-hand-up-bold" width={10} height={10} />
+                                <span>Staff</span>
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-gray-500">{member.email || member.member_code}</p>
                         </div>
                       </div>
@@ -652,7 +663,18 @@ export default function MembersPage() {
               <div key={member.id} className="rounded-2xl bg-white dark:bg-darkgray p-4 shadow-xs flex items-center gap-3">
                 <Avatar src={member.photo_url} name={member.name} seed={member.id} size={48} className="shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-dark dark:text-white truncate">{member.name}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-semibold text-dark dark:text-white truncate">{member.name}</p>
+                    {member.created_by_role === "staff" && (
+                      <span
+                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/15 text-[9px] font-bold text-amber-700 dark:text-amber-300 border border-amber-500/30 shrink-0"
+                        title={`Created by Staff: ${member.created_by_name || "Staff"}`}
+                      >
+                        <Icon icon="solar:user-hand-up-bold" width={9} height={9} />
+                        <span>Staff</span>
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-darklink truncate">{member.email || member.member_code}</p>
                   <p className="text-xs text-darklink flex items-center gap-1 mt-0.5">
                     <Icon icon="solar:phone-linear" width={12} height={12} />
@@ -765,8 +787,40 @@ export default function MembersPage() {
               </ViewSection>
 
               <ViewSection title="Membership">
+                <ViewField
+                  label="Student Registered By"
+                  value={
+                    viewMember.created_by_role === "staff" ? (
+                      <span className="inline-flex items-center gap-1 font-semibold text-amber-600 dark:text-amber-400">
+                        <Icon icon="solar:user-hand-up-bold" width={13} height={13} />
+                        Staff ({viewMember.created_by_name || "Staff"})
+                      </span>
+                    ) : (
+                      <span className="font-medium text-primary">
+                        Admin {viewMember.created_by_name ? `(${viewMember.created_by_name})` : ""}
+                      </span>
+                    )
+                  }
+                />
                 <ViewField label="Plan" value={viewMember.active_subscription?.plan_name_snapshot} />
                 <ViewField label="Seat" value={viewMember.active_subscription?.seat?.seat_number} />
+                {viewMember.active_subscription && (
+                  <ViewField
+                    label="Plan/Seat Assigned By"
+                    value={
+                      viewMember.active_subscription.created_by_role === "staff" ? (
+                        <span className="inline-flex items-center gap-1 font-semibold text-amber-600 dark:text-amber-400">
+                          <Icon icon="solar:user-hand-up-bold" width={13} height={13} />
+                          Staff ({viewMember.active_subscription.created_by_name || "Staff"})
+                        </span>
+                      ) : (
+                        <span className="font-medium text-primary">
+                          Admin {viewMember.active_subscription.created_by_name ? `(${viewMember.active_subscription.created_by_name})` : ""}
+                        </span>
+                      )
+                    }
+                  />
+                )}
                 <ViewField label="Join Date" value={viewMember.join_date ? new Date(viewMember.join_date).toLocaleDateString("en-IN") : null} />
                 <ViewField
                   label="Valid Till"

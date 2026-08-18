@@ -17,8 +17,22 @@ export function usePermission(module: PermissionModule, action: PermissionAction
 
   if (!user) return false;
   if (user.role === "admin" || user.role === "super_admin") return true;
+  if (user.role !== "staff") return false;
 
   const membership = user.tenants?.find((t) => t.id === user.current_tenant_id);
+  const rawPerms = membership?.pivot?.permissions;
+  if (!rawPerms) return false;
 
-  return Boolean(membership?.pivot.permissions?.includes(`${module}.${action}`));
+  let perms: string[] = [];
+  if (Array.isArray(rawPerms)) {
+    perms = rawPerms;
+  } else if (typeof rawPerms === "string") {
+    try {
+      perms = JSON.parse(rawPerms);
+    } catch {
+      perms = [];
+    }
+  }
+
+  return Array.isArray(perms) && perms.includes(`${module}.${action}`);
 }

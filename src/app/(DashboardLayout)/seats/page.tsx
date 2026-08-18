@@ -256,13 +256,22 @@ export default function SeatsPage() {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-4 px-6 pb-4 text-xs">
-          {seatStatuses.map((s) => (
-            <div key={s} className="flex items-center gap-1.5">
-              <span className={`h-2.5 w-2.5 rounded-full bg-gradient-to-br ${seatCardStyles[s].face}`} />
-              <span className="capitalize text-gray-500 dark:text-gray-400">{s}</span>
-            </div>
-          ))}
+        <div className="flex flex-wrap items-center justify-between gap-4 px-6 pb-4 text-xs">
+          <div className="flex flex-wrap items-center gap-4">
+            {seatStatuses.map((s) => (
+              <div key={s} className="flex items-center gap-1.5">
+                <span className={`h-2.5 w-2.5 rounded-full bg-gradient-to-br ${seatCardStyles[s].face}`} />
+                <span className="capitalize text-gray-500 dark:text-gray-400">{s}</span>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 font-semibold border border-amber-500/30">
+              <Icon icon="solar:user-hand-up-bold" width={12} height={12} />
+              Staff Action
+            </span>
+            <span className="text-gray-500 dark:text-gray-400">= Staff Created/Assigned</span>
+          </div>
         </div>
 
         <div className="px-6 pb-6">
@@ -279,6 +288,26 @@ export default function SeatsPage() {
               {seats.map((seat) => {
                 const styles = seatCardStyles[seat.status];
                 const occupant = seat.current_subscription?.member?.name;
+                const isStaffAssigned = seat.current_subscription?.created_by_role === "staff";
+                const isStaffCreated = seat.created_by_role === "staff";
+                const staffLabel = isStaffAssigned
+                  ? `Assigned by Staff (${seat.current_subscription?.created_by_name || "Staff"})`
+                  : isStaffCreated
+                  ? `Created by Staff (${seat.created_by_name || "Staff"})`
+                  : null;
+
+                const tooltipTitle = [
+                  seat.seat_number,
+                  occupant ? `Student: ${occupant}` : null,
+                  seat.current_subscription?.created_by_name
+                    ? `Assigned by: ${seat.current_subscription.created_by_role === "staff" ? "Staff" : "Admin"} (${seat.current_subscription.created_by_name})`
+                    : null,
+                  seat.created_by_name
+                    ? `Created by: ${seat.created_by_role === "staff" ? "Staff" : "Admin"} (${seat.created_by_name})`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" • ");
 
                 return (
                   <div key={seat.id} className="group relative">
@@ -289,16 +318,29 @@ export default function SeatsPage() {
                     <button
                       type="button"
                       onClick={() => openEdit(seat)}
-                      title={occupant ? `${seat.seat_number} • ${occupant}` : seat.seat_number}
+                      title={tooltipTitle}
                       className={`relative flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-2xl border border-white/20 bg-gradient-to-br ${styles.face} p-2 text-white shadow-lg transition-transform duration-150 ease-out group-hover:-translate-y-1 group-active:translate-y-0.5`}
                     >
+                      {/* Staff badge indicator */}
+                      {(isStaffAssigned || isStaffCreated) && (
+                        <span
+                          className="absolute top-1.5 left-1.5 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-black/45 text-[8px] font-bold text-amber-200 backdrop-blur-xs border border-amber-300/40 shadow-xs"
+                          title={staffLabel || "Staff Action"}
+                        >
+                          <Icon icon="solar:user-hand-up-bold" width={9} height={9} />
+                          <span>Staff</span>
+                        </span>
+                      )}
+
                       <Icon icon="mdi:seat" width={26} height={26} className="drop-shadow" />
                       <span className="text-sm font-bold leading-none">{seat.seat_number}</span>
                       <span className="text-[9px] uppercase tracking-wide opacity-90 leading-none">
                         {seat.seat_type.replace("_", " ")}
                       </span>
                       {occupant && (
-                        <span className="w-full truncate text-center text-[9px] opacity-85 leading-none">{occupant}</span>
+                        <span className="w-full truncate text-center text-[9px] opacity-90 leading-none font-medium">
+                          {occupant}
+                        </span>
                       )}
                     </button>
 
@@ -323,8 +365,53 @@ export default function SeatsPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editing ? "Edit Seat" : "Add Seat"}</DialogTitle>
+            <DialogTitle>{editing ? `Edit Seat — ${editing.seat_number}` : "Add Seat"}</DialogTitle>
           </DialogHeader>
+
+          {editing && (
+            <div className="rounded-xl border border-border bg-slate-50 dark:bg-darkgray/50 p-3 flex flex-col gap-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Seat Created By:</span>
+                <span className="font-semibold text-dark dark:text-white flex items-center gap-1">
+                  {editing.created_by_role === "staff" ? (
+                    <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                      <Icon icon="solar:user-hand-up-bold" width={13} height={13} />
+                      Staff ({editing.created_by_name || "Staff"})
+                    </span>
+                  ) : (
+                    <span className="text-primary font-medium">
+                      Admin {editing.created_by_name ? `(${editing.created_by_name})` : ""}
+                    </span>
+                  )}
+                </span>
+              </div>
+
+              {editing.current_subscription ? (
+                <div className="flex items-center justify-between border-t border-border pt-2">
+                  <span className="text-muted-foreground">
+                    Assigned to <strong className="text-dark dark:text-white">{editing.current_subscription.member?.name}</strong> By:
+                  </span>
+                  <span className="font-semibold flex items-center gap-1">
+                    {editing.current_subscription.created_by_role === "staff" ? (
+                      <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                        <Icon icon="solar:user-hand-up-bold" width={13} height={13} />
+                        Staff ({editing.current_subscription.created_by_name || "Staff"})
+                      </span>
+                    ) : (
+                      <span className="text-primary font-medium">
+                        Admin {editing.current_subscription.created_by_name ? `(${editing.current_subscription.created_by_name})` : ""}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between border-t border-border pt-2 text-muted-foreground italic">
+                  <span>No student currently assigned to this seat</span>
+                </div>
+              )}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4">
             <div className="flex flex-col gap-2">
               <Label>Hall (optional)</Label>

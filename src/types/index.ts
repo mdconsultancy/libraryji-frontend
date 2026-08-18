@@ -160,6 +160,9 @@ export interface Seat {
   status: SeatStatus
   position_x: string | number
   position_y: string | number
+  created_by?: number | null
+  created_by_name?: string | null
+  created_by_role?: string | null
   hall?: Hall
   current_subscription?: MemberSubscription | null
 }
@@ -210,6 +213,9 @@ export interface Member {
   join_date: string
   status: MemberStatus
   notes: string | null
+  created_by?: number | null
+  created_by_name?: string | null
+  created_by_role?: string | null
   subscriptions?: MemberSubscription[]
   active_subscription?: MemberSubscription | null
   attendances?: Attendance[]
@@ -257,6 +263,9 @@ export interface MemberSubscription {
   start_date: string
   end_date: string
   status: SubscriptionStatus
+  created_by?: number | null
+  created_by_name?: string | null
+  created_by_role?: string | null
   member?: Member
   plan?: MembershipPlan
   seat?: Seat
