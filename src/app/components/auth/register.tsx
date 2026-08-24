@@ -12,6 +12,7 @@ import PasswordInput from '@/components/form/PasswordInput'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
 import AuthImagePanel from './AuthImagePanel'
+import GoogleLoginButton from './GoogleLoginButton'
 
 interface FormState {
   library_name: string
@@ -198,6 +199,15 @@ export const Register = () => {
               <Button className='w-full' type='submit' disabled={loading}>
                 {loading ? 'Creating account...' : 'Continue to Plan & Payment'}
               </Button>
+
+              <div className='mt-6'>
+                <GoogleLoginButton
+                  variant='register'
+                  onSuccess={() => router.push('/')}
+                  onError={(message) => setError(message)}
+                />
+              </div>
+
               <div className='flex items center gap-2 justify-center mt-6 flex-wrap'>
                 <p className='text-base font-medium text-link dark:text-darklink'>
                   Already have an account?

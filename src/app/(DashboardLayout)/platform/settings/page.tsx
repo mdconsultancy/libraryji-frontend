@@ -190,6 +190,16 @@ const GROUPS: { key: string; label: string; fields: FieldConfig[] }[] = [
       { key: "compact_mode", label: "Compact Mode", type: "boolean" },
     ],
   },
+  {
+    key: "oauth",
+    label: "OAuth Settings",
+    fields: [
+      { key: "google_login_enabled", label: "Google Login Enabled", type: "boolean" },
+      { key: "google_client_id", label: "Google Client ID", type: "text" },
+      { key: "google_client_secret", label: "Google Client Secret", type: "password" },
+      { key: "google_redirect_uri", label: "Google Redirect URI", type: "text" },
+    ],
+  },
 ];
 
 type SettingsValue = Record<string, unknown>;
@@ -562,6 +572,40 @@ export default function PlatformSettingsPage() {
                   <p className="text-xs text-gray-500 lg:col-span-2">
                     {currencies.find((c) => c.code === allSettings.payment?.currency)?.name}
                   </p>
+                )}
+
+                {group.key === "oauth" && (
+                  <div className="flex flex-col gap-2 lg:col-span-2 border-t border-border pt-4 mt-2">
+                    <Label>Authorized Redirect URI</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        readOnly
+                        value={(allSettings.oauth?.google_redirect_uri as string) || ""}
+                        placeholder="Set the Google Redirect URI above, then copy it into Google Cloud Console"
+                        className="bg-muted"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={!allSettings.oauth?.google_redirect_uri}
+                        onClick={async () => {
+                          const uri = (allSettings.oauth?.google_redirect_uri as string) || "";
+                          try {
+                            await navigator.clipboard.writeText(uri);
+                            toast.success("Redirect URI copied.");
+                          } catch {
+                            toast.error("Unable to copy to clipboard.");
+                          }
+                        }}
+                      >
+                        <Icon icon="tabler:copy" width={18} height={18} />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Register this exact URI as an authorized redirect URI for your OAuth client in the Google Cloud
+                      Console. The Client Secret is stored securely and only ever shown masked.
+                    </p>
+                  </div>
                 )}
 
                 {group.key === "theme" && (

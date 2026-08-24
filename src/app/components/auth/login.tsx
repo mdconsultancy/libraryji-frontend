@@ -14,6 +14,7 @@ import PasswordInput from '@/components/form/PasswordInput'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
 import AuthImagePanel from './AuthImagePanel'
+import GoogleLoginButton from './GoogleLoginButton'
 
 export const Login = () => {
   const { login, verifyTwoFactor, resendTwoFactor } = useAuth()
@@ -258,6 +259,16 @@ export const Login = () => {
               <Button className='w-full' type='submit' disabled={loading}>
                 {loading ? 'Signing in...' : 'Sign In'}
               </Button>
+
+              <div className='mt-6'>
+                <GoogleLoginButton
+                  variant='login'
+                  mode={loginType === 'staff' ? 'staff' : 'admin'}
+                  onSuccess={() => router.push('/')}
+                  onError={(message) => setError(message)}
+                />
+              </div>
+
               <div className='flex items center gap-2 justify-center mt-6 flex-wrap'>
                 <p className='text-base font-medium text-link dark:text-darklink'>
                   New to LibraryJi?

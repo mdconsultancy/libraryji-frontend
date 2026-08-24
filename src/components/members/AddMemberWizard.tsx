@@ -26,12 +26,18 @@ import DatePicker from "@/components/form/DatePicker";
 import PhoneInput from "@/components/form/PhoneInput";
 import ImageUploadField from "@/components/form/ImageUploadField";
 import FileUploadField from "@/components/form/FileUploadField";
-import { api, ApiError, invalidateMembers } from "@/lib/api";
+import DeleteConfirmDialog from "@/components/shared/DeleteConfirmDialog";
+import PaymentInstallmentsField, {
+  installmentsTotal,
+  newInstallmentRow,
+  type InstallmentRow,
+} from "@/components/members/PaymentInstallmentsField";
+import { api, ApiError, invalidateMembers, invalidatePayments } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/context/ToastContext";
 import { useUploadLimits } from "@/hooks/useUploadLimits";
-import type { Member, Seat, SeatCategory, SeatStatus, PaymentMethod } from "@/types";
+import type { Member, MemberSubscription, Seat, SeatCategory, SeatStatus, PaymentMethod } from "@/types";
 
 interface AddMemberWizardProps {
   open: boolean;
@@ -103,6 +109,8 @@ const freshMembership = () => ({
   durationCount: "1",
   end_date: addMonthsIso(todayIso(), 1),
   amount: "",
+  installmentRows: [] as InstallmentRow[],
+  isPartialPayment: false,
   payment_type: "" as PaymentTypeChoice | "",
   seat_id: null as number | null,
 });
@@ -254,6 +262,13 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [saving, setSaving] = useState(false);
   const [seatModalOpen, setSeatModalOpen] = useState(false);
+  // Whether the subscription being edited already had recorded payment(s) for its
+  // partial-payment installments before this edit session started — determines
+  // whether the first installment rides along on the subscription PUT (fresh
+  // payment, same as create) or every row is synced individually (existing history).
+  const [hadExistingPayments, setHadExistingPayments] = useState(false);
+  const [rowDeleteTarget, setRowDeleteTarget] = useState<InstallmentRow | null>(null);
+  const [rowDeleting, setRowDeleting] = useState(false);
 
   const { data: editingMember, isLoading: memberLoading } = useApi<Member>(
     open && isEdit ? `/admin/members/${memberId}` : null
@@ -281,6 +296,7 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
     setIdProofBack(null);
     setExistingPhotoUrl(null);
     setFieldErrors({});
+    setHadExistingPayments(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, isEdit]);
 
@@ -288,6 +304,28 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
     if (!open || !isEdit || !editingMember) return;
     const sub = editingMember.active_subscription;
     const payment = editingMember.payments?.find((p) => p.member_subscription_id === sub?.id);
+    // Every paid Payment row already recorded against this subscription cycle —
+    // these become the pre-filled, editable installment rows below.
+    const subPayments = (editingMember.payments ?? [])
+      .filter((p) => p.member_subscription_id === sub?.id && p.status === "paid")
+      .sort((a, b) => new Date(a.paid_at || a.created_at || 0).getTime() - new Date(b.paid_at || b.created_at || 0).getTime());
+    const isPartial =
+      sub?.paid_amount != null && sub?.amount != null && Number(sub.paid_amount) < Number(sub.amount);
+    // Any real Payment rows for this subscription (even if they now sum to
+    // the full fee, e.g. 300 + 200 = 500) must still open the installments
+    // editor pre-filled — gating this on `isPartial` alone hid a fully-paid
+    // subscription's own installment history the moment its last row was
+    // added, which looked like the rows had silently vanished.
+    const hasPaymentHistory = subPayments.length > 0;
+    console.log("💰 [PaymentInstallments] prefill", {
+      memberId: editingMember.id,
+      subscriptionId: sub?.id,
+      subPaidAmount: sub?.paid_amount,
+      subAmount: sub?.amount,
+      isPartial,
+      subPaymentsCount: subPayments.length,
+      subPayments: subPayments.map((p) => ({ id: p.id, amount: p.amount, paid_at: p.paid_at })),
+    });
     setStep(1);
     setDetails({
       name: editingMember.name,
@@ -315,9 +353,26 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
       durationCount,
       end_date: sub?.end_date ?? addMonthsIso(todayIso(), 1),
       amount: sub?.amount ? String(sub.amount) : "",
+      // A subscription only "was" a partial payment when paid_amount was
+      // recorded and is strictly less than the full amount — fully paid
+      // (paid_amount === amount) or absent both mean the toggle stays off.
+      installmentRows: hasPaymentHistory
+        ? subPayments.map((p) => ({
+            key: `existing-${p.id}`,
+            paymentId: p.id,
+            amount: String(p.amount),
+            paid_at: p.paid_at ? p.paid_at.slice(0, 10) : todayIso(),
+            originalAmount: String(p.amount),
+            originalPaidAt: p.paid_at ? p.paid_at.slice(0, 10) : todayIso(),
+          }))
+        : isPartial
+          ? [newInstallmentRow(String(sub?.paid_amount ?? ""))]
+          : [],
+      isPartialPayment: hasPaymentHistory || isPartial,
       payment_type: (payment?.payment_method as PaymentMethod) ?? "",
       seat_id: sub?.seat_id ?? null,
     });
+    setHadExistingPayments(hasPaymentHistory);
     setPhoto(null);
     setIdProofFront(null);
     setIdProofBack(null);
@@ -330,6 +385,18 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
   const selectedSeat = useMemo(() => seats?.find((s) => s.id === membership.seat_id), [seats, membership.seat_id]);
 
   const canGoStep2 = details.name.trim() !== "" && details.phone.trim() !== "";
+  const isRealPayment = !!membership.payment_type && membership.payment_type !== "pending";
+  const showPartialPaymentFields = isRealPayment && membership.isPartialPayment;
+  const installmentsPaidTotal = installmentsTotal(membership.installmentRows);
+  const installmentsError = !showPartialPaymentFields
+    ? null
+    : membership.installmentRows.length === 0 || installmentsPaidTotal <= 0
+      ? "Enter the amount collected so far."
+      : membership.installmentRows.some((r) => r.amount !== "" && Number(r.amount) <= 0)
+        ? "Each installment amount must be greater than zero."
+        : installmentsPaidTotal > Number(membership.amount || 0) + 0.01
+          ? "Total paid can't exceed the fees amount."
+          : null;
   // Amount is the subscription's total fee, independent of whether it's
   // been collected yet — always required, "Pending" or not. Hiding it for
   // Pending used to mean the fee was never actually recorded (silently
@@ -340,7 +407,8 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
     !!membership.end_date &&
     !!membership.payment_type &&
     !!membership.seat_id &&
-    !!membership.amount;
+    !!membership.amount &&
+    !installmentsError;
 
   const recomputeEndDate = (start: string, unit: DurationUnit, count: string) => {
     if (unit === "custom") return undefined;
@@ -372,6 +440,25 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
     }));
   };
 
+  const confirmRemoveInstallmentRow = async () => {
+    if (!rowDeleteTarget?.paymentId) return;
+    setRowDeleting(true);
+    try {
+      await api.delete(`/admin/payments/${rowDeleteTarget.paymentId}`);
+      setMembership((m) => ({
+        ...m,
+        installmentRows: m.installmentRows.filter((r) => r.key !== rowDeleteTarget.key),
+      }));
+      invalidateMembers();
+      invalidatePayments();
+      setRowDeleteTarget(null);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to remove installment.");
+    } finally {
+      setRowDeleting(false);
+    }
+  };
+
   const markLeadConverted = async (leadId: number, memberId: number) => {
     try {
       await api.patch(`/admin/leads/${leadId}`, { status: "converted", converted_member_id: memberId });
@@ -400,6 +487,21 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
       if (idProofFront) memberFd.append("id_proof_front", idProofFront);
       if (idProofBack) memberFd.append("id_proof_back", idProofBack);
 
+      // Installment rows with a real amount entered — the sole source of
+      // truth for what actually gets recorded, replacing the old single
+      // "Paid Amount" field.
+      const validRows = showPartialPaymentFields
+        ? membership.installmentRows.filter((r) => r.amount !== "" && Number(r.amount) > 0)
+        : [];
+      // When this subscription already had payment history before this edit
+      // session (rows loaded pre-filled from the server), the subscription
+      // PUT must not touch payment_type/paid_amount at all — every row,
+      // including the first, is instead synced individually below so
+      // existing rows are edited in place rather than overwritten wholesale.
+      const bypassSubscriptionPayment = showPartialPaymentFields && hadExistingPayments;
+      const firstRow = !hadExistingPayments ? validRows[0] : undefined;
+      const rowsToSync = hadExistingPayments ? validRows : validRows.slice(1);
+
       const subscriptionPayload = {
         seat_id: membership.seat_id,
         duration_months: membership.durationUnit === "month" ? Number(membership.durationCount) : undefined,
@@ -412,8 +514,39 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
         // server to revert/clear any existing payment for this membership
         // cycle, not just "no change". On create, the store endpoint only
         // records a payment for the 4 real methods, so "pending" there is a
-        // no-op either way.
-        payment_type: membership.payment_type || undefined,
+        // no-op either way. Omitted entirely when bypassing (see above).
+        payment_type: bypassSubscriptionPayment ? undefined : membership.payment_type || undefined,
+        // Only the first installment rides along on the subscription
+        // create/update call (and only when there's no existing payment
+        // history to preserve) — every other row is a separate Payment API
+        // call below.
+        paid_amount: firstRow ? Number(firstRow.amount) : undefined,
+        paid_at: firstRow ? firstRow.paid_at : undefined,
+      };
+
+      const syncInstallmentRows = async (subscriptionId: number, forMemberId: number) => {
+        const paymentMethod = membership.payment_type as PaymentMethod;
+        for (const row of rowsToSync) {
+          if (row.paymentId) {
+            const changed = row.amount !== row.originalAmount || row.paid_at !== row.originalPaidAt;
+            if (!changed) continue;
+            await api.put(`/admin/payments/${row.paymentId}`, {
+              amount: Number(row.amount),
+              paid_at: row.paid_at,
+              payment_method: paymentMethod,
+            });
+          } else {
+            await api.post("/admin/payments", {
+              member_id: forMemberId,
+              member_subscription_id: subscriptionId,
+              type: "subscription",
+              amount: Number(row.amount),
+              payment_method: paymentMethod,
+              paid_at: row.paid_at,
+              status: "paid",
+            });
+          }
+        }
       };
 
       let member: Member;
@@ -421,12 +554,14 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
 
       if (isEdit && memberId) {
         member = await api.put<Member>(`/admin/members/${memberId}`, memberFd);
+        let subscriptionId = activeSubscriptionId;
         try {
           if (activeSubscriptionId) {
             await api.put(`/admin/subscriptions/${activeSubscriptionId}`, subscriptionPayload);
           } else {
             // No active subscription to update (e.g. member was inactive) — enroll them fresh.
-            await api.post("/admin/subscriptions", { member_id: member.id, ...subscriptionPayload });
+            const createdSub = await api.post<MemberSubscription>("/admin/subscriptions", { member_id: member.id, ...subscriptionPayload });
+            subscriptionId = createdSub.id;
           }
         } catch (subErr) {
           toast.error(
@@ -439,11 +574,28 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
           onClose();
           return;
         }
+        if (rowsToSync.length > 0 && subscriptionId) {
+          try {
+            await syncInstallmentRows(subscriptionId, member.id);
+            invalidatePayments();
+          } catch (payErr) {
+            toast.error(
+              payErr instanceof ApiError
+                ? `Student updated, but an installment failed to save: ${payErr.message}`
+                : "Student updated, but an installment failed to save."
+            );
+            invalidateMembers();
+            onSaved();
+            onClose();
+            return;
+          }
+        }
         toast.success("Student updated.");
       } else {
         member = await api.post<Member>("/admin/members", memberFd);
+        let createdSub: MemberSubscription;
         try {
-          await api.post("/admin/subscriptions", { member_id: member.id, ...subscriptionPayload });
+          createdSub = await api.post<MemberSubscription>("/admin/subscriptions", { member_id: member.id, ...subscriptionPayload });
         } catch (subErr) {
           toast.error(
             subErr instanceof ApiError
@@ -455,6 +607,23 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
           onSaved();
           onClose();
           return;
+        }
+        if (rowsToSync.length > 0) {
+          try {
+            await syncInstallmentRows(createdSub.id, member.id);
+            invalidatePayments();
+          } catch (payErr) {
+            toast.error(
+              payErr instanceof ApiError
+                ? `Member created, but an installment failed to save: ${payErr.message}`
+                : "Member created, but an installment failed to save."
+            );
+            if (prefill?.leadId) await markLeadConverted(prefill.leadId, member.id);
+            invalidateMembers();
+            onSaved();
+            onClose();
+            return;
+          }
         }
         if (prefill?.leadId) await markLeadConverted(prefill.leadId, member.id);
         toast.success("Member added.");
@@ -615,29 +784,105 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
                     moment Payment Type is switched to an actual method, or
                     if no fee has been entered yet (still needed to set one). */}
                 {!(membership.payment_type === "pending" && membership.amount) && (
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="w-fees">Fees Amount (₹) *</Label>
-                    <div className="relative">
-                      <Icon icon="solar:rupee-linear" width={16} height={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-darklink" />
-                      <Input
-                        id="w-fees"
-                        type="number"
-                        min="0"
-                        inputMode="decimal"
-                        placeholder="e.g. 500"
-                        className="pl-9"
-                        value={membership.amount}
-                        onChange={(e) => setMembership((m) => ({ ...m, amount: e.target.value }))}
-                      />
+                  <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="w-fees">Fees Amount (₹) *</Label>
+                      <div className="relative">
+                        <Icon icon="solar:rupee-linear" width={16} height={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-darklink" />
+                        <Input
+                          id="w-fees"
+                          type="number"
+                          min="0"
+                          inputMode="decimal"
+                          placeholder="e.g. 500"
+                          className="pl-9"
+                          value={membership.amount}
+                          onChange={(e) => setMembership((m) => ({ ...m, amount: e.target.value }))}
+                        />
+                      </div>
                     </div>
+
+                    {/* Partial payment: lets the initial collection be split into
+                        installment rows instead of one lump sum. Only shown once
+                        the "Partial Payment" toggle below is switched on — off by
+                        default, so a real payment method alone no longer reveals
+                        this field. */}
+                    {showPartialPaymentFields && (
+                      <div className="rounded-xl border border-border p-3 dark:border-darkborder">
+                        <PaymentInstallmentsField
+                          rows={membership.installmentRows}
+                          onChange={(rows) => setMembership((m) => ({ ...m, installmentRows: rows }))}
+                          onRemoveRow={(row) => {
+                            if (row.paymentId) {
+                              setRowDeleteTarget(row);
+                            } else {
+                              setMembership((m) => ({
+                                ...m,
+                                installmentRows: m.installmentRows.filter((r) => r.key !== row.key),
+                              }));
+                            }
+                          }}
+                          feesAmount={Number(membership.amount || 0)}
+                        />
+                        {installmentsError && <p className="mt-2 text-xs text-error">{installmentsError}</p>}
+                        {!installmentsError && fieldError("paid_amount") && <p className="mt-2 text-xs text-error">{fieldError("paid_amount")}</p>}
+                        {!installmentsError && installmentsPaidTotal > 0 && installmentsPaidTotal < Number(membership.amount || 0) && (
+                          <p className="mt-2 text-xs text-warning">
+                            Partial payment — ₹{(Number(membership.amount || 0) - installmentsPaidTotal).toLocaleString("en-IN")} will remain due.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
+                )}
+
+                {/* Toggle for partial payment — defaults OFF. Only offered for a
+                    real payment method (Pending has nothing collected yet). */}
+                {isRealPayment && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setMembership((m) => ({
+                        ...m,
+                        isPartialPayment: !m.isPartialPayment,
+                        // Turning it off drops any unsaved rows; turning it on
+                        // starts from a single empty row (today's date) unless
+                        // rows are already there (e.g. re-toggling).
+                        installmentRows: m.isPartialPayment
+                          ? []
+                          : m.installmentRows.length > 0
+                            ? m.installmentRows
+                            : [newInstallmentRow()],
+                      }))
+                    }
+                    className="flex w-fit items-center gap-2 text-left"
+                  >
+                    <Icon
+                      icon={membership.isPartialPayment ? "solar:check-square-bold" : "solar:square-linear"}
+                      width={18}
+                      height={18}
+                      className={membership.isPartialPayment ? "text-primary" : "text-darklink"}
+                    />
+                    <span className="text-sm font-medium text-dark dark:text-white">Partial Payment</span>
+                    <span className="text-xs text-darklink">(received part of the fee now)</span>
+                  </button>
                 )}
 
                 <div className="flex flex-col gap-2">
                   <Label>Payment Type *</Label>
                   <Select
                     value={membership.payment_type}
-                    onValueChange={(v) => setMembership((m) => ({ ...m, payment_type: v as PaymentTypeChoice }))}
+                    onValueChange={(v) =>
+                      setMembership((m) => ({
+                        ...m,
+                        payment_type: v as PaymentTypeChoice,
+                        // Switching to "Pending" turns off the Partial Payment
+                        // toggle and clears the rows — there's nothing paid yet
+                        // in that state.
+                        isPartialPayment: v === "pending" ? false : m.isPartialPayment,
+                        installmentRows: v === "pending" ? [] : m.installmentRows,
+                      }))
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="— Select payment type —" />
@@ -777,6 +1022,15 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
           setMembership((m) => ({ ...m, seat_id: id }));
           setSeatModalOpen(false);
         }}
+      />
+
+      <DeleteConfirmDialog
+        open={!!rowDeleteTarget}
+        title="Remove this installment?"
+        description="This payment record will be permanently deleted."
+        loading={rowDeleting}
+        onCancel={() => setRowDeleteTarget(null)}
+        onConfirm={confirmRemoveInstallmentRow}
       />
     </Dialog>
   );

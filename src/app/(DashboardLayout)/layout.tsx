@@ -21,7 +21,7 @@ export default function Layout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const { user, loading } = useAuth()
+  const { user, loading, loggingOut } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
   const needsPlan = user?.role !== 'super_admin' && tenantNeedsPlan(user?.current_tenant)
@@ -57,7 +57,7 @@ export default function Layout({
     // pathname, is what makes it actually unbypassable.
   }, [loading, user, wrongSideForRole, router])
 
-  if (loading || !user || wrongSideForRole) {
+  if (loading || loggingOut || !user || wrongSideForRole) {
     return <GlobalPreloader />
   }
 

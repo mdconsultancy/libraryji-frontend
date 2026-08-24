@@ -82,6 +82,61 @@ export default function SeatsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Seat | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Bulk-select mode: lets an admin/staff pick several non-occupied seats and
+  // delete them together via SeatController::bulkDestroy. Occupied seats are
+  // never selectable — the backend would skip them anyway, but excluding
+  // them from selection up-front avoids a confusing "skipped" result for the
+  // common case. Mirrors the mobile app's SeatsListScreen.
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds([]);
+  };
+
+  const toggleSelected = (seat: Seat) => {
+    if (seat.status === "occupied" || seat.current_subscription) {
+      toast.error("Unassign the student from this seat before deleting it.");
+      return;
+    }
+    setSelectedIds((prev) =>
+      prev.includes(seat.id) ? prev.filter((id) => id !== seat.id) : [...prev, seat.id]
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    setBulkDeleting(true);
+    try {
+      const result = await api.post<{ deleted: number[]; skipped: { id: number; seat_number: string; reason: string }[] }>(
+        "/admin/seats/bulk-delete",
+        { seat_ids: selectedIds }
+      );
+      const deletedCount = result.deleted.length;
+      const skippedCount = result.skipped.length;
+      if (skippedCount === 0) {
+        toast.success(`${deletedCount} seat${deletedCount === 1 ? "" : "s"} deleted`);
+      } else {
+        const firstReason = result.skipped[0]?.reason ?? "";
+        const message = `${deletedCount} deleted, ${skippedCount} skipped — ${firstReason}`;
+        if (deletedCount > 0) toast.info(message);
+        else toast.error(message);
+      }
+      exitSelectMode();
+      setConfirmBulkDelete(false);
+      mutate();
+      refreshSeatLimit();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to delete selected seats");
+      setConfirmBulkDelete(false);
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const openCreate = () => {
     setEditing(null);
     setForm(emptyForm);
@@ -197,27 +252,50 @@ export default function SeatsPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setBulkDialogOpen(true)}
-              className="flex items-center gap-1.5"
-              disabled={seatLimitExceeded}
-              title={seatLimitExceeded ? "Seat limit reached — upgrade your plan to add more." : undefined}
-            >
-              <Icon icon="solar:widget-add-linear" width={18} height={18} />
-              Bulk Create
-            </Button>
-            <Button
-              onClick={openCreate}
-              className="flex items-center gap-1.5"
-              disabled={seatLimitExceeded}
-              title={seatLimitExceeded ? "Seat limit reached — upgrade your plan to add more." : undefined}
-            >
-              <Icon icon="solar:add-circle-linear" width={18} height={18} />
-              Add Seat
-            </Button>
+            {selectMode ? (
+              <Button variant="outline" onClick={exitSelectMode}>
+                Cancel
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setSelectMode(true)}>
+                  Select
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setBulkDialogOpen(true)}
+                  className="flex items-center gap-1.5"
+                  disabled={seatLimitExceeded}
+                  title={seatLimitExceeded ? "Seat limit reached — upgrade your plan to add more." : undefined}
+                >
+                  <Icon icon="solar:widget-add-linear" width={18} height={18} />
+                  Bulk Create
+                </Button>
+                <Button
+                  onClick={openCreate}
+                  className="flex items-center gap-1.5"
+                  disabled={seatLimitExceeded}
+                  title={seatLimitExceeded ? "Seat limit reached — upgrade your plan to add more." : undefined}
+                >
+                  <Icon icon="solar:add-circle-linear" width={18} height={18} />
+                  Add Seat
+                </Button>
+              </>
+            )}
           </div>
         </div>
+
+        {selectMode && selectedIds.length > 0 && (
+          <div className="px-6 pb-4">
+            <Button
+              onClick={() => setConfirmBulkDelete(true)}
+              className="rounded-md bg-lighterror dark:bg-darkerror text-error hover:bg-error hover:text-white flex items-center gap-1.5"
+            >
+              <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} />
+              Delete Selected ({selectedIds.length})
+            </Button>
+          </div>
+        )}
 
         {seatLimitExceeded && seatLimit !== null && (
           <div className="px-6">
@@ -288,6 +366,8 @@ export default function SeatsPage() {
               {seats.map((seat) => {
                 const styles = seatCardStyles[seat.status];
                 const occupant = seat.current_subscription?.member?.name;
+                const isOccupied = seat.status === "occupied" || !!seat.current_subscription;
+                const isSelected = selectedIds.includes(seat.id);
                 const isStaffAssigned = seat.current_subscription?.created_by_role === "staff";
                 const isStaffCreated = seat.created_by_role === "staff";
                 const staffLabel = isStaffAssigned
@@ -317,12 +397,33 @@ export default function SeatsPage() {
                     {/* Face */}
                     <button
                       type="button"
-                      onClick={() => openEdit(seat)}
+                      onClick={() => (selectMode ? toggleSelected(seat) : openEdit(seat))}
                       title={tooltipTitle}
-                      className={`relative flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-2xl border border-white/20 bg-gradient-to-br ${styles.face} p-2 text-white shadow-lg transition-transform duration-150 ease-out group-hover:-translate-y-1 group-active:translate-y-0.5`}
+                      className={`relative flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-2xl border bg-gradient-to-br ${styles.face} p-2 text-white shadow-lg transition-transform duration-150 ease-out group-hover:-translate-y-1 group-active:translate-y-0.5 ${
+                        isSelected ? "border-primary ring-2 ring-primary" : "border-white/20"
+                      }`}
                     >
+                      {/* Selection indicator */}
+                      {selectMode && (
+                        <span
+                          className={`absolute -left-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white shadow-xs ${
+                            isOccupied
+                              ? "bg-slate-400"
+                              : isSelected
+                              ? "bg-primary"
+                              : "bg-white/30"
+                          }`}
+                        >
+                          {isOccupied ? (
+                            <Icon icon="solar:lock-keyhole-minimalistic-bold" width={11} height={11} className="text-white" />
+                          ) : isSelected ? (
+                            <Icon icon="solar:check-circle-bold" width={13} height={13} className="text-white" />
+                          ) : null}
+                        </span>
+                      )}
+
                       {/* Staff badge indicator */}
-                      {(isStaffAssigned || isStaffCreated) && (
+                      {(isStaffAssigned || isStaffCreated) && !selectMode && (
                         <span
                           className="absolute top-1.5 left-1.5 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-black/45 text-[8px] font-bold text-amber-200 backdrop-blur-xs border border-amber-300/40 shadow-xs"
                           title={staffLabel || "Staff Action"}
@@ -344,16 +445,18 @@ export default function SeatsPage() {
                       )}
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteTarget(seat);
-                      }}
-                      className="absolute -right-1.5 -top-1.5 hidden h-6 w-6 items-center justify-center rounded-full bg-lighterror text-error shadow-md group-hover:flex dark:bg-error/20"
-                    >
-                      <Icon icon="solar:trash-bin-trash-linear" width={14} height={14} />
-                    </button>
+                    {!selectMode && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTarget(seat);
+                        }}
+                        className="absolute -right-1.5 -top-1.5 hidden h-6 w-6 items-center justify-center rounded-full bg-lighterror text-error shadow-md group-hover:flex dark:bg-error/20"
+                      >
+                        <Icon icon="solar:trash-bin-trash-linear" width={14} height={14} />
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -565,6 +668,15 @@ export default function SeatsPage() {
         loading={deleting}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
+      />
+
+      <DeleteConfirmDialog
+        open={confirmBulkDelete}
+        title={`Delete ${selectedIds.length} selected seat${selectedIds.length === 1 ? "" : "s"}?`}
+        description="Seats with an enrolled student will be skipped automatically."
+        loading={bulkDeleting}
+        onCancel={() => setConfirmBulkDelete(false)}
+        onConfirm={handleBulkDelete}
       />
     </>
   );

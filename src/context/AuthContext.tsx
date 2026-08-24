@@ -39,7 +39,10 @@ type LoginResult = { twoFactorRequired: false; user: User } | { twoFactorRequire
 interface AuthContextValue {
   user: User | null
   loading: boolean
+  loggingOut: boolean
   login: (payload: LoginPayload) => Promise<LoginResult>
+  loginWithGoogle: (credential: string) => Promise<User>
+  loginStaffWithGoogle: (credential: string, libraryCode: string) => Promise<User>
   verifyTwoFactor: (userId: number, code: string) => Promise<User>
   resendTwoFactor: (userId: number) => Promise<void>
   register: (payload: RegisterPayload) => Promise<User>
@@ -52,6 +55,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loggingOut, setLoggingOut] = useState(false)
 
   const refreshMe = useCallback(async () => {
     if (!getToken()) {
@@ -95,6 +99,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { twoFactorRequired: false, user }
   }, [])
 
+  const loginWithGoogle = useCallback(async (credential: string): Promise<User> => {
+    // Same shape as login()/register(): { user, access_token, refresh_token }.
+    // A Google sign-in either logs an existing account in or, per product spec,
+    // registers a brand-new one on the spot — either way the backend returns
+    // a ready-to-use token pair so there's no separate "verify" step.
+    const { user, ...tokens } = await api.post<{ user: User } & TokenPair>('/auth/google', { access_token: credential })
+    await clearSwrCache()
+    setTokens(tokens)
+    setUser(user)
+    return user
+  }, [])
+
+  const loginStaffWithGoogle = useCallback(async (credential: string, libraryCode: string): Promise<User> => {
+    // Staff-only counterpart to loginWithGoogle() — hits /auth/google/staff
+    // instead of /auth/google, and always sends a Library Code (validated
+    // server-side; an invalid code throws an ApiError with a `library_code`
+    // field error before any tokens are ever issued). Same response shape,
+    // so the token-storage/user-state handling below is identical.
+    const { user, ...tokens } = await api.post<{ user: User } & TokenPair>('/auth/google/staff', {
+      access_token: credential,
+      library_code: libraryCode,
+    })
+    await clearSwrCache()
+    setTokens(tokens)
+    setUser(user)
+    return user
+  }, [])
+
   const verifyTwoFactor = useCallback(async (userId: number, code: string) => {
     const { user, ...tokens } = await api.post<{ user: User } & TokenPair>('/auth/2fa/verify', {
       user_id: userId,
@@ -122,6 +154,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const logout = useCallback(async () => {
+    // Set before the first await so the layout's full-screen GlobalPreloader
+    // (shown whenever loggingOut is true) appears immediately on click,
+    // instead of only after the network round-trip below resolves.
+    setLoggingOut(true)
     try {
       // Revokes this refresh token server-side — without this, the pair
       // would keep working (via silent refresh) until it naturally expires.
@@ -131,11 +167,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     await clearSwrCache()
     setTokens(null)
+    // Batched together: the layout goes straight from "loggingOut" to "no
+    // user" without ever rendering a stale, still-authenticated frame.
     setUser(null)
+    setLoggingOut(false)
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, verifyTwoFactor, resendTwoFactor, register, logout, refreshMe }}>
+    <AuthContext.Provider
+      value={{ user, loading, loggingOut, login, loginWithGoogle, loginStaffWithGoogle, verifyTwoFactor, resendTwoFactor, register, logout, refreshMe }}
+    >
       {children}
     </AuthContext.Provider>
   )

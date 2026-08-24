@@ -12,6 +12,7 @@ interface PasswordInputProps {
   required?: boolean;
   autoComplete?: string;
   showStrength?: boolean;
+  readOnly?: boolean;
 }
 
 function strengthOf(password: string): { score: number; label: string; color: string } {
@@ -36,6 +37,7 @@ export default function PasswordInput({
   required,
   autoComplete = "new-password",
   showStrength = false,
+  readOnly = false,
 }: PasswordInputProps) {
   const [visible, setVisible] = useState(false);
   const strength = strengthOf(value);
@@ -51,6 +53,7 @@ export default function PasswordInput({
           placeholder={placeholder}
           required={required}
           autoComplete={autoComplete}
+          readOnly={readOnly}
           className="pr-10"
         />
         <button

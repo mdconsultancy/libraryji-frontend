@@ -1,12 +1,24 @@
 "use client";
 
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import BreadcrumbComp from "@/app/(DashboardLayout)/layout/shared/breadcrumb/BreadcrumbComp";
 import CardBox from "@/app/components/shared/CardBox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Icon } from "@iconify/react";
 import { useApi } from "@/hooks/useApi";
+import { api, ApiError } from "@/lib/api";
+import { useToast } from "@/context/ToastContext";
 import type { TenantStatus, UserManagementDetail } from "@/types";
 
 const statusStyles: Record<TenantStatus, string> = {
@@ -28,10 +40,44 @@ function StatTile({ label, value }: { label: string; value: string | number }) {
 export default function UserManagementDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const toast = useToast();
   const { data: detail, isLoading, error: loadError } = useApi<UserManagementDetail>(
     `/super-admin/users/${params.id}`
   );
   const error = loadError ? "Unable to load this user." : null;
+
+  // Direct Change Password
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  const handleChangePassword = async () => {
+    if (!detail) return;
+    if (!newPassword || newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("Password and confirm password must match.");
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      const res = await api.post<{ message: string }>(`/super-admin/users/${detail.id}/change-password`, {
+        password: newPassword,
+        password_confirmation: confirmPassword,
+      });
+      toast.success(res.message || "Password updated successfully.");
+      setPasswordModalOpen(false);
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Unable to change password.");
+    } finally {
+      setChangingPassword(false);
+    }
+  };
 
   const BCrumb = [
     { to: "/", title: "Home" },
@@ -82,6 +128,33 @@ export default function UserManagementDetailPage() {
             </div>
           </CardBox>
 
+          <CardBox className="p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Icon icon="tabler:key" width={18} height={18} className="text-primary" />
+                  <h6 className="font-semibold text-sm">Security & Password</h6>
+                </div>
+                <p className="text-xs text-darklink">
+                  Super Admin can directly set a new password for this user without email codes.
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                className="flex items-center gap-1.5 bg-primary text-white"
+                onClick={() => {
+                  setNewPassword("");
+                  setConfirmPassword("");
+                  setPasswordModalOpen(true);
+                }}
+              >
+                <Icon icon="tabler:lock" width={16} height={16} />
+                Change Password
+              </Button>
+            </div>
+          </CardBox>
+
           <div className="flex flex-col gap-4">
             <h6 className="font-semibold text-sm">Libraries</h6>
             {detail.tenants.length === 0 && <p className="text-sm text-darklink">No libraries assigned.</p>}
@@ -99,6 +172,15 @@ export default function UserManagementDetailPage() {
                     {tenant.status}
                   </Badge>
                 </div>
+
+                {(tenant as any).data_cleaned_at ? (
+                  <div className="rounded-lg bg-lightwarning p-2.5 text-xs text-warning flex items-center gap-2 mb-3 border border-warning/30">
+                    <Icon icon="tabler:alert-triangle" width={16} height={16} className="shrink-0" />
+                    <span>
+                      <strong>Library data was erased:</strong> {new Date((tenant as any).data_cleaned_at).toLocaleString()} by {(tenant as any).data_cleaned_by_name || "Admin"}
+                    </span>
+                  </div>
+                ) : null}
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
                   <StatTile label="Seats" value={tenant.seats_count ?? 0} />
@@ -133,6 +215,54 @@ export default function UserManagementDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Direct Change Password Modal */}
+      <Dialog open={passwordModalOpen} onOpenChange={setPasswordModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Change User Password</DialogTitle>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 gap-4">
+            <p className="text-xs text-gray-500">
+              Enter a new password for <span className="font-semibold text-dark">{detail?.name}</span>.
+            </p>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="super-new-password">New Password</Label>
+              <Input
+                id="super-new-password"
+                type="password"
+                placeholder="At least 6 characters"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="super-confirm-password">Confirm New Password</Label>
+              <Input
+                id="super-confirm-password"
+                type="password"
+                placeholder="Repeat new password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2 mt-4">
+            <Button variant="outline" onClick={() => setPasswordModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-primary hover:bg-primary/90 text-white"
+              onClick={handleChangePassword}
+              disabled={changingPassword}
+            >
+              {changingPassword ? "Updating..." : "Update Password"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

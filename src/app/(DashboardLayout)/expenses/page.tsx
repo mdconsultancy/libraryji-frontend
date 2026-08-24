@@ -42,6 +42,20 @@ const today = () => new Date().toISOString().slice(0, 10);
 const paymentModes: PaymentMethod[] = ["cash", "online", "offline", "upi"];
 
 type ExportScope = "all" | "income" | "expenses";
+type DatePreset = "all" | "7d" | "30d" | "custom";
+
+const dateFilterOptions: { value: DatePreset; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "7d", label: "Last 7 Days" },
+  { value: "30d", label: "Last 30 Days" },
+  { value: "custom", label: "Custom" },
+];
+
+const daysAgo = (n: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+};
 
 const exportFilenamePrefix: Record<ExportScope, string> = {
   all: "income-expense-statement",
@@ -68,10 +82,21 @@ export default function StatementsPage() {
 
   const [from, setFrom] = useState(monthStart());
   const [to, setTo] = useState(today());
+  const [datePreset, setDatePreset] = useState<DatePreset>("custom");
 
-  const resetToThisMonth = () => {
-    setFrom(monthStart());
-    setTo(today());
+  const handlePresetChange = (preset: DatePreset) => {
+    setDatePreset(preset);
+    if (preset === "all") {
+      setFrom("");
+      setTo("");
+    } else if (preset === "7d") {
+      setFrom(daysAgo(6));
+      setTo(today());
+    } else if (preset === "30d") {
+      setFrom(daysAgo(29));
+      setTo(today());
+    }
+    // "custom": leave from/to as-is for the user to fill in via the date inputs
   };
 
   // Income side is read-only — sourced straight from student-fee payments, nothing to add here.
@@ -202,16 +227,30 @@ export default function StatementsPage() {
       <CardBox className="p-4 sm:p-6 mb-30">
         <div className="flex flex-wrap items-end gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="from">From</Label>
-            <Input id="from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-full sm:w-44" />
+            <Label htmlFor="datePreset">Date Range</Label>
+            <Select value={datePreset} onValueChange={(v) => handlePresetChange(v as DatePreset)}>
+              <SelectTrigger id="datePreset" className="w-full sm:w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {dateFilterOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="to">To</Label>
-            <Input id="to" type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-full sm:w-44" />
-          </div>
-          <Button type="button" variant="outline" onClick={resetToThisMonth}>
-            This Month
-          </Button>
+          {datePreset === "custom" && (
+            <>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="from">From</Label>
+                <Input id="from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-full sm:w-44" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="to">To</Label>
+                <Input id="to" type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-full sm:w-44" />
+              </div>
+            </>
+          )}
           <div className="flex gap-2 ms-auto">
             {canDownloadPdf && (
               <Button type="button" variant="outline" disabled={downloading === "pdf"} onClick={() => openExportDialog("pdf")}>
@@ -349,7 +388,7 @@ export default function StatementsPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-30">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-30">
         <div className="rounded-2xl bg-[#16A34A]/20 dark:bg-[#16A34A]/15 p-4 shadow-xs flex items-center gap-3">
           <div className="h-11 w-11 rounded-full bg-[#16A34A] flex items-center justify-center shrink-0">
             <Icon icon="solar:wallet-money-bold-duotone" width={22} height={22} className="text-white" />
@@ -368,7 +407,7 @@ export default function StatementsPage() {
             <p className="text-xl font-bold text-dark dark:text-white">{currency(totalExpenses)}</p>
           </div>
         </div>
-        <div className={`rounded-2xl p-4 shadow-xs flex items-center gap-3 ${netBalance >= 0 ? "bg-[#2563EB]/20 dark:bg-[#2563EB]/15" : "bg-[#DC2626]/20 dark:bg-[#DC2626]/15"}`}>
+        <div className={`col-span-2 sm:col-span-1 rounded-2xl p-4 shadow-xs flex items-center gap-3 ${netBalance >= 0 ? "bg-[#2563EB]/20 dark:bg-[#2563EB]/15" : "bg-[#DC2626]/20 dark:bg-[#DC2626]/15"}`}>
           <div className={`h-11 w-11 rounded-full flex items-center justify-center shrink-0 ${netBalance >= 0 ? "bg-[#2563EB]" : "bg-[#DC2626]"}`}>
             <Icon icon="solar:chart-2-bold-duotone" width={22} height={22} className="text-white" />
           </div>

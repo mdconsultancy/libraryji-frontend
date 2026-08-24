@@ -42,6 +42,8 @@ import TableSkeleton from "@/components/shared/TableSkeleton";
 import DeleteConfirmDialog from "@/components/shared/DeleteConfirmDialog";
 import PasswordInput from "@/components/form/PasswordInput";
 import PhoneInput from "@/components/form/PhoneInput";
+import ImageUploadField from "@/components/form/ImageUploadField";
+import Avatar from "@/components/shared/Avatar";
 import { api, ApiError, invalidateDashboard } from "@/lib/api";
 import { useApi } from "@/hooks/useApi";
 import { useRoleGuard } from "@/hooks/useRoleGuard";
@@ -52,18 +54,6 @@ import type { User, Paginated, StaffPermissions, PermissionDefinition } from "@/
 const BCrumb = [{ to: "/", title: "Home" }, { title: "Staff" }];
 
 type StaffDetail = User & { permissions?: StaffPermissions | null };
-
-const avatarPalette = [
-  "bg-lightsuccess text-success",
-  "bg-lightinfo text-info",
-  "bg-lightwarning text-warning",
-  "bg-lightprimary text-primary",
-  "bg-lighterror text-error",
-  "bg-lightsecondary text-secondary",
-];
-const avatarColor = (id: number) => avatarPalette[id % avatarPalette.length];
-const initials = (name: string) =>
-  name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
 
 function generatePassword(length = 12): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
@@ -80,6 +70,8 @@ const emptyForm = () => ({
   role: "staff" as "admin" | "staff",
   status: "active" as "active" | "inactive",
   permissions: [] as StaffPermissions,
+  idProofType: "",
+  idProofNumber: "",
 });
 
 export default function StaffPage() {
@@ -106,6 +98,10 @@ export default function StaffPage() {
   const [form, setForm] = useState(emptyForm());
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [saving, setSaving] = useState(false);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | null>(null);
+  const [idProofFile, setIdProofFile] = useState<File | null>(null);
+  const [existingIdProofUrl, setExistingIdProofUrl] = useState<string | null>(null);
 
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -114,12 +110,18 @@ export default function StaffPage() {
     setEditing(null);
     setForm(emptyForm());
     setFieldErrors({});
+    setPhoto(null);
+    setExistingPhotoUrl(null);
+    setIdProofFile(null);
+    setExistingIdProofUrl(null);
     setDialogOpen(true);
   };
 
   const openEdit = async (member: User) => {
     setEditing(member);
     setFieldErrors({});
+    setPhoto(null);
+    setIdProofFile(null);
     setDialogOpen(true);
     setLoadingDetail(true);
     try {
@@ -134,7 +136,11 @@ export default function StaffPage() {
         role: detail.role as "admin" | "staff",
         status: detail.status,
         permissions: detail.permissions ?? [],
+        idProofType: detail.id_proof_type ?? "",
+        idProofNumber: detail.id_proof_number ?? "",
       });
+      setExistingPhotoUrl(detail.avatar_url ?? null);
+      setExistingIdProofUrl(detail.id_proof_url ?? null);
     } catch {
       toast.error("Unable to load staff details.");
       setDialogOpen(false);
@@ -161,26 +167,57 @@ export default function StaffPage() {
     setSaving(true);
     setFieldErrors({});
     try {
-      const payload: Record<string, unknown> = {
-        name: form.name,
-        email: form.email || null,
-        phone: form.phone || null,
-        role: form.role,
-        status: form.status,
-        // Permissions are only meaningful for staff — admin always has full
-        // access regardless, so there's nothing useful to send for it.
-        permissions: form.role === "staff" ? form.permissions : null,
-      };
-      if (editing) {
-        if (form.password) payload.password = form.password;
-        await api.put(`/admin/staff/${editing.id}`, payload);
-        toast.success("Staff member updated.");
+      // multipart/form-data whenever a new photo/id-proof file is attached
+      // (same convention as AddMemberWizard) — plain JSON otherwise, so the
+      // common no-file save keeps working exactly as before.
+      const hasFiles = !!photo || !!idProofFile;
+      const permissions = form.role === "staff" ? form.permissions : [];
+
+      if (hasFiles) {
+        const fd = new FormData();
+        fd.append("name", form.name);
+        if (form.email) fd.append("email", form.email);
+        if (form.phone) fd.append("phone", form.phone);
+        fd.append("role", form.role);
+        fd.append("status", form.status);
+        fd.append("id_proof_type", form.idProofType || "");
+        fd.append("id_proof_number", form.idProofNumber || "");
+        permissions.forEach((p) => fd.append("permissions[]", p));
+        if (photo) fd.append("photo", photo);
+        if (idProofFile) fd.append("id_proof", idProofFile);
+        if (editing) {
+          if (form.password) fd.append("password", form.password);
+          await api.put(`/admin/staff/${editing.id}`, fd);
+          toast.success("Staff member updated.");
+        } else {
+          fd.append("password", form.password);
+          await api.post("/admin/staff", fd);
+          toast.success("Staff member added.");
+        }
       } else {
-        // No tenant_id here — a single admin/user only ever has one Library
-        // now, so the backend just defaults to the caller's current one.
-        payload.password = form.password;
-        await api.post("/admin/staff", payload);
-        toast.success("Staff member added.");
+        const payload: Record<string, unknown> = {
+          name: form.name,
+          email: form.email || null,
+          phone: form.phone || null,
+          role: form.role,
+          status: form.status,
+          // Permissions are only meaningful for staff — admin always has full
+          // access regardless, so there's nothing useful to send for it.
+          permissions: form.role === "staff" ? form.permissions : null,
+          id_proof_type: form.idProofType || null,
+          id_proof_number: form.idProofNumber || null,
+        };
+        if (editing) {
+          if (form.password) payload.password = form.password;
+          await api.put(`/admin/staff/${editing.id}`, payload);
+          toast.success("Staff member updated.");
+        } else {
+          // No tenant_id here — a single admin/user only ever has one Library
+          // now, so the backend just defaults to the caller's current one.
+          payload.password = form.password;
+          await api.post("/admin/staff", payload);
+          toast.success("Staff member added.");
+        }
       }
       setDialogOpen(false);
       mutate();
@@ -252,7 +289,12 @@ export default function StaffPage() {
               ) : (
                 staff?.data.map((member) => (
                   <TableRow key={member.id}>
-                    <TableCell className="ps-6 font-medium">{member.name}</TableCell>
+                    <TableCell className="ps-6 font-medium">
+                      <div className="flex items-center gap-3">
+                        <Avatar src={member.avatar_url} name={member.name} seed={member.id} size={32} />
+                        {member.name}
+                      </div>
+                    </TableCell>
                     <TableCell>{member.email || "—"}</TableCell>
                     <TableCell>{member.phone || "—"}</TableCell>
                     <TableCell className="capitalize">{member.role}</TableCell>
@@ -322,9 +364,7 @@ export default function StaffPage() {
           <div className="flex flex-col gap-3">
             {staff?.data.map((member) => (
               <div key={member.id} className="rounded-2xl bg-white dark:bg-darkgray p-4 shadow-xs flex items-center gap-3">
-                <div className={`h-12 w-12 rounded-full flex items-center justify-center shrink-0 font-semibold ${avatarColor(member.id)}`}>
-                  {initials(member.name)}
-                </div>
+                <Avatar src={member.avatar_url} name={member.name} seed={member.id} size={48} />
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-dark dark:text-white truncate">{member.name}</p>
                   <p className="text-xs text-darklink truncate">{member.email || member.phone || "—"}</p>
@@ -374,6 +414,18 @@ export default function StaffPage() {
             <p className="text-sm text-darklink py-6 text-center">Loading...</p>
           ) : (
             <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4">
+              <div className="flex flex-col gap-2">
+                <Label>Photo</Label>
+                <ImageUploadField
+                  id="photo"
+                  value={photo}
+                  onChange={setPhoto}
+                  existingUrl={existingPhotoUrl}
+                  maxSizeMb={1}
+                  acceptedExtensions={["jpg", "jpeg", "png", "webp", "svg"]}
+                />
+                {fieldError("photo") && <p className="text-xs text-error">{fieldError("photo")}</p>}
+              </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="name">Name *</Label>
                 <Input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
@@ -437,6 +489,41 @@ export default function StaffPage() {
                     <SelectItem value="inactive">Inactive</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="idProofType">ID Proof Type (optional)</Label>
+                  <Input
+                    id="idProofType"
+                    placeholder="e.g. Aadhaar, PAN"
+                    value={form.idProofType}
+                    onChange={(e) => setForm({ ...form, idProofType: e.target.value })}
+                  />
+                  {fieldError("id_proof_type") && <p className="text-xs text-error">{fieldError("id_proof_type")}</p>}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="idProofNumber">ID Proof Number (optional)</Label>
+                  <Input
+                    id="idProofNumber"
+                    value={form.idProofNumber}
+                    onChange={(e) => setForm({ ...form, idProofNumber: e.target.value })}
+                  />
+                  {fieldError("id_proof_number") && <p className="text-xs text-error">{fieldError("id_proof_number")}</p>}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label>ID Proof Document (optional)</Label>
+                <ImageUploadField
+                  id="idProofFile"
+                  value={idProofFile}
+                  onChange={setIdProofFile}
+                  existingUrl={existingIdProofUrl}
+                  maxSizeMb={1}
+                  acceptedExtensions={["jpg", "jpeg", "png", "webp", "svg"]}
+                />
+                {fieldError("id_proof") && <p className="text-xs text-error">{fieldError("id_proof")}</p>}
               </div>
 
               {form.role === "staff" && (

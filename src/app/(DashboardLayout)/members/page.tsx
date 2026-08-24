@@ -45,6 +45,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { usePermissionGuard } from "@/hooks/usePermissionGuard";
 import { useReadOnly } from "@/hooks/useReadOnly";
 import AddMemberWizard from "@/components/members/AddMemberWizard";
+import PaymentLedgerSection from "@/components/members/PaymentLedgerSection";
 import { whatsappLink, buildAdmissionMessage, buildPaymentReminderMessage } from "@/lib/whatsapp";
 import type { Member, MemberStatus, Paginated, DashboardSummary, MemberHistoryEntry } from "@/types";
 
@@ -320,7 +321,7 @@ export default function MembersPage() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const [viewTargetId, setViewTargetId] = useState<number | null>(null);
-  const { data: viewMember, isLoading: loadingViewMember } = useApi<Member>(
+  const { data: viewMember, isLoading: loadingViewMember, mutate: mutateViewMember } = useApi<Member>(
     viewTargetId ? `/admin/members/${viewTargetId}` : null
   );
   const { data: historyEntries, isLoading: loadingHistory } = useApi<MemberHistoryEntry[]>(
@@ -832,6 +833,14 @@ export default function MembersPage() {
                 />
                 <ViewField label="Fee Status" value={feePendingLabel(viewMember)} />
               </ViewSection>
+
+              {viewMember.active_subscription && (
+                <PaymentLedgerSection
+                  memberId={viewMember.id}
+                  subscription={viewMember.active_subscription}
+                  onChanged={() => mutateViewMember()}
+                />
+              )}
 
               {(viewMember.id_proof_type || viewMember.id_proof_number) && (
                 <ViewSection title="ID Proof">

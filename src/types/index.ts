@@ -82,6 +82,8 @@ export interface Tenant {
   seat_limit?: number | null
   trial_ends_at: string | null
   onboarding_completed_at: string | null
+  data_cleaned_at?: string | null
+  data_cleaned_by_name?: string | null
   has_active_plan?: boolean
   // Laravel snake_cases relation names in JSON — this is `active_subscription`
   // on the wire (verified against the live API), not `activeSubscription`.
@@ -124,10 +126,15 @@ export interface User {
   name: string
   email: string | null
   phone: string | null
-  avatar_path: string | null
+  /** Short-lived signed URL — the raw storage path is never sent to the client (see App\Models\User). */
+  avatar_url?: string | null
   /** Admin's own UPI ID / payment contact number, surfaced in the WhatsApp fee-reminder template. */
   upi_id?: string | null
   payment_number?: string | null
+  id_proof_type?: string | null
+  id_proof_number?: string | null
+  /** Short-lived signed URL for the uploaded ID proof, if any. */
+  id_proof_url?: string | null
   /** Which language(s) WhatsApp templates go out in — member gets the message once per selected language. Defaults to English only. */
   whatsapp_languages?: WhatsAppLanguage[] | null
   status: 'active' | 'inactive'

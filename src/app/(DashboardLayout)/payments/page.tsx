@@ -40,6 +40,7 @@ import {
 import { Icon } from "@iconify/react";
 import PaginationBar from "@/components/shared/Pagination";
 import TableSkeleton from "@/components/shared/TableSkeleton";
+import GenerateReceiptDialog from "@/components/receipts/GenerateReceiptDialog";
 import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/hooks/useApi";
 import { useMemberOptions } from "@/hooks/useOptions";
@@ -99,6 +100,7 @@ export default function PaymentsPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Payment | null>(null);
+  const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
   const members = useMemberOptions(memberSearch);
   const [form, setForm] = useState(emptyForm);
@@ -210,12 +212,18 @@ export default function PaymentsPage() {
               </Select>
             </div>
           </div>
-          {canAdd && (
-            <Button onClick={openCreate} className="flex items-center gap-1.5">
-              <Icon icon="solar:add-circle-linear" width={18} height={18} />
-              Record Payment
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setReceiptDialogOpen(true)} className="flex items-center gap-1.5">
+              <Icon icon="solar:document-add-linear" width={18} height={18} />
+              Generate Receipt
             </Button>
-          )}
+            {canAdd && (
+              <Button onClick={openCreate} className="flex items-center gap-1.5">
+                <Icon icon="solar:add-circle-linear" width={18} height={18} />
+                Record Payment
+              </Button>
+            )}
+          </div>
         </div>
 
         {memberIdFilter && (
@@ -365,12 +373,18 @@ export default function PaymentsPage() {
           </div>
         </div>
 
-        {canAdd && (
-          <Button onClick={openCreate} className="w-full flex items-center justify-center gap-1.5">
-            <Icon icon="solar:add-circle-linear" width={18} height={18} />
-            Record Payment
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setReceiptDialogOpen(true)} className="flex-1 flex items-center justify-center gap-1.5">
+            <Icon icon="solar:document-add-linear" width={18} height={18} />
+            Generate Receipt
           </Button>
-        )}
+          {canAdd && (
+            <Button onClick={openCreate} className="flex-1 flex items-center justify-center gap-1.5">
+              <Icon icon="solar:add-circle-linear" width={18} height={18} />
+              Record Payment
+            </Button>
+          )}
+        </div>
 
         {error && <p className="text-sm text-error">{error}</p>}
 
@@ -515,6 +529,12 @@ export default function PaymentsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <GenerateReceiptDialog
+        open={receiptDialogOpen}
+        onOpenChange={setReceiptDialogOpen}
+        initialMemberId={memberIdFilter ? Number(memberIdFilter) : null}
+      />
     </>
   );
 }

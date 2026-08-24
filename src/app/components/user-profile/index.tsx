@@ -1,5 +1,4 @@
 "use client";
-import Image from "next/image"
 import CardBox from "../shared/CardBox"
 import { Icon } from "@iconify/react/dist/iconify.js"
 import {
@@ -10,12 +9,15 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog"
 import { useState } from "react";
+import DangerZone from "./DangerZone";
 import BreadcrumbComp from "@/app/(DashboardLayout)/layout/shared/breadcrumb/BreadcrumbComp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import PasswordInput from "@/components/form/PasswordInput";
+import ImageUploadField from "@/components/form/ImageUploadField";
+import Avatar from "@/components/shared/Avatar";
 import { useAuth } from "@/context/AuthContext";
 import { api, ApiError } from "@/lib/api";
 import { WHATSAPP_LANGUAGE_ORDER, WHATSAPP_LANGUAGE_LABELS, normalizeWhatsAppLanguages } from "@/lib/whatsapp";
@@ -24,11 +26,13 @@ import type { User, WhatsAppLanguage } from "@/types";
 const UserProfile = () => {
     const { user, refreshMe } = useAuth();
     const [openModal, setOpenModal] = useState(false);
-    const [modalType, setModalType] = useState<"personal" | "password" | "payment" | null>(null);
+    const [modalType, setModalType] = useState<"personal" | "password" | "payment" | "idproof" | null>(null);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [savingTwoFactor, setSavingTwoFactor] = useState(false);
     const [savingLanguages, setSavingLanguages] = useState(false);
+    const [photo, setPhoto] = useState<File | null>(null);
+    const [idProofFile, setIdProofFile] = useState<File | null>(null);
 
     const selectedLanguages = normalizeWhatsAppLanguages(user?.whatsapp_languages);
 
@@ -82,9 +86,11 @@ const UserProfile = () => {
         password_confirmation: "",
     });
     const [paymentForm, setPaymentForm] = useState({ upi_id: "", payment_number: "" });
+    const [idProofForm, setIdProofForm] = useState({ id_proof_type: "", id_proof_number: "" });
 
     const openPersonalModal = () => {
         setPersonalForm({ name: user?.name || "", phone: user?.phone || "" });
+        setPhoto(null);
         setModalType("personal");
         setError(null);
         setOpenModal(true);
@@ -104,16 +110,42 @@ const UserProfile = () => {
         setOpenModal(true);
     };
 
+    const openIdProofModal = () => {
+        setIdProofForm({ id_proof_type: user?.id_proof_type || "", id_proof_number: user?.id_proof_number || "" });
+        setIdProofFile(null);
+        setModalType("idproof");
+        setError(null);
+        setOpenModal(true);
+    };
+
     const handleSave = async () => {
         setSaving(true);
         setError(null);
         try {
             if (modalType === "personal") {
-                await api.put<{ user: User }>("/auth/profile", personalForm);
+                if (photo) {
+                    const fd = new FormData();
+                    fd.append("name", personalForm.name);
+                    fd.append("phone", personalForm.phone);
+                    fd.append("photo", photo);
+                    await api.put<{ user: User }>("/auth/profile", fd);
+                } else {
+                    await api.put<{ user: User }>("/auth/profile", personalForm);
+                }
             } else if (modalType === "password") {
                 await api.put<{ user: User }>("/auth/profile", passwordForm);
             } else if (modalType === "payment") {
                 await api.put<{ user: User }>("/auth/profile", paymentForm);
+            } else if (modalType === "idproof") {
+                if (idProofFile) {
+                    const fd = new FormData();
+                    fd.append("id_proof_type", idProofForm.id_proof_type);
+                    fd.append("id_proof_number", idProofForm.id_proof_number);
+                    fd.append("id_proof", idProofFile);
+                    await api.put<{ user: User }>("/auth/profile", fd);
+                } else {
+                    await api.put<{ user: User }>("/auth/profile", idProofForm);
+                }
             }
             await refreshMe();
             setOpenModal(false);
@@ -133,7 +165,7 @@ const UserProfile = () => {
                 <CardBox className="p-6 bg-background overflow-hidden border-none rounded-xl shadow-xs">
                     <div className="flex flex-col sm:flex-row items-center gap-6 rounded-xl relative w-full words-break">
                         <div>
-                            <Image src={"/images/profile/user-1.jpg"} alt="image" width={80} height={80} className="rounded-full" />
+                            <Avatar src={user.avatar_url} name={user.name} size={80} />
                         </div>
                         <div className="flex flex-wrap gap-4 justify-center sm:justify-between items-center w-full">
                             <div className="flex flex-col sm:text-left text-center gap-1.5">
@@ -201,6 +233,31 @@ const UserProfile = () => {
 
                         {(user.role === "admin" || user.role === "staff") && (
                             <div className="rounded-lg border border-border dark:border-darkborder p-4 mt-2">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div>
+                                        <p className="font-medium text-sm">ID Proof</p>
+                                        <p className="text-xs text-gray-500 mt-0.5">
+                                            Kept on file for verification.
+                                        </p>
+                                    </div>
+                                    <Button onClick={openIdProofModal} variant="outline" size="sm" className="flex items-center gap-1.5 rounded-md shrink-0">
+                                        <Icon icon="ic:outline-edit" width="16" height="16" /> Edit
+                                    </Button>
+                                </div>
+                                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                    <div><p className="text-xs text-gray-500">Type</p><p>{user.id_proof_type || '—'}</p></div>
+                                    <div><p className="text-xs text-gray-500">Number</p><p>{user.id_proof_number || '—'}</p></div>
+                                </div>
+                                {user.id_proof_url && (
+                                    <a href={user.id_proof_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline mt-2 inline-block">
+                                        View uploaded document
+                                    </a>
+                                )}
+                            </div>
+                        )}
+
+                        {(user.role === "admin" || user.role === "staff") && (
+                            <div className="rounded-lg border border-border dark:border-darkborder p-4 mt-2">
                                 <p className="font-medium text-sm">WhatsApp Message Language</p>
                                 <p className="text-xs text-gray-500 mt-0.5">
                                     Select one or more — a student gets the welcome/fee-reminder message once per language, in this order: English, Hindi, Gujarati.
@@ -247,6 +304,8 @@ const UserProfile = () => {
                         )}
                     </div>
                 </div>
+
+                {user.role === "admin" && <DangerZone />}
             </div>
 
             <Dialog open={openModal} onOpenChange={setOpenModal}>
@@ -257,7 +316,9 @@ const UserProfile = () => {
                                 ? "Edit Personal Information"
                                 : modalType === "payment"
                                     ? "Edit Payment Details"
-                                    : "Change Password"}
+                                    : modalType === "idproof"
+                                        ? "Edit ID Proof"
+                                        : "Change Password"}
                         </DialogTitle>
                     </DialogHeader>
 
@@ -266,23 +327,69 @@ const UserProfile = () => {
                     )}
 
                     {modalType === "personal" ? (
-                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-4">
                             <div className="flex flex-col gap-2">
-                                <Label htmlFor="name">Name</Label>
-                                <Input
-                                    id="name"
-                                    placeholder="Name"
-                                    value={personalForm.name}
-                                    onChange={(e) => setPersonalForm({ ...personalForm, name: e.target.value })}
+                                <Label>Photo</Label>
+                                <ImageUploadField
+                                    id="profile-photo"
+                                    value={photo}
+                                    onChange={setPhoto}
+                                    existingUrl={user.avatar_url}
+                                    maxSizeMb={1}
+                                    acceptedExtensions={["jpg", "jpeg", "png", "webp", "svg"]}
                                 />
                             </div>
+                            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                                <div className="flex flex-col gap-2">
+                                    <Label htmlFor="name">Name</Label>
+                                    <Input
+                                        id="name"
+                                        placeholder="Name"
+                                        value={personalForm.name}
+                                        onChange={(e) => setPersonalForm({ ...personalForm, name: e.target.value })}
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <Label htmlFor="phone">Phone</Label>
+                                    <Input
+                                        id="phone"
+                                        placeholder="Phone"
+                                        value={personalForm.phone}
+                                        onChange={(e) => setPersonalForm({ ...personalForm, phone: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    ) : modalType === "idproof" ? (
+                        <div className="grid grid-cols-1 gap-4">
+                            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                                <div className="flex flex-col gap-2">
+                                    <Label htmlFor="id_proof_type">ID Proof Type</Label>
+                                    <Input
+                                        id="id_proof_type"
+                                        placeholder="e.g. Aadhaar, PAN"
+                                        value={idProofForm.id_proof_type}
+                                        onChange={(e) => setIdProofForm({ ...idProofForm, id_proof_type: e.target.value })}
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <Label htmlFor="id_proof_number">ID Proof Number</Label>
+                                    <Input
+                                        id="id_proof_number"
+                                        value={idProofForm.id_proof_number}
+                                        onChange={(e) => setIdProofForm({ ...idProofForm, id_proof_number: e.target.value })}
+                                    />
+                                </div>
+                            </div>
                             <div className="flex flex-col gap-2">
-                                <Label htmlFor="phone">Phone</Label>
-                                <Input
-                                    id="phone"
-                                    placeholder="Phone"
-                                    value={personalForm.phone}
-                                    onChange={(e) => setPersonalForm({ ...personalForm, phone: e.target.value })}
+                                <Label>Document</Label>
+                                <ImageUploadField
+                                    id="id-proof-file"
+                                    value={idProofFile}
+                                    onChange={setIdProofFile}
+                                    existingUrl={user.id_proof_url}
+                                    maxSizeMb={1}
+                                    acceptedExtensions={["jpg", "jpeg", "png", "webp", "svg"]}
                                 />
                             </div>
                         </div>
