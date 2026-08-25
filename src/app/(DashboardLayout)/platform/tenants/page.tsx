@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import PasswordInput from "@/components/form/PasswordInput";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -108,6 +109,11 @@ export default function TenantsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Tenant | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [actioningId, setActioningId] = useState<number | null>(null);
+
+  const [notifyTarget, setNotifyTarget] = useState<Tenant | null>(null);
+  const [notifyForm, setNotifyForm] = useState({ title: "", body: "" });
+  const [notifyErrors, setNotifyErrors] = useState<Record<string, string[]>>({});
+  const [notifying, setNotifying] = useState(false);
 
   const openCreate = () => {
     setCreateForm(emptyCreateForm);
@@ -214,6 +220,31 @@ export default function TenantsPage() {
       if (err instanceof ApiError) toast.error(err.message);
     } finally {
       setRegeneratingId(null);
+    }
+  };
+
+  const openNotify = (tenant: Tenant) => {
+    setNotifyTarget(tenant);
+    setNotifyForm({ title: "", body: "" });
+    setNotifyErrors({});
+  };
+
+  const handleNotify = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!notifyTarget) return;
+    setNotifying(true);
+    setNotifyErrors({});
+    try {
+      await api.post(`/super-admin/tenants/${notifyTarget.id}/notify`, notifyForm);
+      toast.success("Notification sent.");
+      setNotifyTarget(null);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setNotifyErrors(err.errors || {});
+        toast.error(err.message);
+      }
+    } finally {
+      setNotifying(false);
     }
   };
 
@@ -326,6 +357,9 @@ export default function TenantsPage() {
                         </Button>
                         <Button variant="lightprimary" size="sm" onClick={() => openEdit(tenant)}>
                           <Icon icon="ic:outline-edit" width={16} height={16} />
+                        </Button>
+                        <Button variant="lightprimary" size="sm" onClick={() => openNotify(tenant)}>
+                          <Icon icon="tabler:bell-plus" width={16} height={16} />
                         </Button>
                         <Button
                           variant="lighterror"
@@ -526,6 +560,50 @@ export default function TenantsPage() {
                   {saving ? "Saving..." : "Save"}
                 </Button>
                 <Button type="button" variant="outline" className="rounded-md" onClick={() => setEditing(null)}>
+                  Cancel
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!notifyTarget} onOpenChange={(v) => !v && setNotifyTarget(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Notify &quot;{notifyTarget?.name}&quot;</DialogTitle>
+          </DialogHeader>
+          {notifyTarget && (
+            <form onSubmit={handleNotify} className="grid grid-cols-1 gap-4">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="notify_title">Title</Label>
+                <Input
+                  id="notify_title"
+                  value={notifyForm.title}
+                  onChange={(e) => setNotifyForm({ ...notifyForm, title: e.target.value })}
+                  required
+                />
+                {fieldError(notifyErrors, "title") && <p className="text-xs text-error">{fieldError(notifyErrors, "title")}</p>}
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="notify_body">Message</Label>
+                <Textarea
+                  id="notify_body"
+                  value={notifyForm.body}
+                  onChange={(e) => setNotifyForm({ ...notifyForm, body: e.target.value })}
+                  required
+                />
+                {fieldError(notifyErrors, "body") && <p className="text-xs text-error">{fieldError(notifyErrors, "body")}</p>}
+              </div>
+              <p className="text-xs text-darklink">
+                Sent to every admin on this library — shows up in their notification list, and as a push
+                notification on their mobile app if it&apos;s enabled.
+              </p>
+              <DialogFooter className="flex gap-2 mt-4">
+                <Button type="submit" className="rounded-md" disabled={notifying}>
+                  {notifying ? "Sending..." : "Send"}
+                </Button>
+                <Button type="button" variant="outline" className="rounded-md" onClick={() => setNotifyTarget(null)}>
                   Cancel
                 </Button>
               </DialogFooter>

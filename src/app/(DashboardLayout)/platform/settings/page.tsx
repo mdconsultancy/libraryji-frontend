@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, FormEvent } from "react";
+import { GoogleOAuthProvider, GoogleLogin, type CredentialResponse } from "@react-oauth/google";
 import BreadcrumbComp from "@/app/(DashboardLayout)/layout/shared/breadcrumb/BreadcrumbComp";
 import CardBox from "@/app/components/shared/CardBox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -200,6 +201,13 @@ const GROUPS: { key: string; label: string; fields: FieldConfig[] }[] = [
       { key: "google_redirect_uri", label: "Google Redirect URI", type: "text" },
     ],
   },
+  {
+    key: "notifications",
+    label: "Notifications",
+    fields: [
+      { key: "push_notifications_enabled", label: "Push Notifications Enabled", type: "boolean" },
+    ],
+  },
 ];
 
 type SettingsValue = Record<string, unknown>;
@@ -218,6 +226,8 @@ export default function PlatformSettingsPage() {
   const [testingRazorpay, setTestingRazorpay] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [uploadingAsset, setUploadingAsset] = useState<"logo" | "favicon" | null>(null);
+  const [testGoogleStatus, setTestGoogleStatus] = useState<{ ok: boolean; message: string } | null>(null);
+  const [testingGoogle, setTestingGoogle] = useState(false);
 
   const loadSettings = () => {
     setLoading(true);
@@ -261,21 +271,46 @@ export default function PlatformSettingsPage() {
     setAllSettings((prev) => ({ ...prev, [group]: { ...prev[group], [key]: value } }));
   };
 
+  const saveGroup = async (group: string, settings: SettingsValue) => {
+    const data = await api.put<{ group: string; settings: SettingsValue }>(`/super-admin/settings/${group}`, {
+      settings,
+    });
+    setAllSettings((prev) => ({ ...prev, [group]: data.settings }));
+    return data.settings;
+  };
+
   const handleSave = async (e: FormEvent, group: string) => {
     e.preventDefault();
     setSaving(true);
     setSavedGroup(null);
     try {
-      const data = await api.put<{ group: string; settings: SettingsValue }>(`/super-admin/settings/${group}`, {
-        settings: allSettings[group] || {},
-      });
-      setAllSettings((prev) => ({ ...prev, [group]: data.settings }));
+      await saveGroup(group, allSettings[group] || {});
       setSavedGroup(group);
       toast.success("Settings saved.");
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Unable to save settings.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  /**
+   * Toggles like "Google Login Enabled" gate a live feature — leaving the
+   * new value sitting unsaved in form state until someone remembers to
+   * scroll down and hit the group's Save button (easy to miss, especially
+   * on a small screen) means the toggle *looks* off but the backend, and
+   * therefore every other client reading it, still sees the old value. Save
+   * on change instead, so what the switch shows is always what's live.
+   */
+  const handleInstantToggle = async (group: string, key: string, value: boolean) => {
+    const previous = allSettings[group]?.[key];
+    updateField(group, key, value);
+    try {
+      await saveGroup(group, { ...(allSettings[group] || {}), [key]: value });
+      toast.success("Settings saved.");
+    } catch (err) {
+      updateField(group, key, previous);
+      toast.error(err instanceof ApiError ? err.message : "Unable to save settings.");
     }
   };
 
@@ -330,6 +365,34 @@ export default function PlatformSettingsPage() {
       toast.error(message);
     } finally {
       setTestingRazorpay(false);
+    }
+  };
+
+  const handleTestGoogleLogin = async (credentialResponse: CredentialResponse) => {
+    if (!credentialResponse.credential) {
+      setTestGoogleStatus({ ok: false, message: "Google did not return a credential. Please try again." });
+      return;
+    }
+    setTestingGoogle(true);
+    setTestGoogleStatus(null);
+    try {
+      const res = await api.post<{ success: boolean; email: string; name: string; message?: string }>(
+        "/super-admin/settings/oauth/test-google",
+        {
+          id_token: credentialResponse.credential,
+          client_id: allSettings.oauth?.google_client_id,
+          client_secret: allSettings.oauth?.google_client_secret,
+          redirect_uri: allSettings.oauth?.google_redirect_uri,
+        }
+      );
+      setTestGoogleStatus({ ok: true, message: `Verified successfully as ${res.name} (${res.email}).` });
+      toast.success("Google sign-in test passed.");
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "Google sign-in test failed.";
+      setTestGoogleStatus({ ok: false, message });
+      toast.error(message);
+    } finally {
+      setTestingGoogle(false);
     }
   };
 
@@ -398,14 +461,22 @@ export default function PlatformSettingsPage() {
                   const value = allSettings[group.key]?.[field.key];
 
                   if (field.type === "boolean") {
+                    const isInstant =
+                      (group.key === "oauth" && field.key === "google_login_enabled") ||
+                      (group.key === "notifications" && field.key === "push_notifications_enabled");
                     return (
                       <div key={field.key} className="flex items-center gap-2">
                         <Switch
                           id={`${group.key}_${field.key}`}
                           checked={value === true || value === "true" || value === "1" || value === 1}
-                          onCheckedChange={(v) => updateField(group.key, field.key, v)}
+                          onCheckedChange={(v) =>
+                            isInstant ? handleInstantToggle(group.key, field.key, v) : updateField(group.key, field.key, v)
+                          }
                         />
-                        <Label htmlFor={`${group.key}_${field.key}`} className="font-normal">{field.label}</Label>
+                        <Label htmlFor={`${group.key}_${field.key}`} className="font-normal">
+                          {field.label}
+                          {isInstant && <span className="text-xs text-gray-500 font-normal"> (saves instantly)</span>}
+                        </Label>
                       </div>
                     );
                   }
@@ -604,6 +675,46 @@ export default function PlatformSettingsPage() {
                     <p className="text-xs text-gray-500">
                       Register this exact URI as an authorized redirect URI for your OAuth client in the Google Cloud
                       Console. The Client Secret is stored securely and only ever shown masked.
+                    </p>
+                  </div>
+                )}
+
+                {group.key === "oauth" && (
+                  <div className="flex flex-col gap-2 lg:col-span-2 border-t border-border pt-4 mt-2">
+                    <Label>Test Google Login</Label>
+                    <p className="text-xs text-gray-500">
+                      Uses whatever Client ID is currently typed above (saved or not) to run a real sign-in and
+                      verify it works — pick a Google account and this confirms the credentials before you flip
+                      &quot;Google Login Enabled&quot; on for everyone.
+                    </p>
+                    {allSettings.oauth?.google_client_id ? (
+                      <div className={testingGoogle ? "opacity-60 pointer-events-none w-fit" : "w-fit"}>
+                        <GoogleOAuthProvider clientId={allSettings.oauth.google_client_id as string}>
+                          <GoogleLogin
+                            onSuccess={handleTestGoogleLogin}
+                            onError={() => setTestGoogleStatus({ ok: false, message: "Google sign-in failed. Please try again." })}
+                            width="280"
+                          />
+                        </GoogleOAuthProvider>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-darklink">Enter a Google Client ID above first.</p>
+                    )}
+                    {testGoogleStatus && (
+                      <p className={`text-sm ${testGoogleStatus.ok ? "text-success" : "text-error"}`}>
+                        {testGoogleStatus.message}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {group.key === "notifications" && (
+                  <div className="flex flex-col gap-2 lg:col-span-2 border-t border-border pt-4 mt-2">
+                    <p className="text-xs text-gray-500">
+                      Push notifications are delivered via Expo&apos;s push service — there are no Firebase/Apple
+                      credentials to enter here. The mobile app registers itself automatically once a user grants
+                      the notification permission. Use the &quot;Test Notification&quot; button in the mobile app&apos;s
+                      Super Admin settings to verify delivery.
                     </p>
                   </div>
                 )}
