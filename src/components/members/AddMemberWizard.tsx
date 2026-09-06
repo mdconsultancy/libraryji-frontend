@@ -35,9 +35,10 @@ import PaymentInstallmentsField, {
 import { api, ApiError, invalidateMembers, invalidatePayments } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useApi } from "@/hooks/useApi";
+import { useMembershipPlanOptions } from "@/hooks/useOptions";
 import { useToast } from "@/context/ToastContext";
 import { useUploadLimits } from "@/hooks/useUploadLimits";
-import type { Member, MemberSubscription, Seat, SeatCategory, SeatStatus, PaymentMethod } from "@/types";
+import type { Member, MemberSubscription, Seat, SeatCategory, SeatStatus, PaymentMethod, MemberGender } from "@/types";
 
 interface AddMemberWizardProps {
   open: boolean;
@@ -102,7 +103,19 @@ function formatDisplay(iso: string) {
 
 const todayIso = () => toIso(new Date());
 
-const emptyDetails = { name: "", phone: "", whatsapp: "", whatsappSameAsPhone: true, notes: "" };
+const emptyDetails = {
+  name: "",
+  phone: "",
+  whatsapp: "",
+  whatsappSameAsPhone: true,
+  notes: "",
+  email: "",
+  address: "",
+  date_of_birth: "",
+  gender: "" as MemberGender | "",
+  id_proof_type: "",
+  id_proof_number: "",
+};
 const freshMembership = () => ({
   start_date: todayIso(),
   durationUnit: "month" as DurationUnit,
@@ -113,6 +126,7 @@ const freshMembership = () => ({
   isPartialPayment: false,
   payment_type: "" as PaymentTypeChoice | "",
   seat_id: null as number | null,
+  membership_plan_id: null as number | null,
 });
 
 const STEP_META = [
@@ -274,6 +288,7 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
     open && isEdit ? `/admin/members/${memberId}` : null
   );
   const { data: seats, isLoading: seatsLoading } = useApi<Seat[]>(open ? "/admin/seats" : null);
+  const membershipPlans = useMembershipPlanOptions();
 
   useEffect(() => {
     if (!open) return;
@@ -282,11 +297,11 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
     setDetails(
       prefill
         ? {
+            ...emptyDetails,
             name: prefill.name ?? "",
             phone: prefill.phone ?? "",
             whatsapp: prefill.whatsapp_number ?? "",
             whatsappSameAsPhone: !prefill.whatsapp_number || prefill.whatsapp_number === prefill.phone,
-            notes: "",
           }
         : emptyDetails
     );
@@ -317,15 +332,6 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
     // subscription's own installment history the moment its last row was
     // added, which looked like the rows had silently vanished.
     const hasPaymentHistory = subPayments.length > 0;
-    console.log("💰 [PaymentInstallments] prefill", {
-      memberId: editingMember.id,
-      subscriptionId: sub?.id,
-      subPaidAmount: sub?.paid_amount,
-      subAmount: sub?.amount,
-      isPartial,
-      subPaymentsCount: subPayments.length,
-      subPayments: subPayments.map((p) => ({ id: p.id, amount: p.amount, paid_at: p.paid_at })),
-    });
     setStep(1);
     setDetails({
       name: editingMember.name,
@@ -333,6 +339,12 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
       whatsapp: editingMember.whatsapp_number ?? "",
       whatsappSameAsPhone: !editingMember.whatsapp_number || editingMember.whatsapp_number === editingMember.phone,
       notes: editingMember.notes ?? "",
+      email: editingMember.email ?? "",
+      address: editingMember.address ?? "",
+      date_of_birth: editingMember.date_of_birth ?? "",
+      gender: editingMember.gender ?? "",
+      id_proof_type: editingMember.id_proof_type ?? "",
+      id_proof_number: editingMember.id_proof_number ?? "",
     });
 
     // Older subscriptions (created before duration_unit/duration_days were
@@ -371,6 +383,7 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
       isPartialPayment: hasPaymentHistory || isPartial,
       payment_type: (payment?.payment_method as PaymentMethod) ?? "",
       seat_id: sub?.seat_id ?? null,
+      membership_plan_id: sub?.membership_plan_id ?? null,
     });
     setHadExistingPayments(hasPaymentHistory);
     setPhoto(null);
@@ -479,6 +492,12 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
       memberFd.append("phone", details.phone);
       memberFd.append("whatsapp_number", whatsapp);
       memberFd.append("notes", details.notes ?? "");
+      if (details.email) memberFd.append("email", details.email);
+      if (details.address) memberFd.append("address", details.address);
+      if (details.date_of_birth) memberFd.append("date_of_birth", details.date_of_birth);
+      if (details.gender) memberFd.append("gender", details.gender);
+      if (details.id_proof_type) memberFd.append("id_proof_type", details.id_proof_type);
+      if (details.id_proof_number) memberFd.append("id_proof_number", details.id_proof_number);
       if (!isEdit) {
         memberFd.append("join_date", membership.start_date);
         memberFd.append("status", "active");
@@ -504,6 +523,7 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
 
       const subscriptionPayload = {
         seat_id: membership.seat_id,
+        membership_plan_id: membership.membership_plan_id ?? undefined,
         duration_months: membership.durationUnit === "month" ? Number(membership.durationCount) : undefined,
         duration_days: membership.durationUnit === "day" ? Number(membership.durationCount) : undefined,
         duration_unit: membership.durationUnit,
@@ -706,6 +726,47 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
                     <p className="text-xs text-darklink">We&apos;ll use the phone number above as the WhatsApp number.</p>
                   )}
                 </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="w-email">Email (Optional)</Label>
+                  <Input id="w-email" type="email" value={details.email} onChange={(e) => setDetails({ ...details, email: e.target.value })} />
+                  {fieldError("email") && <p className="text-xs text-error">{fieldError("email")}</p>}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="w-address">Address (Optional)</Label>
+                  <Textarea id="w-address" value={details.address} onChange={(e) => setDetails({ ...details, address: e.target.value })} rows={2} />
+                  {fieldError("address") && <p className="text-xs text-error">{fieldError("address")}</p>}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="w-dob">Date of Birth (Optional)</Label>
+                    <DatePicker value={details.date_of_birth} onChange={(v) => setDetails({ ...details, date_of_birth: v })} />
+                    {fieldError("date_of_birth") && <p className="text-xs text-error">{fieldError("date_of_birth")}</p>}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label>Gender (Optional)</Label>
+                    <Select value={details.gender || "unset"} onValueChange={(v) => setDetails({ ...details, gender: v === "unset" ? "" : (v as MemberGender) })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select gender" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unset">— Not specified —</SelectItem>
+                        <SelectItem value="male">Male</SelectItem>
+                        <SelectItem value="female">Female</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="w-idtype">ID Proof Type (Optional)</Label>
+                    <Input id="w-idtype" placeholder="e.g. Aadhaar" value={details.id_proof_type} onChange={(e) => setDetails({ ...details, id_proof_type: e.target.value })} />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="w-idnumber">ID Proof Number (Optional)</Label>
+                    <Input id="w-idnumber" value={details.id_proof_number} onChange={(e) => setDetails({ ...details, id_proof_number: e.target.value })} />
+                  </div>
+                </div>
               </div>
             )}
 
@@ -774,6 +835,42 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
                     )}
                   </div>
                 </div>
+
+                {membershipPlans.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <Label>Membership Plan / Category (optional)</Label>
+                    <Select
+                      value={membership.membership_plan_id ? String(membership.membership_plan_id) : "none"}
+                      onValueChange={(v) => {
+                        if (v === "none") {
+                          setMembership((m) => ({ ...m, membership_plan_id: null }));
+                          return;
+                        }
+                        const plan = membershipPlans.find((p) => p.id === Number(v));
+                        setMembership((m) => ({
+                          ...m,
+                          membership_plan_id: Number(v),
+                          // Selecting a plan sets a sensible default fee — it
+                          // stays editable afterward, never locked, so staff
+                          // can still discount/adjust it per student.
+                          amount: plan ? String(plan.price) : m.amount,
+                        }));
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="No plan — custom fee" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No plan — custom fee</SelectItem>
+                        {membershipPlans.map((p) => (
+                          <SelectItem key={p.id} value={String(p.id)}>
+                            {p.name} — ₹{p.price}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 {/* Total fee for this plan — always required at least once, so
                     the real amount owed is never lost (it's what drives Fee

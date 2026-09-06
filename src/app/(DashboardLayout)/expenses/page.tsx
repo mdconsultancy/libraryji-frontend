@@ -32,7 +32,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { usePermissionGuard } from "@/hooks/usePermissionGuard";
 import type { Expense, Payment, PaymentMethod, Paginated } from "@/types";
 
-const BCrumb = [{ to: "/", title: "Home" }, { title: "Statements" }];
+const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Statements" }];
 
 const currency = (value: number) => `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 

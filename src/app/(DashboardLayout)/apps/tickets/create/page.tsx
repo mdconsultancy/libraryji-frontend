@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 const BCrumb = [
     {
-        to: "/",
+        to: "/dashboard",
         title: "Home",
     },
     {

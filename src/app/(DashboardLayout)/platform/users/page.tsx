@@ -24,7 +24,7 @@ import { useToast } from "@/context/ToastContext";
 import { api, ApiError } from "@/lib/api";
 import type { Paginated, UserManagementRow } from "@/types";
 
-const BCrumb = [{ to: "/", title: "Home" }, { title: "User Management" }];
+const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "User Management" }];
 
 export default function UserManagementPage() {
   const toast = useToast();

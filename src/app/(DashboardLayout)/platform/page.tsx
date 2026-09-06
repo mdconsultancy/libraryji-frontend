@@ -11,7 +11,7 @@ import type { PlatformSummary, TenantGrowthPoint, RevenueChartPoint } from "@/ty
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
-const BCrumb = [{ to: "/", title: "Home" }, { title: "Platform Dashboard" }];
+const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Platform Dashboard" }];
 
 const statCards = [
   { key: "total_tenants", label: "Total Tenants", icon: "solar:buildings-3-line-duotone", color: "primary" },

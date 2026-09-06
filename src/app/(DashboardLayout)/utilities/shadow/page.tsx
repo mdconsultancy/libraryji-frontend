@@ -2,7 +2,7 @@ import BreadcrumbComp from "../../layout/shared/breadcrumb/BreadcrumbComp";
 
 const page = () => {
   const BCrumb = [
-    { to: "/", title: "Home" },
+    { to: "/dashboard", title: "Home" },
     { title: "Shadow" },
   ];
   return (

@@ -14,6 +14,7 @@ import type { RevenueChartPoint } from "@/types";
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 const RANGE_OPTIONS = [
+  { label: "This Month (Daily)", value: "daily" },
   { label: "Last 3 months", value: "3" },
   { label: "Last 6 months", value: "6" },
   { label: "Last 12 months", value: "12" },
@@ -21,8 +22,8 @@ const RANGE_OPTIONS = [
 
 interface RevenueForecastProps {
   data: RevenueChartPoint[];
-  months: number;
-  onMonthsChange: (months: number) => void;
+  months: number | "daily";
+  onMonthsChange: (months: number | "daily") => void;
 }
 
 const RevenueForecast = ({ data, months, onMonthsChange }: RevenueForecastProps) => {
@@ -70,7 +71,7 @@ const RevenueForecast = ({ data, months, onMonthsChange }: RevenueForecastProps)
     <div className="rounded-xl shadow-xs bg-white dark:bg-darkgray p-6 relative w-full words-break">
       <div className="flex justify-between items-center">
         <h5 className="card-title">Income &amp; Expenses</h5>
-        <Select value={String(months)} onValueChange={(v) => onMonthsChange(Number(v))}>
+        <Select value={String(months)} onValueChange={(v) => onMonthsChange(v === "daily" ? "daily" : Number(v))}>
           <SelectTrigger className="h-8 w-[150px] text-sm">
             <SelectValue />
           </SelectTrigger>

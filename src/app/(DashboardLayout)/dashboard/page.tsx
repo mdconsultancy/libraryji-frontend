@@ -2,24 +2,25 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import RevenueForecast from "../components/dashboard/RevenueForecast";
-import NewCustomers from "../components/dashboard/NewCustomers";
-import TotalIncome from "../components/dashboard/TotalIncome";
-import ProductRevenue from "../components/dashboard/ProductRevenue";
-import InquiryCard from "../components/dashboard/InquiryCard";
-import AddMemberCard from "../components/dashboard/AddMemberCard";
-import StaffOverview from "../components/dashboard/StaffOverview";
-import RecentActivities from "../components/dashboard/RecentActivities";
-import MobileGreeting from "../components/dashboard/mobile/MobileGreeting";
-import MobileStatsGrid from "../components/dashboard/mobile/MobileStatsGrid";
-import MobileAttendanceCard from "../components/dashboard/mobile/MobileAttendanceCard";
-import MobileRecentActivity from "../components/dashboard/mobile/MobileRecentActivity";
+import RevenueForecast from "../../components/dashboard/RevenueForecast";
+import NewCustomers from "../../components/dashboard/NewCustomers";
+import TotalIncome from "../../components/dashboard/TotalIncome";
+import ProductRevenue from "../../components/dashboard/ProductRevenue";
+import InquiryCard from "../../components/dashboard/InquiryCard";
+import AddMemberCard from "../../components/dashboard/AddMemberCard";
+import StaffOverview from "../../components/dashboard/StaffOverview";
+import RecentActivities from "../../components/dashboard/RecentActivities";
+import MobileGreeting from "../../components/dashboard/mobile/MobileGreeting";
+import MobileStatsGrid from "../../components/dashboard/mobile/MobileStatsGrid";
+import MobileAttendanceCard from "../../components/dashboard/mobile/MobileAttendanceCard";
+import MobileRecentActivity from "../../components/dashboard/mobile/MobileRecentActivity";
 import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
 import DashboardSkeleton from "@/components/shared/DashboardSkeleton";
 import PolicyLinks from "@/app/components/shared/PolicyLinks";
 import { useAuth } from "@/context/AuthContext";
-import type { DashboardSummary, RevenueChartPoint, RecentActivityItem, Member, RecentFeedPage } from "@/types";
+import { LIVE_REFRESH_INTERVAL_MS } from "@/lib/swr";
+import type { DashboardSummary, RevenueChartPoint, RevenueDaily, RecentActivityItem, Member, RecentFeedPage } from "@/types";
 
 const FEED_PAGE_SIZE = 10;
 
@@ -27,7 +28,7 @@ const Page = () => {
   const { user } = useAuth();
   const router = useRouter();
   const isSuperAdmin = user?.role === "super_admin";
-  const [revenueMonths, setRevenueMonths] = useState(6);
+  const [revenueMonths, setRevenueMonths] = useState<number | "daily">(6);
 
   useEffect(() => {
     if (isSuperAdmin) {
@@ -38,8 +39,22 @@ const Page = () => {
   // Cached via SWR: fetched once, then reused instantly on every return visit
   // to this page for the lifetime of the session (no refetch on remount).
   // Skipped for super admins, who have no tenant and get redirected to /platform above.
-  const { data: summary, isLoading: loadingSummary, error: errorSummary } = useApi<DashboardSummary>(isSuperAdmin ? null : "/admin/dashboard/summary");
-  const { data: revenueChart, isLoading: loadingRevenue, error: errorRevenue } = useApi<RevenueChartPoint[]>(isSuperAdmin ? null : "/admin/dashboard/revenue-chart", { months: revenueMonths });
+  const { data: summary, isLoading: loadingSummary, error: errorSummary } = useApi<DashboardSummary>(
+    isSuperAdmin ? null : "/admin/dashboard/summary",
+    undefined,
+    { refreshInterval: LIVE_REFRESH_INTERVAL_MS }
+  );
+  const { data: revenueChart, isLoading: loadingRevenue, error: errorRevenue } = useApi<RevenueChartPoint[]>(
+    isSuperAdmin || revenueMonths === "daily" ? null : "/admin/dashboard/revenue-chart",
+    { months: revenueMonths === "daily" ? undefined : revenueMonths }
+  );
+  const { data: revenueDaily, isLoading: loadingRevenueDaily, error: errorRevenueDaily } = useApi<RevenueDaily>(
+    isSuperAdmin || revenueMonths !== "daily" ? null : "/admin/dashboard/revenue-daily"
+  );
+  const revenueChartData: RevenueChartPoint[] =
+    revenueMonths === "daily"
+      ? (revenueDaily?.days ?? []).map((d) => ({ month: String(d.day), revenue: d.revenue, expenses: d.expenses }))
+      : revenueChart ?? [];
 
   // Recent Members and Recent Activities both use "Load more" pagination:
   // each page bump fetches a new SWR key (page N), and the results are
@@ -72,8 +87,8 @@ const Page = () => {
     setActivityAccum((prev) => (activityPageData.page === 1 ? activityPageData.data : [...prev, ...activityPageData.data]));
   }, [activityPageData]);
 
-  const loading = isSuperAdmin || loadingSummary || loadingRevenue || (membersPage === 1 && loadingMembers) || (activityPage === 1 && loadingActivity);
-  const error = !isSuperAdmin && (errorSummary || errorRevenue || errorMembers || errorActivity);
+  const loading = isSuperAdmin || loadingSummary || (revenueMonths === "daily" ? loadingRevenueDaily : loadingRevenue) || (membersPage === 1 && loadingMembers) || (activityPage === 1 && loadingActivity);
+  const error = !isSuperAdmin && (errorSummary || errorRevenue || errorRevenueDaily || errorMembers || errorActivity);
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -91,7 +106,7 @@ const Page = () => {
           {summary && <MobileStatsGrid summary={summary} gridClassName="grid-cols-4" />}
         </div>
         <div className="lg:col-span-8 col-span-12">
-          <RevenueForecast data={revenueChart ?? []} months={revenueMonths} onMonthsChange={setRevenueMonths} />
+          <RevenueForecast data={revenueChartData} months={revenueMonths} onMonthsChange={setRevenueMonths} />
         </div>
         <div className="lg:col-span-4 col-span-12">
           <NewCustomers summary={summary ?? null} />

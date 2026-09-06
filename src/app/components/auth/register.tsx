@@ -13,6 +13,7 @@ import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
 import AuthImagePanel from './AuthImagePanel'
 import GoogleLoginButton from './GoogleLoginButton'
+import RedirectIfAuthenticated from './RedirectIfAuthenticated'
 
 interface FormState {
   library_name: string
@@ -58,7 +59,7 @@ export const Register = () => {
       // straight to plan selection + Razorpay checkout at /select-plan —
       // that's the one place a plan actually gets chosen and paid for, so
       // registration itself no longer asks for a plan up front.
-      router.push('/')
+      router.push('/dashboard')
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message)
@@ -75,6 +76,7 @@ export const Register = () => {
 
   return (
     <>
+      <RedirectIfAuthenticated />
       <div className='min-h-screen w-full flex bg-lightprimary'>
         <AuthImagePanel variant='register' />
         <div className='w-full lg:w-[40%] flex justify-center items-center py-10 px-3'>
@@ -203,7 +205,7 @@ export const Register = () => {
               <div className='mt-6'>
                 <GoogleLoginButton
                   variant='register'
-                  onSuccess={() => router.push('/')}
+                  onSuccess={() => router.push('/dashboard')}
                   onError={(message) => setError(message)}
                 />
               </div>

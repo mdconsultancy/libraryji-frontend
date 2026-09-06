@@ -4,7 +4,7 @@ import BlogPost from "@/app/components/apps/blog/BlogPost";
 import { Metadata } from "next";
 const BCrumb = [
   {
-    to: "/",
+    to: "/dashboard",
     title: "Home",
   },
   {

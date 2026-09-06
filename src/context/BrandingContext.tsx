@@ -10,6 +10,8 @@ interface ThemeBranding {
   favicon_url: string | null
   primary_color: string | null
   secondary_color: string | null
+  google_login_enabled?: boolean
+  google_client_id?: string | null
 }
 
 interface BrandingContextValue {
@@ -20,6 +22,10 @@ interface BrandingContextValue {
   faviconUrl: string | null
   /** True until the first `/theme` response lands — lets logo consumers show a skeleton instead of flashing the static default logo. */
   isLoading: boolean
+  /** Whether the backend has Google sign-in switched on — see GoogleLoginButton. */
+  googleLoginEnabled: boolean
+  /** Public OAuth client ID for "Continue with Google" — null until `/theme` resolves. */
+  googleClientId: string | null
 }
 
 /** Only accept values that are safe to write straight into a CSS custom
@@ -32,6 +38,8 @@ const defaults: BrandingContextValue = {
   logoUrl: null,
   faviconUrl: null,
   isLoading: true,
+  googleLoginEnabled: true,
+  googleClientId: null,
 }
 
 const BrandingContext = createContext<BrandingContextValue>(defaults)
@@ -55,6 +63,11 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     logoUrl: data?.logo_url || null,
     faviconUrl: data?.favicon_url || null,
     isLoading: data === undefined,
+    // Hide only when the backend explicitly says Google login is off — if
+    // the flag isn't in the response yet (backend not wired up), default to
+    // showing the button.
+    googleLoginEnabled: data?.google_login_enabled !== false,
+    googleClientId: data?.google_client_id || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || null,
   }
 
   useEffect(() => {

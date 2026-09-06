@@ -15,6 +15,7 @@ import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Icon } from "@iconify/react";
 import { api, ApiError, downloadFile } from "@/lib/api";
 import { useApi } from "@/hooks/useApi";
+import { LIVE_REFRESH_INTERVAL_MS } from "@/lib/swr";
 import { useToast } from "@/context/ToastContext";
 import { useReadOnly } from "@/hooks/useReadOnly";
 import { usePermission } from "@/hooks/usePermission";
@@ -22,7 +23,7 @@ import { usePermissionGuard } from "@/hooks/usePermissionGuard";
 import Avatar from "@/components/shared/Avatar";
 import type { AttendanceRoster } from "@/types";
 
-const BCrumb = [{ to: "/", title: "Home" }, { title: "Attendance" }];
+const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Attendance" }];
 
 function toDateString(d: Date): string {
   const y = d.getFullYear();
@@ -70,7 +71,8 @@ export default function AttendancePage() {
 
   const { data: roster, isLoading, error: loadError, mutate } = useApi<AttendanceRoster>(
     "/admin/attendance/roster",
-    { date: selectedDate }
+    { date: selectedDate },
+    { refreshInterval: LIVE_REFRESH_INTERVAL_MS }
   );
   const error = loadError ? "Unable to load attendance." : null;
   const members = roster?.members ?? [];

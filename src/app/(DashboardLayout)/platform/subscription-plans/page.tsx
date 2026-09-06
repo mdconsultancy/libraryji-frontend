@@ -40,7 +40,7 @@ import { useToast } from "@/context/ToastContext";
 import { normalizePlanFeatures } from "@/lib/planFeatures";
 import type { SubscriptionPlan, BillingCycle, PlanFeature } from "@/types";
 
-const BCrumb = [{ to: "/", title: "Home" }, { title: "Subscription Plans" }];
+const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Subscription Plans" }];
 
 const cycles: BillingCycle[] = ["monthly", "quarterly", "yearly"];
 const cycleLabel = (cycle: string) =>

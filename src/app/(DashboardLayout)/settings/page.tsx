@@ -18,7 +18,7 @@ import type { Tenant } from "@/types";
 import BackupManagement from "./BackupManagement";
 import DangerZone from "@/app/components/user-profile/DangerZone";
 
-const BCrumb = [{ to: "/", title: "Home" }, { title: "Library" }];
+const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Library" }];
 
 export default function TenantSettingsPage() {
   const { authorized } = usePermissionGuard("library", "view");

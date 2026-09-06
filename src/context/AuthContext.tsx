@@ -9,7 +9,16 @@ import type { User } from '@/types'
 // not by user/tenant. Without flushing it on every identity change, switching users
 // via logout+login (no hard refresh) would keep serving the previous user's cached
 // dashboard/members/etc. data until something happened to revalidate those keys.
-const clearSwrCache = () => globalMutate(() => true, undefined, { revalidate: false })
+//
+// `revalidate: true` (not false) matters here: BrandingProvider's `/theme` fetch
+// (public data, mounted once for the whole app session in the root layout) has
+// `revalidateOnFocus: false` — clearing it to `undefined` without also forcing a
+// revalidation left it stuck at "still loading" forever after any logout, since
+// nothing else was ever going to refetch it. That's what made the public
+// marketing homepage/login page intermittently look like it had "lost" content
+// (a stuck-blank Google button, an unbranded logo) after logging out and
+// navigating back without a full page reload.
+const clearSwrCache = () => globalMutate(() => true, undefined, { revalidate: true })
 
 interface LoginPayload {
   library_code?: string

@@ -36,7 +36,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { usePermissionGuard } from "@/hooks/usePermissionGuard";
 import type { Lead, LeadStatus, Paginated } from "@/types";
 
-const BCrumb = [{ to: "/", title: "Home" }, { title: "Leads / Inquiries" }];
+const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Leads / Inquiries" }];
 
 const statusStyles: Record<LeadStatus, string> = {
   new: "bg-lightinfo text-info",

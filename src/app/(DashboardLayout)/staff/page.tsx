@@ -51,7 +51,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import type { User, Paginated, StaffPermissions, PermissionDefinition } from "@/types";
 
-const BCrumb = [{ to: "/", title: "Home" }, { title: "Staff" }];
+const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Staff" }];
 
 type StaffDetail = User & { permissions?: StaffPermissions | null };
 

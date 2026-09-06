@@ -47,7 +47,7 @@ import { useShiftOptions } from "@/hooks/useOptions";
 import { useRoleGuard } from "@/hooks/useRoleGuard";
 import type { MembershipPlan, SeatType } from "@/types";
 
-const BCrumb = [{ to: "/", title: "Home" }, { title: "Membership Plans" }];
+const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Membership Plans" }];
 
 const seatTypes: SeatType[] = ["general", "ac", "non_ac", "cabin", "premium"];
 

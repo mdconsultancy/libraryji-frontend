@@ -422,6 +422,11 @@ export interface RevenueChartPoint {
   expenses: number
 }
 
+export interface RevenueDaily {
+  month: string
+  days: { date: string; day: number; revenue: number; expenses: number }[]
+}
+
 export interface AttendanceChartPoint {
   date: string
   count: number

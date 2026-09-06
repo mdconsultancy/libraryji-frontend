@@ -10,7 +10,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
 
   useEffect(() => {
     if (!loading && user && user.role !== "super_admin") {
-      router.replace("/");
+      router.replace("/dashboard");
     }
   }, [loading, user, router]);
 

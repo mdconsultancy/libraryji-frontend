@@ -1,7 +1,8 @@
 import LegalPage, { type LegalBlock } from "@/components/legal/LegalPage";
 
 export const metadata = {
-  title: "Contact Us — LibraryJi",
+  title: "Contact Us",
+  description: "Get in touch with LibraryJi for support, sales, or questions about our library management software and study room management system.",
 };
 
 const blocks: LegalBlock[] = [

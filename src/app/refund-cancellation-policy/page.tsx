@@ -1,7 +1,7 @@
 import LegalPage, { type LegalBlock } from "@/components/legal/LegalPage";
 
 export const metadata = {
-  title: "Refund & Cancellation Policy — LibraryJi",
+  title: "Refund & Cancellation Policy",
 };
 
 const blocks: LegalBlock[] = [

@@ -40,7 +40,7 @@ import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/context/ToastContext";
 import type { Tenant, TenantStatus, SubscriptionPlan, Paginated } from "@/types";
 
-const BCrumb = [{ to: "/", title: "Home" }, { title: "Tenants" }];
+const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Tenants" }];
 
 const statuses: TenantStatus[] = ["trial", "active", "suspended", "cancelled"];
 

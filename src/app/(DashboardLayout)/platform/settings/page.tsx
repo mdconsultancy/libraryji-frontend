@@ -24,7 +24,7 @@ import { currencies } from "@/data/currencies";
 import { storageUrl } from "@/lib/api";
 import { openRazorpayCheckout } from "@/lib/razorpay";
 
-const BCrumb = [{ to: "/", title: "Home" }, { title: "Platform Settings" }];
+const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Platform Settings" }];
 
 type FieldType = "text" | "number" | "password" | "boolean" | "textarea" | "color" | "currency" | "language" | "font" | "select";
 
@@ -249,18 +249,15 @@ export default function PlatformSettingsPage() {
 
   const handleAssetUpload = async (type: "logo" | "favicon", file: File | null) => {
     if (!file) return;
-    console.log(`📤 [asset-upload] starting upload`, { type, name: file.name, size: file.size, mime: file.type });
     setUploadingAsset(type);
     try {
       const fd = new FormData();
       fd.append("type", type);
       fd.append("file", file);
       const res = await api.post<{ key: string; path: string; url?: string }>("/super-admin/settings/theme/upload", fd);
-      console.log(`✅ [asset-upload] backend responded`, res);
       updateField("theme", res.key, res.path);
       toast.success(`${type === "logo" ? "Logo" : "Favicon"} uploaded.`);
     } catch (err) {
-      console.error(`❌ [asset-upload] upload failed`, err);
       toast.error(err instanceof ApiError ? err.message : `Unable to upload ${type}.`);
     } finally {
       setUploadingAsset(null);

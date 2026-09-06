@@ -13,7 +13,7 @@ export function useRoleGuard(allowed: UserRole[]) {
 
   useEffect(() => {
     if (!loading && user && !authorized) {
-      router.replace("/");
+      router.replace("/dashboard");
     }
   }, [loading, user, authorized, router]);
 

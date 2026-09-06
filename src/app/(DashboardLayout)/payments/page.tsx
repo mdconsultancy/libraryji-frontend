@@ -46,9 +46,11 @@ import { useApi } from "@/hooks/useApi";
 import { useMemberOptions } from "@/hooks/useOptions";
 import { usePermission } from "@/hooks/usePermission";
 import { usePermissionGuard } from "@/hooks/usePermissionGuard";
+import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
 import type { Payment, PaymentMethod, PaymentStatus, Paginated } from "@/types";
 
-const BCrumb = [{ to: "/", title: "Home" }, { title: "Students Fee" }];
+const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Students Fee" }];
 
 const methods: PaymentMethod[] = ["cash", "online", "offline", "upi"];
 const statuses: PaymentStatus[] = ["pending", "paid", "failed", "refunded"];
@@ -74,6 +76,10 @@ export default function PaymentsPage() {
   const { authorized } = usePermissionGuard("payments", "view");
   const canAdd = usePermission("payments", "add");
   const canEdit = usePermission("payments", "edit");
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  const toast = useToast();
+  const [approvingId, setApprovingId] = useState<number | null>(null);
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [memberIdFilter, setMemberIdFilter] = useState<string | null>(null);
@@ -164,6 +170,19 @@ export default function PaymentsPage() {
   };
 
   const fieldError = (field: string) => fieldErrors[field]?.[0];
+
+  const approvePayment = async (payment: Payment) => {
+    setApprovingId(payment.id);
+    try {
+      await api.post(`/admin/payments/${payment.id}/approve`, {});
+      toast.success("Payment approved.");
+      mutate();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to approve payment.");
+    } finally {
+      setApprovingId(null);
+    }
+  };
 
   if (!authorized) return null;
 
@@ -284,8 +303,19 @@ export default function PaymentsPage() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className={`border-none capitalize ${statusStyles[payment.status]}`}>
-                        {payment.status}
+                        {payment.status === "pending" ? "Pending Approval" : payment.status}
                       </Badge>
+                      {payment.status === "pending" && isAdmin && (
+                        <Button
+                          size="sm"
+                          variant="lightsuccess"
+                          className="mt-1 h-6 px-2 text-[11px]"
+                          disabled={approvingId === payment.id}
+                          onClick={() => approvePayment(payment)}
+                        >
+                          {approvingId === payment.id ? "Approving..." : "Approve"}
+                        </Button>
+                      )}
                     </TableCell>
                     <TableCell>{payment.paid_at ? new Date(payment.paid_at).toLocaleDateString() : "—"}</TableCell>
                     <TableCell className="text-right pe-6">
@@ -415,8 +445,19 @@ export default function PaymentsPage() {
                 </div>
                 <div className="flex flex-col items-end gap-2 shrink-0">
                   <Badge variant="secondary" className={`border-none capitalize ${statusStyles[payment.status]}`}>
-                    {payment.status}
+                    {payment.status === "pending" ? "Pending Approval" : payment.status}
                   </Badge>
+                  {payment.status === "pending" && isAdmin && (
+                    <Button
+                      size="sm"
+                      variant="lightsuccess"
+                      className="h-6 px-2 text-[11px]"
+                      disabled={approvingId === payment.id}
+                      onClick={() => approvePayment(payment)}
+                    >
+                      {approvingId === payment.id ? "Approving..." : "Approve"}
+                    </Button>
+                  )}
                   {canEdit && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

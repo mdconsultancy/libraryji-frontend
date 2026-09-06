@@ -39,7 +39,7 @@ import { useToast } from "@/context/ToastContext";
 import { useMemberOptions, useMembershipPlanOptions, useAvailableSeatOptions } from "@/hooks/useOptions";
 import type { MemberSubscription, SubscriptionStatus, Paginated } from "@/types";
 
-const BCrumb = [{ to: "/", title: "Home" }, { title: "Subscriptions" }];
+const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Subscriptions" }];
 
 const statuses: SubscriptionStatus[] = ["active", "expired", "cancelled"];
 

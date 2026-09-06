@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import BreadcrumbComp from "@/app/(DashboardLayout)/layout/shared/breadcrumb/BreadcrumbComp";
 import CardBox from "@/app/components/shared/CardBox";
 import { Button } from "@/components/ui/button";
@@ -28,9 +29,10 @@ import { usePlanLimit } from "@/hooks/usePlanLimit";
 import PlanLimitBanner from "@/components/shared/PlanLimitBanner";
 import { useToast } from "@/context/ToastContext";
 import { useHallOptions } from "@/hooks/useOptions";
+import { LIVE_REFRESH_INTERVAL_MS } from "@/lib/swr";
 import type { Seat, SeatType, SeatCategory, SeatStatus } from "@/types";
 
-const BCrumb = [{ to: "/", title: "Home" }, { title: "Seats" }];
+const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Seats" }];
 
 const seatTypes: SeatType[] = ["general", "ac", "non_ac", "cabin", "premium"];
 const seatCategories: { label: string; value: SeatCategory }[] = [
@@ -58,6 +60,7 @@ const emptyForm = {
 const emptyBulkForm = { hall_id: "", prefix: "", start: "1", end: "10", seat_type: "general" as SeatType, category: "regular" as SeatCategory };
 
 export default function SeatsPage() {
+  const router = useRouter();
   const toast = useToast();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [hallFilter, setHallFilter] = useState<string>("all");
@@ -65,7 +68,7 @@ export default function SeatsPage() {
 
   const { data: seatsData, isLoading: loading, error: loadError, mutate } = useApi<Seat[]>("/admin/seats", {
     status: statusFilter !== "all" ? statusFilter : undefined,
-  });
+  }, { refreshInterval: LIVE_REFRESH_INTERVAL_MS });
   const allSeats = seatsData ?? [];
   const seats = hallFilter === "all" ? allSeats : allSeats.filter((s) => String(s.hall_id ?? "") === hallFilter);
   const error = loadError ? "Unable to load seats." : null;
@@ -490,23 +493,37 @@ export default function SeatsPage() {
               </div>
 
               {editing.current_subscription ? (
-                <div className="flex items-center justify-between border-t border-border pt-2">
-                  <span className="text-muted-foreground">
-                    Assigned to <strong className="text-dark dark:text-white">{editing.current_subscription.member?.name}</strong> By:
-                  </span>
-                  <span className="font-semibold flex items-center gap-1">
-                    {editing.current_subscription.created_by_role === "staff" ? (
-                      <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
-                        <Icon icon="solar:user-hand-up-bold" width={13} height={13} />
-                        Staff ({editing.current_subscription.created_by_name || "Staff"})
-                      </span>
-                    ) : (
-                      <span className="text-primary font-medium">
-                        Admin {editing.current_subscription.created_by_name ? `(${editing.current_subscription.created_by_name})` : ""}
-                      </span>
-                    )}
-                  </span>
-                </div>
+                <>
+                  <div className="flex items-center justify-between border-t border-border pt-2">
+                    <span className="text-muted-foreground">
+                      Assigned to <strong className="text-dark dark:text-white">{editing.current_subscription.member?.name}</strong> By:
+                    </span>
+                    <span className="font-semibold flex items-center gap-1">
+                      {editing.current_subscription.created_by_role === "staff" ? (
+                        <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                          <Icon icon="solar:user-hand-up-bold" width={13} height={13} />
+                          Staff ({editing.current_subscription.created_by_name || "Staff"})
+                        </span>
+                      ) : (
+                        <span className="text-primary font-medium">
+                          Admin {editing.current_subscription.created_by_name ? `(${editing.current_subscription.created_by_name})` : ""}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  {editing.current_subscription.member?.id && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-1 w-full flex items-center justify-center gap-1.5"
+                      onClick={() => router.push(`/members?edit_member=${editing.current_subscription!.member!.id}`)}
+                    >
+                      <Icon icon="solar:user-id-linear" width={16} height={16} />
+                      View / Edit Student Details
+                    </Button>
+                  )}
+                </>
               ) : (
                 <div className="flex items-center justify-between border-t border-border pt-2 text-muted-foreground italic">
                   <span>No student currently assigned to this seat</span>

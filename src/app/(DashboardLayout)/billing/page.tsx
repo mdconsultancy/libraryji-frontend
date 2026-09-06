@@ -22,7 +22,7 @@ import type { Tenant, TenantSubscription, TenantSubscriptionStatus } from "@/typ
 
 const isTestingRow = (sub: TenantSubscription) => sub.status === "trialing" || sub.payment_gateway === "trial";
 
-const BCrumb = [{ to: "/", title: "Home" }, { title: "Subscription & Billing" }];
+const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Subscription & Billing" }];
 
 const statusStyles: Record<TenantSubscriptionStatus, string> = {
   trialing: "bg-lightwarning text-warning",

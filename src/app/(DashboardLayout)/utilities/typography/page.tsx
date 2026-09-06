@@ -4,7 +4,7 @@ const page = () => {
 
   const BCrumb = [
     {
-      to: "/",
+      to: "/dashboard",
       title: "Home",
     },
     {

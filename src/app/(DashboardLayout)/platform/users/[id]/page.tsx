@@ -80,7 +80,7 @@ export default function UserManagementDetailPage() {
   };
 
   const BCrumb = [
-    { to: "/", title: "Home" },
+    { to: "/dashboard", title: "Home" },
     { to: "/platform/users", title: "User Management" },
     { title: detail?.name ?? "User" },
   ];

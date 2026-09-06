@@ -49,7 +49,7 @@ import PaymentLedgerSection from "@/components/members/PaymentLedgerSection";
 import { whatsappLink, buildAdmissionMessage, buildPaymentReminderMessage } from "@/lib/whatsapp";
 import type { Member, MemberStatus, Paginated, DashboardSummary, MemberHistoryEntry } from "@/types";
 
-const BCrumb = [{ to: "/", title: "Home" }, { title: "Members / Students" }];
+const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Members / Students" }];
 
 const statuses: MemberStatus[] = ["active", "inactive", "expired"];
 
@@ -228,6 +228,31 @@ export default function MembersPage() {
     }
   };
 
+  const [expiryReportOpen, setExpiryReportOpen] = useState(false);
+  const [expiryFilters, setExpiryFilters] = useState({ from: "", to: "", category: "all", search: "" });
+  const [expiryDownloading, setExpiryDownloading] = useState<"pdf" | "xlsx" | null>(null);
+
+  const handleExpiryDownload = async (format: "pdf" | "xlsx") => {
+    setExpiryDownloading(format);
+    try {
+      await downloadFile(
+        "/admin/subscriptions/expiring/export",
+        {
+          from: expiryFilters.from || undefined,
+          to: expiryFilters.to || undefined,
+          category: expiryFilters.category !== "all" ? expiryFilters.category : undefined,
+          search: expiryFilters.search || undefined,
+          format,
+        },
+        `expiry-students.${format}`
+      );
+    } catch {
+      toast.error("Unable to download the expiry students report. Please try again.");
+    } finally {
+      setExpiryDownloading(null);
+    }
+  };
+
   const toggleSelectAll = () => {
     setSelectedIds((prev) => {
       const rows = members?.data ?? [];
@@ -281,6 +306,19 @@ export default function MembersPage() {
       phone: searchParams.get("phone") ?? undefined,
       whatsapp_number: searchParams.get("whatsapp") ?? undefined,
     });
+    setWizardOpen(true);
+    router.replace("/members");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // Arrived via the Seats page's "View / Edit Student" link (?edit_member=<id>)
+  // — jump straight into editing that member instead of making staff search
+  // the list for them.
+  useEffect(() => {
+    const editId = searchParams.get("edit_member");
+    if (!editId) return;
+    setEditingMemberId(Number(editId));
+    setConvertPrefill(null);
     setWizardOpen(true);
     router.replace("/members");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -443,6 +481,10 @@ export default function MembersPage() {
                 </Link>
               </Button>
             )}
+            <Button type="button" variant="outline" onClick={() => setExpiryReportOpen(true)}>
+              <Icon icon="solar:calendar-mark-linear" width={16} height={16} className="mr-1.5" />
+              Expiry Report
+            </Button>
             <Button type="button" variant="outline" disabled={downloading === "pdf"} onClick={() => handleDownload("pdf")}>
               <Icon icon="solar:file-text-linear" width={16} height={16} className="mr-1.5" />
               {downloading === "pdf" ? "Downloading..." : selectedIds.size > 0 ? `PDF (${selectedIds.size})` : "PDF"}
@@ -758,6 +800,52 @@ export default function MembersPage() {
         memberId={editingMemberId ?? undefined}
         prefill={convertPrefill ?? undefined}
       />
+
+      <Dialog open={expiryReportOpen} onOpenChange={setExpiryReportOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Expiry Students Report</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-darklink -mt-2">Filter and download the full list of students whose subscription is expiring — nothing is capped or hidden.</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-darklink">From</label>
+              <Input type="date" value={expiryFilters.from} onChange={(e) => setExpiryFilters((f) => ({ ...f, from: e.target.value }))} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-darklink">To</label>
+              <Input type="date" value={expiryFilters.to} onChange={(e) => setExpiryFilters((f) => ({ ...f, to: e.target.value }))} />
+            </div>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-darklink">Seat Category</label>
+            <Select value={expiryFilters.category} onValueChange={(v) => setExpiryFilters((f) => ({ ...f, category: v }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All categories</SelectItem>
+                <SelectItem value="regular">Regular</SelectItem>
+                <SelectItem value="rotation">Rotation</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-darklink">Student Name</label>
+            <Input placeholder="Search by name..." value={expiryFilters.search} onChange={(e) => setExpiryFilters((f) => ({ ...f, search: e.target.value }))} />
+          </div>
+          <div className="flex gap-2 mt-2">
+            <Button type="button" variant="outline" className="flex-1" disabled={expiryDownloading === "pdf"} onClick={() => handleExpiryDownload("pdf")}>
+              <Icon icon="solar:file-text-linear" width={16} height={16} className="mr-1.5" />
+              {expiryDownloading === "pdf" ? "Downloading..." : "PDF"}
+            </Button>
+            <Button type="button" variant="outline" className="flex-1" disabled={expiryDownloading === "xlsx"} onClick={() => handleExpiryDownload("xlsx")}>
+              <Icon icon="solar:file-download-linear" width={16} height={16} className="mr-1.5" />
+              {expiryDownloading === "xlsx" ? "Downloading..." : "Excel"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!viewTargetId} onOpenChange={(v) => !v && setViewTargetId(null)}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">

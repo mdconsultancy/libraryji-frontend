@@ -28,7 +28,7 @@ function SelectPlanContent() {
 
   useEffect(() => {
     if (!loading && user && !isUpgrading && !tenantNeedsPlan(user.current_tenant)) {
-      router.replace("/");
+      router.replace("/dashboard");
     }
   }, [loading, user, isUpgrading, router]);
 
@@ -63,11 +63,11 @@ function SelectPlanContent() {
         )}
       </div>
 
-      <PlanPicker isUpgrading={isUpgrading} onActivated={() => router.push("/")} showLogout={!isUpgrading} />
+      <PlanPicker isUpgrading={isUpgrading} onActivated={() => router.push("/dashboard")} showLogout={!isUpgrading} />
 
       {isUpgrading && (
         <div className="text-center mt-8">
-          <Button variant="outline" onClick={() => router.push("/")} className="flex items-center gap-1.5 mx-auto">
+          <Button variant="outline" onClick={() => router.push("/dashboard")} className="flex items-center gap-1.5 mx-auto">
             <Icon icon="tabler:arrow-left" width={18} height={18} />
             Back to Dashboard
           </Button>

@@ -42,9 +42,7 @@ export default function LegalPage({
     <div className="min-h-screen bg-lightgray dark:bg-dark">
       <header className="border-b border-border bg-white dark:border-darkborder dark:bg-darkgray">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
-          <Link href="/">
-            <FullLogo />
-          </Link>
+          <FullLogo />
           <Link href="/auth/login" className="text-sm font-semibold text-primary hover:underline">
             Back to Sign In
           </Link>

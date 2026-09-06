@@ -17,7 +17,7 @@ import TableSkeleton from "@/components/shared/TableSkeleton";
 import { useApi } from "@/hooks/useApi";
 import type { AuditLog, Paginated } from "@/types";
 
-const BCrumb = [{ to: "/", title: "Home" }, { title: "Audit Logs" }];
+const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Audit Logs" }];
 
 export default function AuditLogsPage() {
   const [actionFilter, setActionFilter] = useState("");

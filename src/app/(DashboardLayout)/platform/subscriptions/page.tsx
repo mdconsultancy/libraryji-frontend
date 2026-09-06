@@ -24,7 +24,7 @@ import TableSkeleton from "@/components/shared/TableSkeleton";
 import { useApi } from "@/hooks/useApi";
 import type { TenantSubscription, TenantSubscriptionStatus, Paginated } from "@/types";
 
-const BCrumb = [{ to: "/", title: "Home" }, { title: "Subscriptions & Payments" }];
+const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Subscriptions & Payments" }];
 
 const statuses: TenantSubscriptionStatus[] = ["trialing", "active", "past_due", "cancelled", "expired"];
 

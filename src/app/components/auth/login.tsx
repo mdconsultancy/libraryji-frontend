@@ -15,6 +15,7 @@ import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
 import AuthImagePanel from './AuthImagePanel'
 import GoogleLoginButton from './GoogleLoginButton'
+import RedirectIfAuthenticated from './RedirectIfAuthenticated'
 
 export const Login = () => {
   const { login, verifyTwoFactor, resendTwoFactor } = useAuth()
@@ -46,7 +47,7 @@ export const Login = () => {
       if (result.twoFactorRequired) {
         setPendingUserId(result.userId)
       } else {
-        router.push('/')
+        router.push('/dashboard')
       }
     } catch (err) {
       if (err instanceof ApiError) {
@@ -67,7 +68,7 @@ export const Login = () => {
     setVerifying(true)
     try {
       await verifyTwoFactor(pendingUserId, otp)
-      router.push('/')
+      router.push('/dashboard')
     } catch (err) {
       setOtpError(err instanceof ApiError ? err.message : 'Unable to verify that code. Please try again.')
     } finally {
@@ -160,6 +161,7 @@ export const Login = () => {
 
   return (
     <>
+      <RedirectIfAuthenticated />
       <div className='min-h-screen w-full flex bg-lightprimary'>
         <AuthImagePanel variant='login' />
         <div className='w-full lg:w-[40%] flex justify-center items-center px-3 py-10'>
@@ -264,7 +266,7 @@ export const Login = () => {
                 <GoogleLoginButton
                   variant='login'
                   mode={loginType === 'staff' ? 'staff' : 'admin'}
-                  onSuccess={() => router.push('/')}
+                  onSuccess={() => router.push('/dashboard')}
                   onError={(message) => setError(message)}
                 />
               </div>

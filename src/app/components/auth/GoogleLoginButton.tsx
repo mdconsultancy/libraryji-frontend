@@ -1,18 +1,12 @@
 'use client'
 
 import { useState, FormEvent } from 'react'
-import useSWR from 'swr'
 import { GoogleOAuthProvider, GoogleLogin, type CredentialResponse } from '@react-oauth/google'
-import { swrFetcher } from '@/lib/swr'
 import { useAuth } from '@/context/AuthContext'
+import { useBranding } from '@/context/BrandingContext'
 import { ApiError } from '@/lib/api'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-
-interface PublicOAuthConfig {
-  google_login_enabled?: boolean
-  google_client_id?: string
-}
 
 interface GoogleLoginButtonProps {
   /** Called after a successful Google sign-in/sign-up — same redirect the caller
@@ -38,15 +32,19 @@ interface GoogleLoginButtonProps {
  * client-side ID token, then hands it to AuthContext.loginWithGoogle(), which POSTs
  * it to /auth/google and treats the response exactly like a normal login/register.
  *
- * The Client ID is public/expected to be exposed client-side. This piggybacks on the
- * public `/theme` endpoint (already fetched app-wide by BrandingContext, so this SWR
- * call dedupes against that one) in case the backend folds `google_client_id` /
- * `google_login_enabled` into that response. If the backend hasn't done that yet, it
- * falls back to NEXT_PUBLIC_GOOGLE_CLIENT_ID and always renders the button (per the
- * "don't block on this" fallback) — see the OAuth rollout report for this gap.
+ * The Client ID is public/expected to be exposed client-side, and is read from
+ * BrandingContext (a single shared `/theme` fetch, kicked off at the app root —
+ * see layout.tsx — well before this button ever mounts) instead of this
+ * component doing its own separate `/theme` request. Two components fetching
+ * the same SWR key does dedupe into one network call, but each still ran its
+ * own independent loading state — this one used to render a blank/skeleton
+ * gap until *its* copy resolved, on top of BrandingContext's own already-
+ * in-flight (often already-resolved) fetch, which is what made the button
+ * seem to "appear late" after every page load.
  */
 export default function GoogleLoginButton({ onSuccess, onError, variant = 'login', mode = 'admin' }: GoogleLoginButtonProps) {
   const { loginWithGoogle, loginStaffWithGoogle } = useAuth()
+  const { googleClientId: clientId, googleLoginEnabled: enabled, isLoading: configLoading } = useBranding()
   const [loading, setLoading] = useState(false)
 
   // Staff flow only: the Google credential from a successful GoogleLogin
@@ -59,17 +57,10 @@ export default function GoogleLoginButton({ onSuccess, onError, variant = 'login
   const [codeError, setCodeError] = useState<string | null>(null)
   const [submittingCode, setSubmittingCode] = useState(false)
 
-  const { data, isLoading: configLoading } = useSWR<PublicOAuthConfig>('/theme', swrFetcher, { revalidateOnFocus: false })
-
-  const clientId = data?.google_client_id || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-  // Hide only when the backend explicitly says Google login is off. If the flag isn't
-  // in the response yet (backend not wired up), default to showing the button.
-  const enabled = data?.google_login_enabled !== false
-
-  // The /theme fetch (and then Google's own script) takes a beat, during
-  // which this used to render nothing at all — a blank gap that looked
-  // broken. Show a same-sized skeleton in its place instead, so the layout
-  // holds still and it's obviously "still loading", not "missing".
+  // The shared /theme fetch (and then Google's own script) takes a beat,
+  // during which this used to render nothing at all — a blank gap that
+  // looked broken. Show a same-sized skeleton in its place instead, so the
+  // layout holds still and it's obviously "still loading", not "missing".
   if (configLoading) {
     return (
       <div className="flex flex-col items-center gap-3 w-full">

@@ -47,7 +47,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { usePermissionGuard } from "@/hooks/usePermissionGuard";
 import type { Hall } from "@/types";
 
-const BCrumb = [{ to: "/", title: "Home" }, { title: "Halls" }];
+const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Halls" }];
 
 const emptyForm = (tenantId: number | null) => ({
   name: "",

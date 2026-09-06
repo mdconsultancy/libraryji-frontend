@@ -48,7 +48,7 @@ export default function Layout({
       return
     }
     if (!loading && user && wrongSideForRole) {
-      router.replace(user.role === 'super_admin' ? '/platform' : '/')
+      router.replace(user.role === 'super_admin' ? '/platform' : '/dashboard')
       return
     }
     // needsPlan is deliberately NOT redirected — see the inline gate below.

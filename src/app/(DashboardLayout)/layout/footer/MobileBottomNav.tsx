@@ -10,7 +10,7 @@ import { useAuth } from '@/context/AuthContext'
 import type { PermissionModule } from '@/types'
 
 const leftTabs = [
-  { title: 'Dashboard', url: '/', icon: 'solar:widget-add-bold-duotone', permissionModule: 'dashboard' as PermissionModule },
+  { title: 'Dashboard', url: '/dashboard', icon: 'solar:widget-add-bold-duotone', permissionModule: 'dashboard' as PermissionModule },
   { title: 'Statements', url: '/expenses', icon: 'solar:wallet-money-bold-duotone', permissionModule: 'statement' as PermissionModule },
 ]
 

@@ -71,7 +71,7 @@ const UserProfile = () => {
 
     const BCrumb = [
         {
-            to: "/",
+            to: "/dashboard",
             title: "Home",
         },
         {

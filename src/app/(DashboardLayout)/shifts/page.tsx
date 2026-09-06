@@ -43,7 +43,7 @@ import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/context/ToastContext";
 import type { Shift } from "@/types";
 
-const BCrumb = [{ to: "/", title: "Home" }, { title: "Shifts" }];
+const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Shifts" }];
 
 const emptyForm = { name: "", start_time: "", end_time: "", status: "active" as "active" | "inactive" };
 

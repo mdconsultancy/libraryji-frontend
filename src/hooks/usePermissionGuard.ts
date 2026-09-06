@@ -19,7 +19,7 @@ export function usePermissionGuard(module: PermissionModule, action: PermissionA
 
   useEffect(() => {
     if (!loading && user && !allowed) {
-      router.replace("/");
+      router.replace("/dashboard");
     }
   }, [loading, user, allowed, router]);
 
