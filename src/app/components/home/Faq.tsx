@@ -15,7 +15,17 @@ export const FAQS: { question: string; answer: string }[] = [
   },
   {
     question: "Is there a free trial?",
-    answer: "Yes — you can start a free trial with no card required and upgrade to a paid plan whenever you're ready.",
+    answer: "Yes — you can start a 30-day free trial with no card required and upgrade to a paid plan whenever you're ready.",
+  },
+  {
+    question: "What am I paying for, and what does a paid plan include?",
+    answer:
+      "LibraryJi is a recurring software subscription. A paid plan gives your library ongoing access to the LibraryJi web panel and Android/iOS apps and the features in that plan — seat and shift management, student and member enrollment, attendance, membership plans, fee and payment collection, renewals, reports and exports, staff accounts, plus product updates and support. Higher plans raise usage limits (such as the number of seats or students).",
+  },
+  {
+    question: "How is LibraryJi billed?",
+    answer:
+      "Plans are billed as a subscription on a monthly or yearly cycle, shown before you pay. The subscription starts once payment is confirmed and renews each cycle unless you cancel. Refunds are handled per our Refund & Cancellation Policy (a 7-day refund window for eligible paid purchases).",
   },
   {
     question: "Does LibraryJi work for libraries outside big metro cities?",

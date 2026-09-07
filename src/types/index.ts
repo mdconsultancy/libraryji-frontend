@@ -4,7 +4,10 @@ export type UserRole = 'super_admin' | 'admin' | 'staff' | 'member'
 export type TenantStatus = 'trial' | 'active' | 'suspended' | 'cancelled'
 export type SeatType = 'general' | 'ac' | 'non_ac' | 'cabin' | 'premium'
 export type SeatCategory = 'regular' | 'rotation'
-export type SeatStatus = 'available' | 'occupied' | 'reserved' | 'maintenance'
+// 'expired' is a display-only status the API derives for a seat that is still
+// assigned to a student whose subscription has lapsed ("renewal due"). It is
+// never a stored/selectable value.
+export type SeatStatus = 'available' | 'occupied' | 'reserved' | 'maintenance' | 'expired'
 export type MemberStatus = 'active' | 'inactive' | 'expired'
 export type MemberGender = 'male' | 'female' | 'other'
 export type SubscriptionStatus = 'active' | 'expired' | 'cancelled'
@@ -92,6 +95,9 @@ export interface Tenant {
   halls_count?: number
   seats_count?: number
   members_count?: number
+  // Effective total-seat ceiling (Super-Admin seat_limit, else plan-tier:
+  // 250 free / 500 paid). Appended by the Super Admin tenants endpoints.
+  seat_cap?: number
   created_at?: string
 }
 
@@ -172,6 +178,8 @@ export interface Seat {
   created_by_role?: string | null
   hall?: Hall
   current_subscription?: MemberSubscription | null
+  /** The seat's current owner even if their subscription has expired. */
+  assigned_subscription?: MemberSubscription | null
 }
 
 export interface Shift {
@@ -225,6 +233,8 @@ export interface Member {
   created_by_role?: string | null
   subscriptions?: MemberSubscription[]
   active_subscription?: MemberSubscription | null
+  /** Most recent non-cancelled subscription, expired or not — for showing the assigned seat after expiry. */
+  latest_subscription?: MemberSubscription | null
   attendances?: Attendance[]
   payments?: Payment[]
   created_at?: string

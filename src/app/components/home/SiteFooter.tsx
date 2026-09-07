@@ -57,7 +57,8 @@ export default function SiteFooter() {
           <div className="col-span-2 lg:col-span-1">
             <Image src="/images/logos/footer-logo.png" alt="LibraryJi" width={500} height={500} className="h-12 w-auto" />
             <p className="mt-4 max-w-xs text-sm text-white/60">
-              Library management system &amp; study room management software for libraries across India.
+              LibraryJi is a subscription-based (SaaS) library &amp; study room management software for libraries,
+              reading rooms and self-study centres across India.
             </p>
             <div className="mt-4 flex items-center gap-3">
               {[

@@ -27,6 +27,7 @@ import PhoneInput from "@/components/form/PhoneInput";
 import ImageUploadField from "@/components/form/ImageUploadField";
 import FileUploadField from "@/components/form/FileUploadField";
 import DeleteConfirmDialog from "@/components/shared/DeleteConfirmDialog";
+import SubscriptionHistoryTable from "@/components/members/SubscriptionHistoryTable";
 import PaymentInstallmentsField, {
   installmentsTotal,
   newInstallmentRow,
@@ -36,6 +37,7 @@ import { api, ApiError, invalidateMembers, invalidatePayments } from "@/lib/api"
 import { cn } from "@/lib/utils";
 import { useApi } from "@/hooks/useApi";
 import { useMembershipPlanOptions } from "@/hooks/useOptions";
+import { daysBetweenIso } from "@/lib/duration";
 import { useToast } from "@/context/ToastContext";
 import { useUploadLimits } from "@/hooks/useUploadLimits";
 import type { Member, MemberSubscription, Seat, SeatCategory, SeatStatus, PaymentMethod, MemberGender } from "@/types";
@@ -71,6 +73,7 @@ const PAYMENT_METHODS: { label: string; value: PaymentTypeChoice }[] = [
 const seatCardStyles: Record<SeatStatus, { face: string; ring: string }> = {
   available: { face: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400", ring: "" },
   occupied: { face: "bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400", ring: "" },
+  expired: { face: "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400", ring: "" },
   reserved: { face: "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400", ring: "" },
   maintenance: { face: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300", ring: "" },
 };
@@ -122,6 +125,9 @@ const freshMembership = () => ({
   durationCount: "1",
   end_date: addMonthsIso(todayIso(), 1),
   amount: "",
+  // Create mode + a plan selected: `amount` stays the plan's (total) price
+  // and this captures only what's collected right now. Remaining = the gap.
+  paidNow: "",
   installmentRows: [] as InstallmentRow[],
   isPartialPayment: false,
   payment_type: "" as PaymentTypeChoice | "",
@@ -317,7 +323,15 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
 
   useEffect(() => {
     if (!open || !isEdit || !editingMember) return;
-    const sub = editingMember.active_subscription;
+    // Fall back to the most recent non-cancelled subscription when the active
+    // one has lapsed — otherwise editing an expired student wipes their seat,
+    // dates, fee and duration back to blank/defaults.
+    const sub =
+      editingMember.active_subscription ??
+      [...(editingMember.subscriptions ?? [])]
+        .filter((s) => s.status !== "cancelled")
+        .sort((a, b) => (b.start_date ?? "").localeCompare(a.start_date ?? ""))[0] ??
+      null;
     const payment = editingMember.payments?.find((p) => p.member_subscription_id === sub?.id);
     // Every paid Payment row already recorded against this subscription cycle —
     // these become the pre-filled, editable installment rows below.
@@ -360,6 +374,7 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
           : "1";
 
     setMembership({
+      paidNow: "",
       start_date: sub?.start_date ?? todayIso(),
       durationUnit,
       durationCount,
@@ -397,9 +412,45 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
 
   const selectedSeat = useMemo(() => seats?.find((s) => s.id === membership.seat_id), [seats, membership.seat_id]);
 
+  // Every subscription cycle except the most recent (which is the one being
+  // edited in this form) — shown read-only so staff can see prior renewals.
+  const pastCycles = useMemo(() => {
+    const sorted = [...(editingMember?.subscriptions ?? [])].sort((a, b) =>
+      (b.start_date ?? "").localeCompare(a.start_date ?? "")
+    );
+    return sorted.slice(1);
+  }, [editingMember]);
+
   const canGoStep2 = details.name.trim() !== "" && details.phone.trim() !== "";
   const isRealPayment = !!membership.payment_type && membership.payment_type !== "pending";
-  const showPartialPaymentFields = isRealPayment && membership.isPartialPayment;
+
+  const selectedPlan = useMemo(
+    () => membershipPlans.find((p) => p.id === membership.membership_plan_id) ?? null,
+    [membershipPlans, membership.membership_plan_id]
+  );
+  // Create + a plan chosen: the plan price is the fixed total; the input
+  // captures only what's collected now, and we show the remaining balance.
+  // The Partial-Payment toggle / installment editor stays hidden on create —
+  // it only opens on a later Edit, pre-filled with this first payment.
+  const createModePlanFlow = !isEdit && !!selectedPlan;
+  const totalFee = Number(membership.amount || 0);
+  const collectedNow =
+    membership.payment_type === "pending"
+      ? 0
+      : createModePlanFlow
+        ? Number(membership.paidNow || 0)
+        : totalFee;
+  const remainingDue = Math.max(0, totalFee - collectedNow);
+  const createPaidNowError =
+    createModePlanFlow && isRealPayment
+      ? !membership.paidNow || Number(membership.paidNow) <= 0
+        ? "Enter the amount received now."
+        : Number(membership.paidNow) > totalFee + 0.01
+          ? "Received amount can't exceed the plan total."
+          : null
+      : null;
+
+  const showPartialPaymentFields = !createModePlanFlow && isRealPayment && membership.isPartialPayment;
   const installmentsPaidTotal = installmentsTotal(membership.installmentRows);
   const installmentsError = !showPartialPaymentFields
     ? null
@@ -421,7 +472,8 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
     !!membership.payment_type &&
     !!membership.seat_id &&
     !!membership.amount &&
-    !installmentsError;
+    !installmentsError &&
+    !createPaidNowError;
 
   const recomputeEndDate = (start: string, unit: DurationUnit, count: string) => {
     if (unit === "custom") return undefined;
@@ -540,8 +592,19 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
         // create/update call (and only when there's no existing payment
         // history to preserve) — every other row is a separate Payment API
         // call below.
-        paid_amount: firstRow ? Number(firstRow.amount) : undefined,
-        paid_at: firstRow ? firstRow.paid_at : undefined,
+        // Create + plan flow: `amount` is the plan total, and only the
+        // entered "Amount Received Now" is recorded as paid — the gap stays
+        // due and surfaces in the installment editor on the next Edit.
+        paid_amount: createModePlanFlow
+          ? (isRealPayment ? Number(membership.paidNow) : undefined)
+          : firstRow
+            ? Number(firstRow.amount)
+            : undefined,
+        paid_at: createModePlanFlow
+          ? (isRealPayment ? membership.start_date : undefined)
+          : firstRow
+            ? firstRow.paid_at
+            : undefined,
       };
 
       const syncInstallmentRows = async (subscriptionId: number, forMemberId: number) => {
@@ -570,7 +633,13 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
       };
 
       let member: Member;
-      const activeSubscriptionId = editingMember?.active_subscription?.id;
+      // Mirrors the prefill fallback — edit the latest non-cancelled cycle
+      // (even if expired) in place rather than silently creating a new one.
+      const activeSubscriptionId =
+        editingMember?.active_subscription?.id ??
+        [...(editingMember?.subscriptions ?? [])]
+          .filter((s) => s.status !== "cancelled")
+          .sort((a, b) => (b.start_date ?? "").localeCompare(a.start_date ?? ""))[0]?.id;
 
       if (isEdit && memberId) {
         member = await api.put<Member>(`/admin/members/${memberId}`, memberFd);
@@ -791,13 +860,14 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
                       </span>
                       <DatePicker
                         value={membership.end_date}
-                        onChange={(v) => setMembership((m) => ({ ...m, end_date: v }))}
-                        disabled={membership.durationUnit !== "custom"}
+                        // Always editable — picking a date manually switches
+                        // Duration to "Custom Date" so it isn't auto-recomputed.
+                        onChange={(v) => setMembership((m) => ({ ...m, end_date: v, durationUnit: "custom" }))}
                         className="border-none bg-transparent p-0 h-auto text-base font-bold text-dark dark:text-white justify-start hover:bg-transparent disabled:opacity-100"
                       />
-                      {membership.durationUnit !== "custom" && (
-                        <span className="w-fit rounded-full bg-lightsuccess px-2 py-0.5 text-[10px] font-bold text-success">AUTO</span>
-                      )}
+                      <span className="w-fit rounded-full bg-lightsuccess px-2 py-0.5 text-[10px] font-bold text-success">
+                        {daysBetweenIso(membership.start_date, membership.end_date)} DAYS
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -880,7 +950,42 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
                     just isn't shown/editable in this mode. It reappears the
                     moment Payment Type is switched to an actual method, or
                     if no fee has been entered yet (still needed to set one). */}
-                {!(membership.payment_type === "pending" && membership.amount) && (
+                {createModePlanFlow && (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between rounded-xl bg-lightprimary/50 px-3.5 py-2.5 dark:bg-white/5">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-darklink">Plan Total</span>
+                      <span className="text-base font-bold text-dark dark:text-white">₹{totalFee.toLocaleString("en-IN")}</span>
+                    </div>
+                    {membership.payment_type !== "pending" && (
+                      <div className="flex flex-col gap-2">
+                        <Label htmlFor="w-paidnow">Amount Received Now (₹) *</Label>
+                        <div className="relative">
+                          <Icon icon="solar:rupee-linear" width={16} height={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-darklink" />
+                          <Input
+                            id="w-paidnow"
+                            type="number"
+                            min="0"
+                            inputMode="decimal"
+                            placeholder={`e.g. ${totalFee}`}
+                            className="pl-9"
+                            value={membership.paidNow}
+                            onChange={(e) => setMembership((m) => ({ ...m, paidNow: e.target.value }))}
+                          />
+                        </div>
+                        {createPaidNowError ? (
+                          <p className="text-xs text-error">{createPaidNowError}</p>
+                        ) : remainingDue > 0 ? (
+                          <p className="text-xs text-warning">Remaining is ₹{remainingDue.toLocaleString("en-IN")} — will stay due.</p>
+                        ) : collectedNow > 0 ? (
+                          <p className="text-xs text-success">Fully paid.</p>
+                        ) : null}
+                        {fieldError("paid_amount") && <p className="text-xs text-error">{fieldError("paid_amount")}</p>}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!createModePlanFlow && !(membership.payment_type === "pending" && membership.amount) && (
                   <div className="flex flex-col gap-4">
                     <div className="flex flex-col gap-2">
                       <Label htmlFor="w-fees">Fees Amount (₹) *</Label>
@@ -934,8 +1039,10 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
                 )}
 
                 {/* Toggle for partial payment — defaults OFF. Only offered for a
-                    real payment method (Pending has nothing collected yet). */}
-                {isRealPayment && (
+                    real payment method (Pending has nothing collected yet), and
+                    never on create when a plan is chosen (that flow uses the
+                    "Amount Received Now" field above instead). */}
+                {!createModePlanFlow && isRealPayment && (
                   <button
                     type="button"
                     onClick={() =>
@@ -1016,6 +1123,13 @@ export default function AddMemberWizard({ open, onClose, onSaved, memberId, pref
                   </button>
                   {fieldError("seat_id") && <p className="text-xs text-error">{fieldError("seat_id")}</p>}
                 </div>
+
+                {isEdit && pastCycles.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <Label>Past History</Label>
+                    <SubscriptionHistoryTable subscriptions={pastCycles} />
+                  </div>
+                )}
               </div>
             )}
 

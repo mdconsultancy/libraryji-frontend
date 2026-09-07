@@ -63,10 +63,12 @@ const emptyForm = {
 };
 
 export default function MembershipPlansPage() {
-  // Removed from the product entirely — no role can reach this page,
-  // enforced here and server-side (routes/api.php returns 403 for all
-  // methods now, not just write actions).
-  const { authorized } = useRoleGuard([]);
+  // Library owners (tenant admins) manage their own membership plans /
+  // categories here — name + price + duration. These drive the dynamic
+  // "Membership Plan / Category" picker in the Add/Edit Student wizard,
+  // which auto-fills the fee at payment time. Staff have read-only access
+  // (the plan list is consumed elsewhere), writes are admin-only server-side.
+  const { authorized } = useRoleGuard(["admin"]);
   const toast = useToast();
   const shifts = useShiftOptions();
   const { data: plansData, isLoading: loading, error: loadError, mutate } = useApi<MembershipPlan[]>("/admin/membership-plans");

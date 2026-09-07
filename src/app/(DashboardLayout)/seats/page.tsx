@@ -26,7 +26,6 @@ import DeleteConfirmDialog from "@/components/shared/DeleteConfirmDialog";
 import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/hooks/useApi";
 import { usePlanLimit } from "@/hooks/usePlanLimit";
-import PlanLimitBanner from "@/components/shared/PlanLimitBanner";
 import { useToast } from "@/context/ToastContext";
 import { useHallOptions } from "@/hooks/useOptions";
 import { LIVE_REFRESH_INTERVAL_MS } from "@/lib/swr";
@@ -39,15 +38,39 @@ const seatCategories: { label: string; value: SeatCategory }[] = [
   { label: "Regular — fixed to one member", value: "regular" },
   { label: "Rotation — shared across shifts", value: "rotation" },
 ];
+// Selectable/stored statuses — 'expired' is display-only (API-derived for a
+// seat still assigned to a lapsed student) and never appears here.
 const seatStatuses: SeatStatus[] = ["available", "occupied", "reserved", "maintenance"];
 
 // 3D "pressed button" card: a darker slab sits behind the face and peeks out
 // bottom-right; hovering lifts the face toward the slab's edge.
-const seatCardStyles: Record<SeatStatus, { face: string; slab: string }> = {
-  available: { face: "from-emerald-400 to-emerald-600", slab: "bg-emerald-800" },
-  occupied: { face: "from-rose-400 to-rose-600", slab: "bg-rose-800" },
-  reserved: { face: "from-amber-400 to-amber-600", slab: "bg-amber-800" },
-  maintenance: { face: "from-slate-400 to-slate-600", slab: "bg-slate-800" },
+// Rotation seats use a cooler shade of the same status colour so they read
+// as a distinct pool at a glance without needing a legend lookup.
+const seatCardStyles: Record<SeatCategory, Record<SeatStatus, { face: string; slab: string }>> = {
+  regular: {
+    available: { face: "from-emerald-400 to-emerald-600", slab: "bg-emerald-800" },
+    occupied: { face: "from-rose-400 to-rose-600", slab: "bg-rose-800" },
+    expired: { face: "from-amber-400 to-orange-500", slab: "bg-orange-800" },
+    reserved: { face: "from-amber-400 to-amber-600", slab: "bg-amber-800" },
+    maintenance: { face: "from-slate-400 to-slate-600", slab: "bg-slate-800" },
+  },
+  rotation: {
+    available: { face: "from-teal-400 to-cyan-600", slab: "bg-cyan-800" },
+    occupied: { face: "from-fuchsia-400 to-fuchsia-600", slab: "bg-fuchsia-800" },
+    expired: { face: "from-amber-400 to-orange-500", slab: "bg-orange-800" },
+    reserved: { face: "from-orange-400 to-orange-600", slab: "bg-orange-800" },
+    maintenance: { face: "from-slate-400 to-slate-600", slab: "bg-slate-800" },
+  },
+};
+
+// A distinct glyph per seat type so the grid is readable without reading the
+// label on every card.
+const seatTypeIcons: Record<SeatType, string> = {
+  general: "mdi:seat-outline",
+  ac: "mdi:air-conditioner",
+  non_ac: "mdi:fan",
+  cabin: "mdi:door-sliding",
+  premium: "mdi:crown",
 };
 
 const emptyForm = {
@@ -72,7 +95,7 @@ export default function SeatsPage() {
   const allSeats = seatsData ?? [];
   const seats = hallFilter === "all" ? allSeats : allSeats.filter((s) => String(s.hall_id ?? "") === hallFilter);
   const error = loadError ? "Unable to load seats." : null;
-  const { limit: seatLimit, used: seatsUsed, exceeded: seatLimitExceeded, refresh: refreshSeatLimit } = usePlanLimit("seats");
+  const { refresh: refreshSeatLimit } = usePlanLimit("seats");
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
@@ -80,7 +103,14 @@ export default function SeatsPage() {
   const [form, setForm] = useState(emptyForm);
   const [bulkForm, setBulkForm] = useState(emptyBulkForm);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+  // Non-field error text (e.g. the seat-count ceiling) shown at the bottom of
+  // the open dialog.
+  const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Small preloader shown over the seat grid while a create/delete is still
+  // settling (API call + list re-fetch), so the grid doesn't sit on stale
+  // data for a second or two. Holds the label ("Creating…" / "Deleting…").
+  const [gridBusy, setGridBusy] = useState<string | null>(null);
 
   const [deleteTarget, setDeleteTarget] = useState<Seat | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -100,8 +130,17 @@ export default function SeatsPage() {
     setSelectedIds([]);
   };
 
+  // A seat is only "taken" when a real student is still attached. A leftover
+  // subscription with no member (student removed / moved elsewhere) doesn't
+  // count and must stay deletable.
+  const hasStudent = (seat: Seat) => Boolean(seat.current_subscription?.member);
+
+  // Seats in the current view that can actually be bulk-deleted (no student
+  // attached) — drives "Select all unassigned".
+  const deletableSeats = seats.filter((s) => !hasStudent(s));
+
   const toggleSelected = (seat: Seat) => {
-    if (seat.status === "occupied" || seat.current_subscription) {
+    if (hasStudent(seat)) {
       toast.error("Unassign the student from this seat before deleting it.");
       return;
     }
@@ -113,6 +152,7 @@ export default function SeatsPage() {
   const handleBulkDelete = async () => {
     if (selectedIds.length === 0) return;
     setBulkDeleting(true);
+    setGridBusy("Deleting…");
     try {
       const result = await api.post<{ deleted: number[]; skipped: { id: number; seat_number: string; reason: string }[] }>(
         "/admin/seats/bulk-delete",
@@ -130,13 +170,14 @@ export default function SeatsPage() {
       }
       exitSelectMode();
       setConfirmBulkDelete(false);
-      mutate();
+      await mutate();
       refreshSeatLimit();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Failed to delete selected seats");
       setConfirmBulkDelete(false);
     } finally {
       setBulkDeleting(false);
+      setGridBusy(null);
     }
   };
 
@@ -144,6 +185,7 @@ export default function SeatsPage() {
     setEditing(null);
     setForm(emptyForm);
     setFieldErrors({});
+    setFormError(null);
     setDialogOpen(true);
   };
 
@@ -154,9 +196,12 @@ export default function SeatsPage() {
       seat_number: seat.seat_number,
       seat_type: seat.seat_type,
       category: seat.category,
-      status: seat.status,
+      // 'expired' is a display-only derived status — the seat is really still
+      // occupied by its (lapsed) student, so edit it as such.
+      status: seat.status === "expired" ? "occupied" : seat.status,
     });
     setFieldErrors({});
+    setFormError(null);
     setDialogOpen(true);
   };
 
@@ -164,6 +209,7 @@ export default function SeatsPage() {
     e.preventDefault();
     setSaving(true);
     setFieldErrors({});
+    setFormError(null);
     try {
       if (editing) {
         await api.put(`/admin/seats/${editing.id}`, {
@@ -184,11 +230,18 @@ export default function SeatsPage() {
         refreshSeatLimit();
       }
       setDialogOpen(false);
-      mutate();
+      setGridBusy(editing ? "Saving…" : "Creating…");
+      await mutate();
     } catch (err) {
-      if (err instanceof ApiError) setFieldErrors(err.errors || {});
+      if (err instanceof ApiError) {
+        setFieldErrors(err.errors || {});
+        if (!err.errors || Object.keys(err.errors).length === 0) {
+          setFormError(err.message);
+        }
+      }
     } finally {
       setSaving(false);
+      setGridBusy(null);
     }
   };
 
@@ -196,6 +249,7 @@ export default function SeatsPage() {
     e.preventDefault();
     setSaving(true);
     setFieldErrors({});
+    setFormError(null);
     try {
       await api.post("/admin/seats/bulk", {
         hall_id: bulkForm.hall_id ? Number(bulkForm.hall_id) : null,
@@ -207,12 +261,19 @@ export default function SeatsPage() {
       });
       setBulkDialogOpen(false);
       setBulkForm(emptyBulkForm);
-      mutate();
+      setGridBusy("Creating…");
+      await mutate();
       refreshSeatLimit();
     } catch (err) {
-      if (err instanceof ApiError) setFieldErrors(err.errors || {});
+      if (err instanceof ApiError) {
+        setFieldErrors(err.errors || {});
+        if (!err.errors || Object.keys(err.errors).length === 0) {
+          setFormError(err.message);
+        }
+      }
     } finally {
       setSaving(false);
+      setGridBusy(null);
     }
   };
 
@@ -222,12 +283,14 @@ export default function SeatsPage() {
     try {
       await api.delete(`/admin/seats/${deleteTarget.id}`);
       setDeleteTarget(null);
-      mutate();
+      setGridBusy("Deleting…");
+      await mutate();
       refreshSeatLimit();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Unable to delete seat. Please try again.");
     } finally {
       setDeleting(false);
+      setGridBusy(null);
     }
   };
 
@@ -239,7 +302,13 @@ export default function SeatsPage() {
 
       <CardBox className="p-0 bg-background overflow-hidden border-none rounded-xl shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-4 p-6">
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-dark dark:text-white">Seats</h2>
+              <span className="rounded-full bg-lightprimary px-2.5 py-0.5 text-sm font-semibold text-primary dark:bg-primary/20">
+                {allSeats.length} total
+              </span>
+            </div>
             <div className="w-full sm:w-48">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>
@@ -256,9 +325,24 @@ export default function SeatsPage() {
           </div>
           <div className="flex gap-2">
             {selectMode ? (
-              <Button variant="outline" onClick={exitSelectMode}>
-                Cancel
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const ids = deletableSeats.map((s) => s.id);
+                    const allSelected = ids.length > 0 && ids.every((id) => selectedIds.includes(id));
+                    setSelectedIds(allSelected ? [] : ids);
+                  }}
+                  disabled={deletableSeats.length === 0}
+                >
+                  {deletableSeats.length > 0 && deletableSeats.every((s) => selectedIds.includes(s.id))
+                    ? "Clear selection"
+                    : `Select all unassigned (${deletableSeats.length})`}
+                </Button>
+                <Button variant="outline" onClick={exitSelectMode}>
+                  Cancel
+                </Button>
+              </>
             ) : (
               <>
                 <Button variant="outline" onClick={() => setSelectMode(true)}>
@@ -266,10 +350,13 @@ export default function SeatsPage() {
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => setBulkDialogOpen(true)}
+                  onClick={() => {
+                    setFieldErrors({});
+                    setFormError(null);
+                    setBulkForm(emptyBulkForm);
+                    setBulkDialogOpen(true);
+                  }}
                   className="flex items-center gap-1.5"
-                  disabled={seatLimitExceeded}
-                  title={seatLimitExceeded ? "Seat limit reached — upgrade your plan to add more." : undefined}
                 >
                   <Icon icon="solar:widget-add-linear" width={18} height={18} />
                   Bulk Create
@@ -277,8 +364,6 @@ export default function SeatsPage() {
                 <Button
                   onClick={openCreate}
                   className="flex items-center gap-1.5"
-                  disabled={seatLimitExceeded}
-                  title={seatLimitExceeded ? "Seat limit reached — upgrade your plan to add more." : undefined}
                 >
                   <Icon icon="solar:add-circle-linear" width={18} height={18} />
                   Add Seat
@@ -297,12 +382,6 @@ export default function SeatsPage() {
               <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} />
               Delete Selected ({selectedIds.length})
             </Button>
-          </div>
-        )}
-
-        {seatLimitExceeded && seatLimit !== null && (
-          <div className="px-6">
-            <PlanLimitBanner resource="Seats" limit={seatLimit} used={seatsUsed} />
           </div>
         )}
 
@@ -338,11 +417,29 @@ export default function SeatsPage() {
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-4 px-6 pb-4 text-xs">
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             {seatStatuses.map((s) => (
               <div key={s} className="flex items-center gap-1.5">
-                <span className={`h-2.5 w-2.5 rounded-full bg-gradient-to-br ${seatCardStyles[s].face}`} />
+                <span className={`h-2.5 w-2.5 rounded-full bg-gradient-to-br ${seatCardStyles.regular[s].face}`} />
                 <span className="capitalize text-gray-500 dark:text-gray-400">{s}</span>
+              </div>
+            ))}
+            <div className="flex items-center gap-1.5">
+              <span className={`h-2.5 w-2.5 rounded-full bg-gradient-to-br ${seatCardStyles.regular.expired.face}`} />
+              <span className="text-gray-500 dark:text-gray-400">Renewal due</span>
+            </div>
+            <span className="text-gray-300 dark:text-gray-600">|</span>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-br from-teal-400 to-cyan-600" />
+              <span className="flex items-center gap-0.5 text-gray-500 dark:text-gray-400">
+                <Icon icon="solar:refresh-linear" width={11} height={11} /> Rotation
+              </span>
+            </div>
+            <span className="text-gray-300 dark:text-gray-600">|</span>
+            {seatTypes.map((t) => (
+              <div key={t} className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                <Icon icon={seatTypeIcons[t]} width={13} height={13} />
+                <span className="capitalize">{t.replace("_", " ")}</span>
               </div>
             ))}
           </div>
@@ -355,7 +452,15 @@ export default function SeatsPage() {
           </div>
         </div>
 
-        <div className="px-6 pb-6">
+        <div className="relative px-6 pb-6">
+          {gridBusy && (
+            <div className="absolute inset-0 z-10 flex items-start justify-center rounded-xl bg-background/60 pt-16 backdrop-blur-[1px]">
+              <span className="flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm font-medium shadow-md">
+                <Icon icon="tabler:loader-2" width={16} height={16} className="animate-spin" />
+                {gridBusy}
+              </span>
+            </div>
+          )}
           {loading ? (
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
               {Array.from({ length: 16 }).map((_, i) => (
@@ -367,7 +472,8 @@ export default function SeatsPage() {
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
               {seats.map((seat) => {
-                const styles = seatCardStyles[seat.status];
+                const styles = (seatCardStyles[seat.category] ?? seatCardStyles.regular)[seat.status];
+                const isRotation = seat.category === "rotation";
                 const occupant = seat.current_subscription?.member?.name;
                 const isOccupied = seat.status === "occupied" || !!seat.current_subscription;
                 const isSelected = selectedIds.includes(seat.id);
@@ -436,14 +542,20 @@ export default function SeatsPage() {
                         </span>
                       )}
 
-                      <Icon icon="mdi:seat" width={26} height={26} className="drop-shadow" />
+                      <Icon icon={seatTypeIcons[seat.seat_type] ?? "mdi:seat"} width={26} height={26} className="drop-shadow" />
                       <span className="text-sm font-bold leading-none">{seat.seat_number}</span>
-                      <span className="text-[9px] uppercase tracking-wide opacity-90 leading-none">
+                      <span className="flex items-center gap-0.5 text-[9px] uppercase tracking-wide opacity-90 leading-none">
+                        {isRotation && <Icon icon="solar:refresh-linear" width={9} height={9} />}
                         {seat.seat_type.replace("_", " ")}
                       </span>
                       {occupant && (
                         <span className="w-full truncate text-center text-[9px] opacity-90 leading-none font-medium">
                           {occupant}
+                        </span>
+                      )}
+                      {seat.status === "expired" && (
+                        <span className="mt-0.5 rounded-full bg-black/30 px-1.5 py-0.5 text-[8px] font-bold uppercase leading-none">
+                          Renewal due
                         </span>
                       )}
                     </button>
@@ -492,7 +604,7 @@ export default function SeatsPage() {
                 </span>
               </div>
 
-              {editing.current_subscription ? (
+              {hasStudent(editing) && editing.current_subscription ? (
                 <>
                   <div className="flex items-center justify-between border-t border-border pt-2">
                     <span className="text-muted-foreground">
@@ -560,7 +672,12 @@ export default function SeatsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {seatTypes.map((t) => (
-                    <SelectItem key={t} value={t} className="capitalize">{t.replace('_', ' ')}</SelectItem>
+                    <SelectItem key={t} value={t} className="capitalize">
+                      <span className="flex items-center gap-1.5">
+                        <Icon icon={seatTypeIcons[t]} width={14} height={14} />
+                        {t.replace('_', ' ')}
+                      </span>
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -592,7 +709,23 @@ export default function SeatsPage() {
               </Select>
             </div>
 
-            <DialogFooter className="flex gap-2 mt-4">
+            {formError && <p className="text-xs text-error">{formError}</p>}
+
+            <DialogFooter className="flex items-center gap-2 mt-4">
+              {editing && !hasStudent(editing) && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-md mr-auto flex items-center gap-1.5 text-error border-error/40 hover:bg-error/10"
+                  onClick={() => {
+                    setDialogOpen(false);
+                    setDeleteTarget(editing);
+                  }}
+                >
+                  <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} />
+                  Delete
+                </Button>
+              )}
               <Button type="submit" className="rounded-md" disabled={saving}>
                 {saving ? "Saving..." : "Save"}
               </Button>
@@ -647,7 +780,12 @@ export default function SeatsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {seatTypes.map((t) => (
-                    <SelectItem key={t} value={t} className="capitalize">{t.replace('_', ' ')}</SelectItem>
+                    <SelectItem key={t} value={t} className="capitalize">
+                      <span className="flex items-center gap-1.5">
+                        <Icon icon={seatTypeIcons[t]} width={14} height={14} />
+                        {t.replace('_', ' ')}
+                      </span>
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -665,6 +803,8 @@ export default function SeatsPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {formError && <p className="text-xs text-error">{formError}</p>}
 
             <DialogFooter className="flex gap-2 mt-4">
               <Button type="submit" className="rounded-md" disabled={saving}>

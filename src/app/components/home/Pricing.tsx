@@ -33,7 +33,9 @@ export default async function Pricing() {
         </span>
         <h2 className="mt-4 text-2xl font-bold text-dark dark:text-white sm:text-3xl">A Plan For Every Library</h2>
         <p className="mt-3 text-sm text-charcoal dark:text-darklink sm:text-base">
-          Start free. Upgrade whenever your library grows.
+          LibraryJi is billed as a recurring subscription to the software. Start with a free trial, then choose a
+          monthly or yearly plan — each plan includes the LibraryJi web panel and mobile apps, the features listed
+          below, product updates, and support. Upgrade whenever your library grows. Taxes may apply at checkout.
         </p>
       </Reveal>
 

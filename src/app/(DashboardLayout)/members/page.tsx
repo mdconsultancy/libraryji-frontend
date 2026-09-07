@@ -45,6 +45,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { usePermissionGuard } from "@/hooks/usePermissionGuard";
 import { useReadOnly } from "@/hooks/useReadOnly";
 import AddMemberWizard from "@/components/members/AddMemberWizard";
+import RenewMemberDialog from "@/components/members/RenewMemberDialog";
 import PaymentLedgerSection from "@/components/members/PaymentLedgerSection";
 import { whatsappLink, buildAdmissionMessage, buildPaymentReminderMessage } from "@/lib/whatsapp";
 import type { Member, MemberStatus, Paginated, DashboardSummary, MemberHistoryEntry } from "@/types";
@@ -91,6 +92,37 @@ function feePendingLabel(member: Member) {
   if (status === "partial") return <span className="text-warning font-medium">Partial</span>;
   return <span className="text-error font-medium">Pending</span>;
 }
+
+/** ₹ received / ₹ total (+ ₹ due) for the active subscription — so the fee
+ *  breakdown is visible right in the list, not just the paid/partial word. */
+function feeAmounts(member: Member): { paid: number; total: number; due: number } | null {
+  const sub = member.active_subscription;
+  if (!sub) return null;
+  const total = Number(sub.amount || 0);
+  const paid = Number(sub.paid_amount ?? 0);
+  const due = Number(sub.due_amount ?? Math.max(total - paid, 0));
+  return { paid, total, due };
+}
+
+const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+
+function FeeCell({ member }: { member: Member }) {
+  const f = feeAmounts(member);
+  return (
+    <div className="flex flex-col gap-0.5">
+      {feePendingLabel(member)}
+      {f && (
+        <span className="text-xs text-darklink whitespace-nowrap">
+          {inr(f.paid)} / {inr(f.total)}
+          {f.due > 0 && <span className="text-error"> · {inr(f.due)} due</span>}
+        </span>
+      )}
+    </div>
+  );
+}
+
+const PER_PAGE_OPTIONS = [10, 15, 25, 50, 100] as const;
+const PER_PAGE_ALL = 100000;
 
 const whatsappHref = (member: Member) => {
   const number = (member.whatsapp_number || member.phone || "").replace(/[^\d]/g, "");
@@ -208,6 +240,7 @@ export default function MembersPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState<number>(15);
   const [downloading, setDownloading] = useState<"pdf" | "xlsx" | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
@@ -273,6 +306,7 @@ export default function MembersPage() {
 
   const { data: members, isLoading: loading, error: loadError, mutate } = useApi<Paginated<Member>>("/admin/members", {
     page,
+    per_page: perPage,
     search: search || undefined,
     status: statusFilter !== "all" ? statusFilter : undefined,
   });
@@ -358,6 +392,7 @@ export default function MembersPage() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
+  const [renewTargetId, setRenewTargetId] = useState<number | null>(null);
   const [viewTargetId, setViewTargetId] = useState<number | null>(null);
   const { data: viewMember, isLoading: loadingViewMember, mutate: mutateViewMember } = useApi<Member>(
     viewTargetId ? `/admin/members/${viewTargetId}` : null
@@ -468,6 +503,23 @@ export default function MembersPage() {
                   {statuses.map((s) => (
                     <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
                   ))}
+                  <SelectItem value="due">Due Payments</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-full sm:w-36">
+              <Select
+                value={String(perPage)}
+                onValueChange={(v) => { setPerPage(Number(v)); setPage(1); }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PER_PAGE_OPTIONS.map((n) => (
+                    <SelectItem key={n} value={String(n)}>{n} / page</SelectItem>
+                  ))}
+                  <SelectItem value={String(PER_PAGE_ALL)}>Show all</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -526,11 +578,11 @@ export default function MembersPage() {
                     aria-label="Select all"
                   />
                 </TableHead>
-                <TableHead>Member</TableHead>
+                <TableHead className="w-[190px]">Member</TableHead>
                 <TableHead>Seat</TableHead>
                 <TableHead>Phone</TableHead>
                 <TableHead>Days Left</TableHead>
-                <TableHead>Fee Status</TableHead>
+                <TableHead>Fees</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right pe-6">Actions</TableHead>
               </TableRow>
@@ -552,12 +604,12 @@ export default function MembersPage() {
                         aria-label={`Select ${member.name}`}
                       />
                     </TableCell>
-                    <TableCell>
-                      <div className="flex gap-3 items-center">
+                    <TableCell className="max-w-[190px]">
+                      <div className="flex gap-3 items-center min-w-0">
                         <Avatar src={member.photo_url} name={member.name} seed={member.id} size={40} />
-                        <div>
+                        <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <p className="text-sm font-medium">{member.name}</p>
+                            <p className="text-sm font-medium truncate">{member.name}</p>
                             {member.created_by_role === "staff" && (
                               <span
                                 className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/15 text-[10px] font-semibold text-amber-700 dark:text-amber-300 border border-amber-500/30"
@@ -568,16 +620,26 @@ export default function MembersPage() {
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-gray-500">{member.email || member.member_code}</p>
+                          <p className="text-xs text-gray-500 truncate">{member.email || member.member_code}</p>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>{member.active_subscription?.seat?.seat_number || "—"}</TableCell>
+                    <TableCell>
+                      {member.active_subscription?.seat?.seat_number ? (
+                        member.active_subscription.seat.seat_number
+                      ) : member.latest_subscription?.seat?.seat_number ? (
+                        <span className="text-warning" title="Subscription expired — renewal due">
+                          {member.latest_subscription.seat.seat_number}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
                     <TableCell>{member.phone}</TableCell>
                     <TableCell>
                       <span className={daysLeftLabel(member).className}>{daysLeftLabel(member).text}</span>
                     </TableCell>
-                    <TableCell>{feePendingLabel(member)}</TableCell>
+                    <TableCell><FeeCell member={member} /></TableCell>
                     <TableCell>
                       <Badge variant="secondary" className={`border-none capitalize ${statusStyles[member.status]}`}>
                         {member.status}
@@ -602,6 +664,21 @@ export default function MembersPage() {
                           >
                             <Icon icon="solar:trash-bin-trash-linear" width={16} height={16} />
                           </Button>
+                        )}
+                        {canEdit && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="lightprimary" size="sm" title="More">
+                                <Icon icon="tabler:dots-vertical" width={16} height={16} />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => setRenewTargetId(member.id)}>
+                                <Icon icon="solar:refresh-linear" width={16} height={16} className="mr-2" />
+                                Renew Membership
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         )}
                       </div>
                     </TableCell>
@@ -648,6 +725,7 @@ export default function MembersPage() {
               {statuses.map((s) => (
                 <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
               ))}
+              <SelectItem value="due">Due Payments</SelectItem>
             </SelectContent>
           </Select>
         )}
@@ -726,11 +804,22 @@ export default function MembersPage() {
                   <p className={`text-xs flex items-center gap-1 mt-0.5 ${daysLeftLabel(member).className}`}>
                     <Icon icon="solar:calendar-linear" width={12} height={12} />
                     {daysLeftLabel(member).text}
-                    {member.active_subscription?.seat?.seat_number && (
-                      <span className="text-darklink">· Seat {member.active_subscription.seat.seat_number}</span>
+                    {(member.active_subscription?.seat?.seat_number || member.latest_subscription?.seat?.seat_number) && (
+                      <span className="text-darklink">· Seat {member.active_subscription?.seat?.seat_number || member.latest_subscription?.seat?.seat_number}</span>
                     )}
                   </p>
-                  <p className="text-xs flex items-center gap-1 mt-0.5">{feePendingLabel(member)}</p>
+                  <p className="text-xs flex items-center gap-1.5 mt-0.5">
+                    {feePendingLabel(member)}
+                    {(() => {
+                      const f = feeAmounts(member);
+                      return f ? (
+                        <span className="text-darklink">
+                          {inr(f.paid)}/{inr(f.total)}
+                          {f.due > 0 && <span className="text-error"> · {inr(f.due)} due</span>}
+                        </span>
+                      ) : null;
+                    })()}
+                  </p>
                 </div>
                 <div className="flex flex-col items-end gap-2 shrink-0">
                   <Badge variant="secondary" className={`border-none capitalize ${statusStyles[member.status]}`}>
@@ -748,6 +837,12 @@ export default function MembersPage() {
                           <Icon icon="solar:eye-linear" width={16} height={16} className="mr-2" />
                           View
                         </DropdownMenuItem>
+                        {canEdit && (
+                          <DropdownMenuItem onClick={() => setRenewTargetId(member.id)}>
+                            <Icon icon="solar:refresh-linear" width={16} height={16} className="mr-2" />
+                            Renew
+                          </DropdownMenuItem>
+                        )}
                         {canEdit && (
                           <DropdownMenuItem onClick={() => openEdit(member)}>
                             <Icon icon="ic:outline-edit" width={16} height={16} className="mr-2" />
@@ -787,6 +882,13 @@ export default function MembersPage() {
         loading={bulkDeleting}
         onCancel={() => setBulkDeleteOpen(false)}
         onConfirm={handleBulkDelete}
+      />
+
+      <RenewMemberDialog
+        memberId={renewTargetId}
+        open={!!renewTargetId}
+        onClose={() => setRenewTargetId(null)}
+        onRenewed={mutate}
       />
 
       <AddMemberWizard

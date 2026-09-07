@@ -88,6 +88,17 @@ const GROUPS: { key: string; label: string; fields: FieldConfig[] }[] = [
       { key: "razorpay_key_id", label: "Razorpay Key ID", type: "text" },
       { key: "razorpay_key_secret", label: "Razorpay Key Secret", type: "password" },
       { key: "razorpay_webhook_secret", label: "Razorpay Webhook Secret", type: "password" },
+      { key: "cashfree_enabled", label: "Cashfree Enabled", type: "boolean" },
+      {
+        key: "cashfree_mode", label: "Cashfree Mode", type: "select",
+        options: [
+          { value: "test", label: "Test / Sandbox" },
+          { value: "production", label: "Production (Live)" },
+        ],
+      },
+      { key: "cashfree_app_id", label: "Cashfree App ID", type: "text" },
+      { key: "cashfree_secret_key", label: "Cashfree Secret Key", type: "password" },
+      { key: "cashfree_webhook_secret", label: "Cashfree Webhook Secret", type: "password" },
       { key: "stripe_enabled", label: "Stripe Enabled", type: "boolean" },
       { key: "stripe_publishable_key", label: "Stripe Publishable Key", type: "text" },
       { key: "stripe_secret_key", label: "Stripe Secret Key", type: "password" },
@@ -264,8 +275,18 @@ export default function PlatformSettingsPage() {
     }
   };
 
+  // Only one payment gateway can be primary — turning one on flips the
+  // others off in the form immediately (the server enforces this too).
+  const GATEWAY_TOGGLES = ["razorpay_enabled", "cashfree_enabled", "stripe_enabled"];
+
   const updateField = (group: string, key: string, value: unknown) => {
-    setAllSettings((prev) => ({ ...prev, [group]: { ...prev[group], [key]: value } }));
+    setAllSettings((prev) => {
+      const next = { ...prev[group], [key]: value };
+      if (group === "payment" && GATEWAY_TOGGLES.includes(key) && (value === true || value === "1")) {
+        for (const other of GATEWAY_TOGGLES) if (other !== key) next[other] = false;
+      }
+      return { ...prev, [group]: next };
+    });
   };
 
   const saveGroup = async (group: string, settings: SettingsValue) => {

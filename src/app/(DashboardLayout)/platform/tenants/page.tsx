@@ -293,16 +293,17 @@ export default function TenantsPage() {
                 <TableHead>Plan</TableHead>
                 <TableHead>Halls</TableHead>
                 <TableHead>Members</TableHead>
+                <TableHead>Seats</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right pe-6">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableSkeleton columns={8} />
+                <TableSkeleton columns={9} />
               ) : tenants?.data.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-sm text-gray-500">No tenants found</TableCell>
+                  <TableCell colSpan={9} className="text-center py-8 text-sm text-gray-500">No tenants found</TableCell>
                 </TableRow>
               ) : (
                 tenants?.data.map((tenant) => (
@@ -340,6 +341,10 @@ export default function TenantsPage() {
                     <TableCell>{tenant.active_subscription?.plan?.name || "—"}</TableCell>
                     <TableCell>{tenant.halls_count ?? 0}</TableCell>
                     <TableCell>{tenant.members_count ?? 0}</TableCell>
+                    <TableCell>
+                      <span className="font-medium">{tenant.seats_count ?? 0}</span>
+                      <span className="text-darklink"> / {tenant.seat_cap ?? "—"}</span>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className={`border-none capitalize ${statusStyles[tenant.status]}`}>
                         {tenant.status}
@@ -517,6 +522,13 @@ export default function TenantsPage() {
                   onChange={(e) => setEditForm({ ...editForm, seat_limit: e.target.value })}
                 />
                 {fieldError(editErrors, "seat_limit") && <p className="text-xs text-error">{fieldError(editErrors, "seat_limit")}</p>}
+                {editing && (
+                  <p className="text-xs text-darklink">
+                    Currently using <span className="font-semibold text-dark dark:text-white">{editing.seats_count ?? 0}</span> of{" "}
+                    <span className="font-semibold text-dark dark:text-white">{editing.seat_cap ?? "—"}</span> seats
+                    {editing.seat_limit == null ? " (plan limit)" : " (allocated)"}.
+                  </p>
+                )}
               </div>
               <div className="flex flex-col gap-2">
                 <Label>Status</Label>

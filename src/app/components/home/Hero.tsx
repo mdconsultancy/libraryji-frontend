@@ -21,14 +21,15 @@ export default function Hero() {
         <div className="text-center lg:text-left">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-success ring-1 ring-white/15">
             <Icon icon="solar:star-bold" width={14} height={14} />
-            Best Library Solution In One Place
+            For Libraries, Reading Rooms &amp; Self-Study Centres
           </span>
           <h1 className="mt-5 text-3xl font-bold leading-tight text-white sm:text-5xl">
-            Easy Management For Modern Libraries
+            Library &amp; Study Room Management Software
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-base text-white/70 sm:text-lg lg:mx-0">
-            LibraryJi is a library management system &amp; study room software built for libraries across India —
-            seat booking, student enrollment, attendance, and fee collection, all in one place.
+            LibraryJi is a subscription-based (SaaS) library &amp; study room management software for libraries,
+            reading rooms and self-study centres across India — seat &amp; shift management, student enrollment,
+            attendance, and fee collection, all in one plan. Start free, then a monthly or yearly subscription.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
             <Link

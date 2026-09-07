@@ -65,6 +65,15 @@ function SelectPlanContent() {
 
       <PlanPicker isUpgrading={isUpgrading} onActivated={() => router.push("/dashboard")} showLogout={!isUpgrading} />
 
+      <p className="max-w-2xl mx-auto text-center text-xs text-charcoal mt-6">
+        LibraryJi is a recurring subscription to our library &amp; study room management software. Paid plans are
+        billed for the cycle shown (monthly or yearly) and give access to the LibraryJi web panel and mobile apps
+        for that period. By continuing you agree to our{" "}
+        <a href="/terms-conditions" className="underline hover:text-primary">Terms &amp; Conditions</a>,{" "}
+        <a href="/privacy-policy" className="underline hover:text-primary">Privacy Policy</a> and{" "}
+        <a href="/refund-cancellation-policy" className="underline hover:text-primary">Refund &amp; Cancellation Policy</a>.
+      </p>
+
       {isUpgrading && (
         <div className="text-center mt-8">
           <Button variant="outline" onClick={() => router.push("/dashboard")} className="flex items-center gap-1.5 mx-auto">

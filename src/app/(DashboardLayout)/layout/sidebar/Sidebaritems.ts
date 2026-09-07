@@ -119,6 +119,13 @@ const SidebarContent: MenuItem[] = [
             roles: ['admin', 'staff'],
           },
           {
+            name: 'Membership Plans',
+            icon: 'solar:tag-price-line-duotone',
+            id: uniqueId(),
+            url: '/membership-plans',
+            roles: ['admin'],
+          },
+          {
             name: 'Staff',
             icon: 'solar:shield-user-outline',
             id: uniqueId(),

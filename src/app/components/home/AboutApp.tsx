@@ -5,7 +5,11 @@ import Image from "next/image";
 import { Icon } from "@iconify/react";
 import Reveal from "./Reveal";
 
-const POINTS = ["With modern seat & student management tools", "Works across every device, web, Android and iOS", "Start your 30-day free trial today"];
+const POINTS = [
+  "Seat, student, attendance and fee management in one subscription",
+  "Works across every device — web panel, Android and iOS apps",
+  "Start with a 30-day free trial, then a monthly or yearly plan",
+];
 
 export default function AboutApp() {
   return (
@@ -38,8 +42,11 @@ export default function AboutApp() {
             Designed for the modern, growing library
           </h2>
           <p className="mt-4 text-sm text-charcoal dark:text-darklink sm:text-base">
-            LibraryJi replaces registers and spreadsheets with one simple system — built with libraries and study
-            rooms across India, from small reading rooms to multi-branch libraries.
+            LibraryJi is a subscription-based (SaaS) library and study room management software. It replaces paper
+            registers and spreadsheets with one online system for libraries, reading rooms, study rooms and self-study
+            centres across India — from a single reading room to multi-branch libraries. Customers pay a recurring plan
+            fee to use the LibraryJi web panel and mobile apps, and get seat management, student enrollment, attendance,
+            fee collection, renewals, reports and ongoing support and updates.
           </p>
           <ul className="mt-6 flex flex-col gap-3">
             {POINTS.map((p) => (
