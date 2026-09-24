@@ -3,6 +3,7 @@ import { Icon } from "@iconify/react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { timeAgo } from "@/lib/timeAgo";
 import type { RecentActivityItem, RecentActivityType } from "@/types";
+import ActivityPager, { type ActivityPagination } from "./ActivityPager";
 
 const iconByType: Record<RecentActivityType, { icon: string; tone: string }> = {
   member_joined: { icon: "solar:user-plus-bold-duotone", tone: "bg-primary text-white" },
@@ -12,14 +13,10 @@ const iconByType: Record<RecentActivityType, { icon: string; tone: string }> = {
 
 const RecentActivities = ({
   activity,
-  hasMore,
-  loadingMore,
-  onLoadMore,
+  pagination,
 }: {
   activity: RecentActivityItem[];
-  hasMore?: boolean;
-  loadingMore?: boolean;
-  onLoadMore?: () => void;
+  pagination: ActivityPagination;
 }) => {
   return (
     <div className="rounded-xl shadow-xs bg-white dark:bg-darkgray p-6 w-full">
@@ -35,7 +32,7 @@ const RecentActivities = ({
                 const meta = iconByType[item.type];
                 const seatNumber = item.type === "member_joined" ? item.meta?.seat_number : null;
                 return (
-                  <li key={i} className="flex items-center gap-3">
+                  <li key={`${item.type}-${item.occurred_at}-${item.title}-${i}`} className="flex items-center gap-3">
                     <div className={`h-9 w-9 shrink-0 rounded-full flex items-center justify-center ${meta.tone}`}>
                       <Icon icon={meta.icon} width={18} height={18} />
                     </div>
@@ -53,18 +50,7 @@ const RecentActivities = ({
             </ul>
           </ScrollArea>
 
-          {hasMore && (
-            <div className="mt-4 flex justify-center">
-              <button
-                type="button"
-                onClick={onLoadMore}
-                disabled={loadingMore}
-                className="text-sm text-primary font-medium hover:underline disabled:opacity-60"
-              >
-                {loadingMore ? "Loading…" : "Load more"}
-              </button>
-            </div>
-          )}
+          <ActivityPager pagination={pagination} count={activity.length} />
         </>
       )}
     </div>

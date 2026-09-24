@@ -17,6 +17,7 @@ import { useToast } from "@/context/ToastContext";
 import type { Tenant } from "@/types";
 import BackupManagement from "./BackupManagement";
 import DangerZone from "@/app/components/user-profile/DangerZone";
+import { FormSkeleton } from "@/components/shared/skeletons";
 
 const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Library" }];
 
@@ -83,7 +84,12 @@ export default function TenantSettingsPage() {
   if (!authorized) return null;
 
   if (loading) {
-    return <div className="text-center py-20 text-link dark:text-darklink">Loading...</div>;
+    return (
+      <>
+        <BreadcrumbComp title="Library" items={BCrumb} />
+        <FormSkeleton tabs={3} fields={10} />
+      </>
+    );
   }
 
   return (

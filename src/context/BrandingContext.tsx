@@ -12,6 +12,7 @@ interface ThemeBranding {
   secondary_color: string | null
   google_login_enabled?: boolean
   google_client_id?: string | null
+  meta_pixel_id?: string | null
 }
 
 interface BrandingContextValue {
@@ -26,6 +27,8 @@ interface BrandingContextValue {
   googleLoginEnabled: boolean
   /** Public OAuth client ID for "Continue with Google" — null until `/theme` resolves. */
   googleClientId: string | null
+  /** Numeric Meta Pixel ID from Platform Settings -> Meta, or null when the pixel is off. */
+  metaPixelId: string | null
 }
 
 /** Only accept values that are safe to write straight into a CSS custom
@@ -40,6 +43,7 @@ const defaults: BrandingContextValue = {
   isLoading: true,
   googleLoginEnabled: true,
   googleClientId: null,
+  metaPixelId: null,
 }
 
 const BrandingContext = createContext<BrandingContextValue>(defaults)
@@ -68,6 +72,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     // showing the button.
     googleLoginEnabled: data?.google_login_enabled !== false,
     googleClientId: data?.google_client_id || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || null,
+    metaPixelId: data?.meta_pixel_id && /^\d{6,20}$/.test(data.meta_pixel_id) ? data.meta_pixel_id : null,
   }
 
   useEffect(() => {

@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { AuthProvider } from '@/context/AuthContext'
 import { ToastProvider } from '@/context/ToastContext'
 import { BrandingProvider } from '@/context/BrandingContext'
+import MetaPixel from '@/components/shared/MetaPixel'
 import SWRProvider from '@/components/providers/SWRProvider'
 
 const manrope = Manrope({ subsets: ["latin"] });
@@ -155,6 +156,7 @@ export default function RootLayout({
           disableTransitionOnChange>
           <SWRProvider>
             <BrandingProvider>
+              <MetaPixel />
               <ToastProvider>
                 <AuthProvider>{children}</AuthProvider>
               </ToastProvider>

@@ -20,6 +20,7 @@ import { useApi } from "@/hooks/useApi";
 import { api, ApiError } from "@/lib/api";
 import { useToast } from "@/context/ToastContext";
 import type { TenantStatus, UserManagementDetail } from "@/types";
+import { DetailSkeleton, ListSkeleton } from "@/components/shared/skeletons";
 
 const statusStyles: Record<TenantStatus, string> = {
   trial: "bg-lightwarning text-warning",
@@ -97,7 +98,14 @@ export default function UserManagementDetailPage() {
       {error && <p className="text-sm text-error">{error}</p>}
 
       {isLoading || !detail ? (
-        <p className="text-sm text-darklink py-6 text-center">Loading...</p>
+        <div className="flex flex-col gap-6">
+          <CardBox className="p-6">
+            <DetailSkeleton rows={6} />
+          </CardBox>
+          <CardBox className="p-6">
+            <ListSkeleton rows={4} />
+          </CardBox>
+        </div>
       ) : (
         <div className="flex flex-col gap-6">
           <CardBox className="p-6">

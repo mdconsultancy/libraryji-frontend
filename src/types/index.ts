@@ -88,6 +88,8 @@ export interface Tenant {
   data_cleaned_at?: string | null
   data_cleaned_by_name?: string | null
   has_active_plan?: boolean
+  // Current trial/free/paid plan has run out — renewal is mandatory.
+  plan_expired?: boolean
   // Laravel snake_cases relation names in JSON — this is `active_subscription`
   // on the wire (verified against the live API), not `activeSubscription`.
   active_subscription?: TenantSubscription | null
@@ -347,6 +349,19 @@ export interface Payment {
   creator?: { id: number; name: string; role: string } | null
 }
 
+export type PaymentRange = 'all' | 'today' | 'yesterday' | '7' | '30' | '90' | 'this_month' | 'last_month' | 'this_year' | 'custom'
+
+/** Totals over the whole filtered payment set (every page), returned alongside /admin/payments. */
+export interface PaymentSummary {
+  count: number
+  total_collected: number
+  total_pending: number
+  total_refunded: number
+  total_failed: number
+  pending_count: number
+  by_method: Partial<Record<PaymentMethod, number>>
+}
+
 export interface Expense {
   id: number
   tenant_id: number
@@ -424,6 +439,8 @@ export interface RecentFeedPage<T> {
   page: number
   per_page: number
   has_more: boolean
+  total?: number
+  last_page?: number
 }
 
 export interface RevenueChartPoint {

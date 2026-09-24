@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { currencies } from "@/data/currencies";
 import { storageUrl } from "@/lib/api";
 import { openRazorpayCheckout } from "@/lib/razorpay";
+import { FormSkeleton } from "@/components/shared/skeletons";
 
 const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Platform Settings" }];
 
@@ -35,7 +36,7 @@ interface FieldConfig {
   options?: { value: string; label: string }[];
 }
 
-const GROUPS: { key: string; label: string; fields: FieldConfig[] }[] = [
+const GROUPS: { key: string; label: string; description?: string; fields: FieldConfig[] }[] = [
   {
     key: "general",
     label: "General",
@@ -217,6 +218,16 @@ const GROUPS: { key: string; label: string; fields: FieldConfig[] }[] = [
     label: "Notifications",
     fields: [
       { key: "push_notifications_enabled", label: "Push Notifications Enabled", type: "boolean" },
+    ],
+  },
+  {
+    key: "meta",
+    label: "Meta",
+    description:
+      "Meta (Facebook) Pixel tracks page views across the site so you can measure and retarget ads. Find your Pixel ID in Meta Events Manager → Data Sources. It's loaded on every page once enabled and saved.",
+    fields: [
+      { key: "meta_pixel_enabled", label: "Meta Pixel Enabled", type: "boolean" },
+      { key: "meta_pixel_id", label: "Meta Pixel ID", type: "text" },
     ],
   },
 ];
@@ -431,16 +442,7 @@ export default function PlatformSettingsPage() {
     return (
       <>
         <BreadcrumbComp title="Platform Settings" items={BCrumb} />
-        <CardBox className="p-6 bg-background border-none rounded-xl shadow-xs">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="flex flex-col gap-2">
-                <div className="h-4 w-24 rounded bg-muted animate-pulse" />
-                <div className="h-9 w-full rounded bg-muted animate-pulse" />
-              </div>
-            ))}
-          </div>
-        </CardBox>
+        <FormSkeleton tabs={6} fields={8} />
       </>
     );
   }
@@ -474,6 +476,7 @@ export default function PlatformSettingsPage() {
           {GROUPS.map((group) => (
             <TabsContent key={group.key} value={group.key}>
               <form onSubmit={(e) => handleSave(e, group.key)} className="grid grid-cols-1 gap-4 lg:grid-cols-2 mt-4">
+                {group.description && <p className="text-sm text-darklink lg:col-span-2">{group.description}</p>}
                 {savedGroup === group.key && <p className="text-sm text-success lg:col-span-2">Settings saved.</p>}
                 {group.fields.map((field) => {
                   const value = allSettings[group.key]?.[field.key];

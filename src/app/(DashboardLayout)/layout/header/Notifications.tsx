@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useApi } from '@/hooks/useApi'
 import { api } from '@/lib/api'
+import { ListSkeleton } from '@/components/shared/skeletons'
 
 interface AppNotification {
   id: number
@@ -29,7 +30,7 @@ interface NotificationsPage {
 // refresh interval (see swrConfig) so it stays reasonably live without a
 // dedicated websocket/push channel.
 const Notifications = () => {
-  const { data, mutate } = useApi<NotificationsPage>('/notifications', { per_page: 10 })
+  const { data, isLoading, mutate } = useApi<NotificationsPage>('/notifications', { per_page: 10 })
   const notifications = data?.data ?? []
   const unreadCount = notifications.filter((n) => !n.read_at).length
 
@@ -62,7 +63,9 @@ const Notifications = () => {
           </div>
 
           <SimpleBar className='max-h-80 mt-3'>
-            {notifications.length === 0 ? (
+            {isLoading && !data ? (
+              <ListSkeleton rows={4} className='px-6 py-2' />
+            ) : notifications.length === 0 ? (
               <p className='px-6 py-4 text-sm text-darklink'>No notifications</p>
             ) : (
               notifications.map((n) => (

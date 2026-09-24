@@ -31,6 +31,7 @@ import { useToast } from "@/context/ToastContext";
 import { usePermission } from "@/hooks/usePermission";
 import { usePermissionGuard } from "@/hooks/usePermissionGuard";
 import type { Expense, Payment, PaymentMethod, Paginated } from "@/types";
+import { ListSkeleton } from "@/components/shared/skeletons";
 
 const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Statements" }];
 
@@ -281,9 +282,7 @@ export default function StatementsPage() {
 
           <div className="flex flex-col gap-3 px-6 pb-6 max-h-[520px] overflow-y-auto">
             {loadingIncome ? (
-              Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-16 rounded-2xl bg-gray-100 dark:bg-darkgray animate-pulse" />
-              ))
+              <ListSkeleton rows={4} card />
             ) : income.length === 0 ? (
               <p className="py-8 text-center text-sm text-gray-500">No fee payments in this period</p>
             ) : (
@@ -333,9 +332,7 @@ export default function StatementsPage() {
 
           <div className="flex flex-col gap-3 px-6 pb-6 max-h-[520px] overflow-y-auto">
             {loadingExpenses ? (
-              Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-16 rounded-2xl bg-gray-100 dark:bg-darkgray animate-pulse" />
-              ))
+              <ListSkeleton rows={4} card />
             ) : expenses.length === 0 ? (
               <p className="py-8 text-center text-sm text-gray-500">No expenses in this period</p>
             ) : (

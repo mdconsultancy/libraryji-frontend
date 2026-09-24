@@ -50,6 +50,7 @@ import { useRoleGuard } from "@/hooks/useRoleGuard";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import type { User, Paginated, StaffPermissions, PermissionDefinition } from "@/types";
+import { FormSkeleton, ListSkeleton } from "@/components/shared/skeletons";
 
 const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Staff" }];
 
@@ -411,7 +412,7 @@ export default function StaffPage() {
             <DialogTitle>{editing ? "Edit Staff" : "Add Staff"}</DialogTitle>
           </DialogHeader>
           {loadingDetail ? (
-            <p className="text-sm text-darklink py-6 text-center">Loading...</p>
+            <FormSkeleton fields={6} columns={1} card={false} />
           ) : (
             <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4">
               <div className="flex flex-col gap-2">
@@ -534,7 +535,7 @@ export default function StaffPage() {
                   </p>
                   <div className="flex flex-col gap-3 rounded-lg border border-border p-4 max-h-72 overflow-y-auto">
                     {Object.keys(permissionGroups).length === 0 ? (
-                      <p className="text-sm text-darklink">Loading permissions...</p>
+                      <ListSkeleton rows={4} avatar={false} />
                     ) : (
                       Object.entries(permissionGroups).map(([group, defs]) => (
                         <div key={group}>

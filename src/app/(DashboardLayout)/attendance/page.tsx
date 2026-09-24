@@ -22,6 +22,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { usePermissionGuard } from "@/hooks/usePermissionGuard";
 import Avatar from "@/components/shared/Avatar";
 import type { AttendanceRoster } from "@/types";
+import { ListSkeleton } from "@/components/shared/skeletons";
 
 const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Attendance" }];
 
@@ -36,6 +37,16 @@ const TODAY = toDateString(new Date());
 
 type Tab = "all" | "present" | "absent";
 
+type ReportRange = "all" | "7" | "30" | "90" | "custom";
+
+const REPORT_RANGES: { value: ReportRange; label: string }[] = [
+  { value: "all", label: "All Time" },
+  { value: "7", label: "Last 7 Days" },
+  { value: "30", label: "Last 30 Days" },
+  { value: "90", label: "Last 90 Days" },
+  { value: "custom", label: "Custom Date" },
+];
+
 export default function AttendancePage() {
   const toast = useToast();
   const { authorized } = usePermissionGuard("attendance", "view");
@@ -49,15 +60,22 @@ export default function AttendancePage() {
   const [reportOpen, setReportOpen] = useState(false);
   const [reportFrom, setReportFrom] = useState(() => toDateString(new Date(new Date().setDate(new Date().getDate() - 30))));
   const [reportTo, setReportTo] = useState(TODAY);
+  const [reportRange, setReportRange] = useState<ReportRange>("30");
   const [downloading, setDownloading] = useState<"pdf" | "xlsx" | null>(null);
 
   const handleReportDownload = async (format: "pdf" | "xlsx") => {
+    if (reportRange === "custom" && (!reportFrom || !reportTo || reportFrom > reportTo)) {
+      toast.error("Please choose a valid From and To date.");
+      return;
+    }
     setDownloading(format);
+    const isCustom = reportRange === "custom";
+    const suffix = reportRange === "all" ? "all-time" : isCustom ? `${reportFrom}-to-${reportTo}` : `last-${reportRange}-days`;
     try {
       await downloadFile(
         "/admin/attendance/export",
-        { from: reportFrom, to: reportTo, format },
-        `attendance-report-${reportFrom}-to-${reportTo}.${format}`
+        { range: reportRange, from: isCustom ? reportFrom : undefined, to: isCustom ? reportTo : undefined, format },
+        `attendance-report-${suffix}.${format}`
       );
     } catch {
       toast.error("Unable to download the attendance report. Please try again.");
@@ -203,7 +221,7 @@ export default function AttendancePage() {
 
           <div className={`max-h-[60vh] overflow-y-auto ${editable && selectedIds.size > 0 ? "pb-20" : ""}`}>
             {isLoading ? (
-              <p className="text-center py-10 text-sm text-gray-500">Loading...</p>
+              <ListSkeleton rows={6} className="p-4" />
             ) : visibleMembers.length === 0 ? (
               <p className="text-center py-10 text-sm text-gray-500">
                 {tab === "all" ? "Everyone's been marked for today." : `No ${tab} students yet.`}
@@ -309,16 +327,38 @@ export default function AttendancePage() {
           <DialogHeader>
             <DialogTitle>Attendance Report</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="report_from">From</Label>
-              <Input id="report_from" type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} max={reportTo} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="report_to">To</Label>
-              <Input id="report_to" type="date" value={reportTo} onChange={(e) => setReportTo(e.target.value)} min={reportFrom} max={TODAY} />
+          <div className="flex flex-col gap-2">
+            <Label>Period</Label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {REPORT_RANGES.map((r) => (
+                <button
+                  key={r.value}
+                  type="button"
+                  onClick={() => setReportRange(r.value)}
+                  aria-pressed={reportRange === r.value}
+                  className={`rounded-md border px-3 py-2 text-sm transition-colors ${
+                    reportRange === r.value
+                      ? "border-primary bg-primary text-white"
+                      : "border-border text-dark dark:text-white hover:bg-lightprimary"
+                  }`}
+                >
+                  {r.label}
+                </button>
+              ))}
             </div>
           </div>
+          {reportRange === "custom" && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="report_from">From</Label>
+                <Input id="report_from" type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} max={reportTo} />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="report_to">To</Label>
+                <Input id="report_to" type="date" value={reportTo} onChange={(e) => setReportTo(e.target.value)} min={reportFrom} max={TODAY} />
+              </div>
+            </div>
+          )}
           <DialogFooter className="flex gap-2 mt-4">
             <Button type="button" variant="outline" disabled={downloading === "pdf"} onClick={() => handleReportDownload("pdf")}>
               <Icon icon="solar:file-text-linear" width={16} height={16} className="mr-1.5" />

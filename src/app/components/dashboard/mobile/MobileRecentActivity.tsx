@@ -4,6 +4,8 @@ import { Icon } from "@iconify/react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { timeAgo } from "@/lib/timeAgo";
 import type { RecentActivityItem, RecentActivityType } from "@/types";
+import ActivityPager, { type ActivityPagination } from "../ActivityPager";
+import { ListSkeleton } from "@/components/shared/skeletons";
 
 const iconByType: Record<RecentActivityType, { icon: string; color: "success" | "primary" | "info" }> = {
   member_joined: { icon: "solar:user-plus-bold-duotone", color: "success" },
@@ -21,22 +23,18 @@ const colorClasses = {
 const MobileRecentActivity = ({
   activity,
   loading,
-  hasMore,
-  loadingMore,
-  onLoadMore,
+  pagination,
 }: {
   activity: RecentActivityItem[];
   loading?: boolean;
-  hasMore?: boolean;
-  loadingMore?: boolean;
-  onLoadMore?: () => void;
+  pagination: ActivityPagination;
 }) => {
   return (
     <div className="rounded-2xl bg-white dark:bg-darkgray p-5 shadow-xs">
       <h5 className="card-title mb-4">Recent Activities</h5>
 
       {loading ? (
-        <p className="text-sm text-darklink py-4 text-center">Loading…</p>
+        <ListSkeleton rows={5} />
       ) : activity.length === 0 ? (
         <p className="text-sm text-darklink py-4 text-center">No recent activity</p>
       ) : (
@@ -65,18 +63,7 @@ const MobileRecentActivity = ({
             </div>
           </ScrollArea>
 
-          {hasMore && (
-            <div className="mt-3 flex justify-center">
-              <button
-                type="button"
-                onClick={onLoadMore}
-                disabled={loadingMore}
-                className="text-sm text-primary font-medium hover:underline disabled:opacity-60"
-              >
-                {loadingMore ? "Loading…" : "Load more"}
-              </button>
-            </div>
-          )}
+          <ActivityPager pagination={pagination} count={activity.length} />
         </>
       )}
     </div>

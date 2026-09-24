@@ -142,6 +142,11 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       }
     }
     if (response.status === 401) setTokens(null)
+    // Plan expired mid-session — let AuthContext re-fetch /auth/me so the
+    // layout's renewal gate takes over instead of every card erroring out.
+    if (response.status === 402 && typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(SUBSCRIPTION_EXPIRED_EVENT))
+    }
     // Laravel's default validation-error JSON is {"message": "The given data
     // was invalid.", "errors": {"field": ["the actual message"]}} — the
     // generic top-level message is useless to show, so prefer the first
@@ -157,6 +162,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
   return data as T
 }
+
+export const SUBSCRIPTION_EXPIRED_EVENT = 'subscription-expired'
 
 export const api = {
   get: <T>(path: string, params?: RequestOptions['params']) => request<T>(path, { method: 'GET', params }),

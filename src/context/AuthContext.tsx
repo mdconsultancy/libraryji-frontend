@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react'
 import { mutate as globalMutate } from 'swr'
-import { api, getToken, getRefreshToken, setTokens, type TokenPair } from '@/lib/api'
+import { api, getToken, getRefreshToken, setTokens, SUBSCRIPTION_EXPIRED_EVENT, type TokenPair } from '@/lib/api'
 import type { User } from '@/types'
 
 // SWR's cache is a single app-lifetime store keyed only by API path (see lib/swr.ts),
@@ -89,6 +89,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshMe()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    let pending = false
+    const onExpired = async () => {
+      if (pending) return
+      pending = true
+      try {
+        await refreshMe()
+      } finally {
+        pending = false
+      }
+    }
+    window.addEventListener(SUBSCRIPTION_EXPIRED_EVENT, onExpired)
+    return () => window.removeEventListener(SUBSCRIPTION_EXPIRED_EVENT, onExpired)
+  }, [refreshMe])
 
   const login = useCallback(async (payload: LoginPayload): Promise<LoginResult> => {
     // Every user belongs to exactly one Library, so the backend always

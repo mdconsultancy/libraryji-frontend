@@ -19,6 +19,7 @@ import { getPlanStatus } from "@/lib/planStatus";
 import { PlanPicker } from "@/components/billing/PlanPicker";
 import { usePlanCheckout } from "@/hooks/usePlanCheckout";
 import type { Tenant, TenantSubscription, TenantSubscriptionStatus } from "@/types";
+import { BillingSkeleton } from "@/components/shared/skeletons";
 
 const isTestingRow = (sub: TenantSubscription) => sub.status === "trialing" || sub.payment_gateway === "trial";
 
@@ -79,7 +80,7 @@ export default function BillingPage() {
       <BreadcrumbComp title="Subscription & Billing" items={BCrumb} />
 
       {loading ? (
-        <div className="text-center py-20 text-link dark:text-darklink">Loading...</div>
+        <BillingSkeleton />
       ) : error ? (
         <p className="text-sm text-error">{error}</p>
       ) : (

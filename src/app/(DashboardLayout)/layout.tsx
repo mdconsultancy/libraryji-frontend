@@ -7,7 +7,7 @@ import Sidebar from './layout/sidebar/Sidebar'
 import MobileBottomNav from './layout/footer/MobileBottomNav'
 import FullLogo from './layout/shared/logo/FullLogo'
 import { useAuth } from '@/context/AuthContext'
-import { tenantNeedsPlan, tenantNeedsOnboarding, tenantIsReadOnly } from '@/lib/tenant'
+import { tenantNeedsPlan, tenantNeedsOnboarding, tenantIsReadOnly, tenantPlanExpired } from '@/lib/tenant'
 import { PlanPicker } from '@/components/billing/PlanPicker'
 import OnboardingFlow from '@/components/onboarding/OnboardingFlow'
 import GlobalPreloader from '@/components/shared/GlobalPreloader'
@@ -79,13 +79,17 @@ export default function Layout({
         </div>
         <div className="max-w-4xl mx-auto text-center mb-10">
           <h4 className="text-2xl font-bold text-dark mb-2">
-            {user.current_tenant?.trial_ends_at ? 'Your trial has ended' : 'Choose a plan to continue'}
+            {tenantPlanExpired(user.current_tenant)
+              ? user.current_tenant?.status === 'trial' ? 'Your trial has ended' : 'Your plan has expired'
+              : 'Choose a plan to continue'}
           </h4>
           <p className="text-sm text-charcoal">
             {user.current_tenant?.status === 'suspended' || user.current_tenant?.status === 'cancelled'
               ? 'Complete payment below to activate your library.'
-              : user.current_tenant?.trial_ends_at
-                ? 'Select a plan below to keep using LibraryJi.'
+              : tenantPlanExpired(user.current_tenant)
+                ? user.role === 'admin'
+                  ? 'Renew your subscription below to keep using LibraryJi.'
+                  : 'Please ask your library admin to renew the subscription.'
                 : 'Pick a plan below — free plans activate instantly, no card required.'}
           </p>
         </div>

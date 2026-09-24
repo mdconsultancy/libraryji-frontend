@@ -29,6 +29,7 @@ import { downloadFile } from "@/lib/api";
 import { useToast } from "@/context/ToastContext";
 import ReceiptPreview, { type ReceiptLibraryInfo } from "./ReceiptPreview";
 import type { Member, MemberSubscription } from "@/types";
+import { DetailSkeleton } from "@/components/shared/skeletons";
 
 interface ReceiptData {
   member: Member;
@@ -210,7 +211,9 @@ export default function GenerateReceiptDialog({ open, onOpenChange, initialMembe
             </div>
 
             {isLoading || !receipt ? (
-              <div className="flex items-center justify-center py-16 text-sm text-gray-500">Loading receipt...</div>
+              <div className="rounded-lg border border-border p-6">
+                <DetailSkeleton rows={7} />
+              </div>
             ) : (
               <div className="overflow-x-auto rounded-lg border border-border bg-gray-50 dark:bg-darkgray/40 p-4">
                 <ReceiptPreview

@@ -49,6 +49,7 @@ import RenewMemberDialog from "@/components/members/RenewMemberDialog";
 import PaymentLedgerSection from "@/components/members/PaymentLedgerSection";
 import { whatsappLink, buildAdmissionMessage, buildPaymentReminderMessage } from "@/lib/whatsapp";
 import type { Member, MemberStatus, Paginated, DashboardSummary, MemberHistoryEntry } from "@/types";
+import { DetailSkeleton, ListSkeleton } from "@/components/shared/skeletons";
 
 const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Members / Students" }];
 
@@ -952,7 +953,7 @@ export default function MembersPage() {
       <Dialog open={!!viewTargetId} onOpenChange={(v) => !v && setViewTargetId(null)}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           {loadingViewMember || !viewMember ? (
-            <p className="text-sm text-gray-500 py-10 text-center">Loading...</p>
+            <DetailSkeleton rows={8} className="py-4" />
           ) : (
             <>
               <DialogHeader>
@@ -1056,7 +1057,7 @@ export default function MembersPage() {
                 <h6 className="text-sm font-semibold mb-2">Activity History</h6>
                 <div className="max-h-40 overflow-y-auto flex flex-col gap-2 rounded-lg border border-border p-3">
                   {loadingHistory ? (
-                    <p className="text-sm text-gray-500 py-3 text-center">Loading...</p>
+                    <ListSkeleton rows={3} avatar={false} />
                   ) : !historyEntries || historyEntries.length === 0 ? (
                     <p className="text-sm text-gray-500 py-3 text-center">No activity recorded yet.</p>
                   ) : (

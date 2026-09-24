@@ -8,10 +8,11 @@ import { Icon } from "@iconify/react";
 import { useAuth } from "@/context/AuthContext";
 import { tenantNeedsPlan } from "@/lib/tenant";
 import { PlanPicker } from "@/components/billing/PlanPicker";
+import GlobalPreloader from "@/components/shared/GlobalPreloader";
 
 export default function SelectPlanPage() {
   return (
-    <Suspense fallback={<div className="h-screen w-full flex items-center justify-center">Loading...</div>}>
+    <Suspense fallback={<GlobalPreloader />}>
       <SelectPlanContent />
     </Suspense>
   );
@@ -33,7 +34,7 @@ function SelectPlanContent() {
   }, [loading, user, isUpgrading, router]);
 
   if (loading || !user) {
-    return <div className="h-screen w-full flex items-center justify-center">Loading...</div>;
+    return <GlobalPreloader />;
   }
 
   return (

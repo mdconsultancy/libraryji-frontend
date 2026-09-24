@@ -36,6 +36,7 @@ import {
   DURATION_UNITS,
 } from "@/lib/duration";
 import type { Member, MemberSubscription, Seat } from "@/types";
+import { DetailSkeleton } from "@/components/shared/skeletons";
 
 const PAYMENT_METHODS: { label: string; value: string }[] = [
   { label: "Pending / Pay Later", value: "pending" },
@@ -196,10 +197,10 @@ export default function RenewMemberDialog({
           </DialogTitle>
         </DialogHeader>
 
-        {isLoading || !base ? (
-          <p className="py-10 text-center text-sm text-gray-500">
-            {isLoading ? "Loading..." : "This student has no subscription to renew yet."}
-          </p>
+        {isLoading ? (
+          <DetailSkeleton header={false} rows={6} className="py-4" />
+        ) : !base ? (
+          <p className="py-10 text-center text-sm text-gray-500">This student has no subscription to renew yet.</p>
         ) : (
           <>
             <div className="flex flex-col gap-4">

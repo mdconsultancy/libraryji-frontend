@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import RevenueForecast from "../../components/dashboard/RevenueForecast";
 import NewCustomers from "../../components/dashboard/NewCustomers";
@@ -23,6 +23,7 @@ import { LIVE_REFRESH_INTERVAL_MS } from "@/lib/swr";
 import type { DashboardSummary, RevenueChartPoint, RevenueDaily, RecentActivityItem, Member, RecentFeedPage } from "@/types";
 
 const FEED_PAGE_SIZE = 10;
+const ACTIVITY_PAGE_SIZE = 5;
 
 const Page = () => {
   const { user } = useAuth();
@@ -57,10 +58,14 @@ const Page = () => {
       : revenueChart ?? [];
 
   // Recent Members and Recent Activities both use "Load more" pagination:
-  // each page bump fetches a new SWR key (page N), and the results are
-  // appended onto local accumulator state below.
+  // each page bump fetches a new SWR key (page N). Results are kept in a
+  // page-keyed map (not a flat append list) so that a background
+  // revalidation of an already-loaded page — SWR's revalidateOnFocus /
+  // revalidateOnReconnect fire for the active key — overwrites that page in
+  // place instead of appending its rows a second time, which is what made
+  // the feed fill with duplicates and never stop "Loading…".
   const [membersPage, setMembersPage] = useState(1);
-  const [membersAccum, setMembersAccum] = useState<Member[]>([]);
+  const [membersPages, setMembersPages] = useState<Record<number, Member[]>>({});
   const {
     data: recentMembersPage,
     isLoading: loadingMembers,
@@ -70,24 +75,47 @@ const Page = () => {
 
   useEffect(() => {
     if (!recentMembersPage) return;
-    setMembersAccum((prev) => (recentMembersPage.page === 1 ? recentMembersPage.data : [...prev, ...recentMembersPage.data]));
+    setMembersPages((prev) => ({ ...prev, [recentMembersPage.page]: recentMembersPage.data }));
   }, [recentMembersPage]);
 
+  const membersAccum = useMemo(
+    () =>
+      Object.keys(membersPages)
+        .map(Number)
+        .sort((a, b) => a - b)
+        .flatMap((p) => membersPages[p]),
+    [membersPages]
+  );
+
+  // Recent Activities uses numbered pages (Prev / 1 2 3 / Next) instead of
+  // "Load more" — only the current page is shown, so there is nothing to
+  // accumulate. keepPreviousData (global SWR config) keeps the old page on
+  // screen while the next one loads.
   const [activityPage, setActivityPage] = useState(1);
-  const [activityAccum, setActivityAccum] = useState<RecentActivityItem[]>([]);
   const {
     data: activityPageData,
     isLoading: loadingActivity,
     isValidating: loadingMoreActivity,
     error: errorActivity,
-  } = useApi<RecentFeedPage<RecentActivityItem>>(isSuperAdmin ? null : "/admin/dashboard/recent-activity", { page: activityPage, per_page: FEED_PAGE_SIZE });
+  } = useApi<RecentFeedPage<RecentActivityItem>>(isSuperAdmin ? null : "/admin/dashboard/recent-activity", { page: activityPage, per_page: ACTIVITY_PAGE_SIZE });
 
+  const activityLastPage = activityPageData?.last_page ?? (activityPageData?.has_more ? activityPage + 1 : activityPage);
+
+  // If the feed shrank (e.g. data cleaned) and the current page no longer exists, step back.
   useEffect(() => {
-    if (!activityPageData) return;
-    setActivityAccum((prev) => (activityPageData.page === 1 ? activityPageData.data : [...prev, ...activityPageData.data]));
-  }, [activityPageData]);
+    if (activityPageData && activityPage > activityLastPage) setActivityPage(activityLastPage);
+  }, [activityPageData, activityPage, activityLastPage]);
 
-  const loading = isSuperAdmin || loadingSummary || (revenueMonths === "daily" ? loadingRevenueDaily : loadingRevenue) || (membersPage === 1 && loadingMembers) || (activityPage === 1 && loadingActivity);
+  const activityPagination = {
+    page: activityPage,
+    lastPage: activityLastPage,
+    total: activityPageData?.total,
+    perPage: ACTIVITY_PAGE_SIZE,
+    loading: loadingMoreActivity,
+    onPageChange: setActivityPage,
+  };
+
+  const loading = isSuperAdmin || loadingSummary || (revenueMonths === "daily" ? loadingRevenueDaily : loadingRevenue) || (membersPage === 1 && loadingMembers) || (activityPage === 1 && loadingActivity && !activityPageData);
   const error = !isSuperAdmin && (errorSummary || errorRevenue || errorRevenueDaily || errorMembers || errorActivity);
 
   if (loading) {
@@ -131,12 +159,7 @@ const Page = () => {
           />
         </div>
         <div className="col-span-12">
-          <RecentActivities
-            activity={activityAccum}
-            hasMore={activityPageData?.has_more}
-            loadingMore={loadingMoreActivity}
-            onLoadMore={() => setActivityPage((p) => p + 1)}
-          />
+          <RecentActivities activity={activityPageData?.data ?? []} pagination={activityPagination} />
         </div>
         <div className="col-span-12 text-center">
           <p className="text-base">
@@ -159,11 +182,9 @@ const Page = () => {
         <AddMemberCard />
         <InquiryCard summary={summary ?? null} />
         <MobileRecentActivity
-          activity={activityAccum}
+          activity={activityPageData?.data ?? []}
           loading={activityPage === 1 && loadingActivity}
-          hasMore={activityPageData?.has_more}
-          loadingMore={loadingMoreActivity}
-          onLoadMore={() => setActivityPage((p) => p + 1)}
+          pagination={activityPagination}
         />
         <div className="text-center py-2">
           <p className="text-sm">

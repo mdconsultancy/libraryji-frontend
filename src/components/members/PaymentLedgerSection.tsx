@@ -17,6 +17,7 @@ import { api, ApiError, invalidateMembers, invalidatePayments } from "@/lib/api"
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/context/ToastContext";
 import type { MemberSubscription, Payment, PaymentMethod, Paginated } from "@/types";
+import { ListSkeleton } from "@/components/shared/skeletons";
 
 const methods: PaymentMethod[] = ["cash", "online", "offline", "upi"];
 
@@ -191,7 +192,7 @@ export default function PaymentLedgerSection({ memberId, subscription, onChanged
 
       <div className="max-h-40 overflow-y-auto flex flex-col gap-2 rounded-lg border border-border p-3">
         {isLoading ? (
-          <p className="text-sm text-gray-500 py-3 text-center">Loading...</p>
+          <ListSkeleton rows={3} avatar={false} />
         ) : subscriptionPayments.length === 0 ? (
           <p className="text-sm text-gray-500 py-3 text-center">No payments recorded yet.</p>
         ) : (

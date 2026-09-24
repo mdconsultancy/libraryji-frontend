@@ -41,19 +41,32 @@ import { Icon } from "@iconify/react";
 import PaginationBar from "@/components/shared/Pagination";
 import TableSkeleton from "@/components/shared/TableSkeleton";
 import GenerateReceiptDialog from "@/components/receipts/GenerateReceiptDialog";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, downloadFile } from "@/lib/api";
 import { useApi } from "@/hooks/useApi";
 import { useMemberOptions } from "@/hooks/useOptions";
 import { usePermission } from "@/hooks/usePermission";
 import { usePermissionGuard } from "@/hooks/usePermissionGuard";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
-import type { Payment, PaymentMethod, PaymentStatus, Paginated } from "@/types";
+import PaymentFilters, {
+  activePaymentFilterCount,
+  defaultPaymentFilters,
+  paymentFilterParams,
+  type PaymentFilterState,
+} from "@/components/payments/PaymentFilters";
+import PaymentSummaryCards from "@/components/payments/PaymentSummaryCards";
+import type { Payment, PaymentMethod, PaymentStatus, PaymentSummary, Paginated } from "@/types";
 
 const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Students Fee" }];
 
 const methods: PaymentMethod[] = ["cash", "online", "offline", "upi"];
 const statuses: PaymentStatus[] = ["pending", "paid", "failed", "refunded"];
+
+function toDateString(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+const TODAY = toDateString(new Date());
 
 const statusStyles: Record<PaymentStatus, string> = {
   paid: "bg-lightsuccess text-success",
@@ -83,10 +96,23 @@ export default function PaymentsPage() {
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [memberIdFilter, setMemberIdFilter] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [methodFilter, setMethodFilter] = useState("all");
+  const [filters, setFilters] = useState<PaymentFilterState>(defaultPaymentFilters);
   const [page, setPage] = useState(1);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [exporting, setExporting] = useState<"pdf" | "xlsx" | null>(null);
+  const canExport = usePermission("reports", "download");
+  const activeFilterCount = activePaymentFilterCount(filters) + (search ? 1 : 0);
+
+  const updateFilters = (next: PaymentFilterState) => {
+    setFilters(next);
+    setPage(1);
+  };
+
+  const clearFilters = () => {
+    setFilters(defaultPaymentFilters);
+    setSearch("");
+    setPage(1);
+  };
 
   // Arrived via a member's "review" link from the Statements page (?member_id=...)
   // — scope the list to that student instead of showing every payment.
@@ -94,14 +120,55 @@ export default function PaymentsPage() {
     setMemberIdFilter(searchParams.get("member_id"));
   }, [searchParams]);
 
-  const { data: payments, isLoading: loading, error: loadError, mutate } = useApi<Paginated<Payment>>("/admin/payments", {
-    page,
+  const filterParams = {
+    ...paymentFilterParams(filters),
     search: search || undefined,
     member_id: memberIdFilter || undefined,
-    status: statusFilter !== "all" ? statusFilter : undefined,
-    payment_method: methodFilter !== "all" ? methodFilter : undefined,
-  });
+  };
+  const { data: payments, isLoading: loading, error: loadError, mutate } = useApi<Paginated<Payment> & { summary?: PaymentSummary }>(
+    "/admin/payments",
+    { page, ...filterParams }
+  );
   const error = loadError ? "Unable to load payments." : null;
+  const summary = payments?.summary;
+
+  const handleExport = async (format: "pdf" | "xlsx") => {
+    if (filters.range === "custom" && filters.from && filters.to && filters.from > filters.to) {
+      toast.error("The From date must be before the To date.");
+      return;
+    }
+    setExporting(format);
+    try {
+      await downloadFile("/admin/payments/export", { ...filterParams, format }, `payments-report-${TODAY}.${format}`);
+    } catch {
+      toast.error("Unable to download the payments report. Please try again.");
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const summaryCards = <PaymentSummaryCards summary={summary} />;
+
+  const exportMenu = canExport && (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" disabled={exporting !== null} className="flex items-center gap-1.5">
+          <Icon icon="solar:download-minimalistic-linear" width={18} height={18} />
+          {exporting ? "Exporting..." : "Export"}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => handleExport("pdf")}>
+          <Icon icon="solar:file-text-linear" width={16} height={16} className="mr-2" />
+          Download PDF
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleExport("xlsx")}>
+          <Icon icon="solar:file-download-linear" width={16} height={16} className="mr-2" />
+          Download Excel
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
   const filteredMemberName = memberIdFilter ? payments?.data.find((p) => String(p.member_id) === memberIdFilter)?.member?.name : null;
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -193,45 +260,26 @@ export default function PaymentsPage() {
       {/* Desktop (xl and up) — unchanged */}
       <div className="hidden xl:block">
       <CardBox className="p-0 bg-background overflow-hidden border-none rounded-xl shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-4 p-6">
-          <div className="flex flex-wrap gap-3">
-            <div className="relative w-full sm:w-64">
+        <div className="flex flex-wrap items-center justify-between gap-4 p-6 pb-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative w-full sm:w-72">
               <Icon icon="solar:magnifer-linear" width={18} height={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-darklink" />
               <Input
-                placeholder="Search by student, phone, invoice..."
+                placeholder="Search by student, phone, invoice, txn ID..."
                 className="pl-10"
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               />
             </div>
-            <div className="w-full sm:w-44">
-              <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  {statuses.map((s) => (
-                    <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-full sm:w-48">
-              <Select value={methodFilter} onValueChange={(v) => { setMethodFilter(v); setPage(1); }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All methods" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All methods</SelectItem>
-                  {methods.map((m) => (
-                    <SelectItem key={m} value={m} className="capitalize">{m.replace('_', ' ')}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {activeFilterCount > 0 && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="text-error flex items-center gap-1">
+                <Icon icon="solar:close-circle-linear" width={16} height={16} />
+                Clear filters ({activeFilterCount})
+              </Button>
+            )}
           </div>
           <div className="flex items-center gap-2">
+            {exportMenu}
             <Button variant="outline" onClick={() => setReceiptDialogOpen(true)} className="flex items-center gap-1.5">
               <Icon icon="solar:document-add-linear" width={18} height={18} />
               Generate Receipt
@@ -244,6 +292,15 @@ export default function PaymentsPage() {
             )}
           </div>
         </div>
+
+        <PaymentFilters
+          value={filters}
+          onChange={updateFilters}
+          today={TODAY}
+          className={`px-6 pb-4 ${filters.range === "custom" ? "grid-cols-4 2xl:grid-cols-8" : "grid-cols-3 2xl:grid-cols-6"}`}
+        />
+
+        <div className="px-6 pb-5">{summaryCards}</div>
 
         {memberIdFilter && (
           <div className="px-6 pb-4">
@@ -360,48 +417,31 @@ export default function PaymentsPage() {
             type="button"
             onClick={() => setMobileFiltersOpen((o) => !o)}
             aria-label="Toggle filters"
-            className={`h-10 w-10 shrink-0 flex items-center justify-center rounded-md border border-border ${mobileFiltersOpen ? "bg-lightprimary text-primary border-primary" : ""}`}
+            className={`relative h-10 w-10 shrink-0 flex items-center justify-center rounded-md border border-border ${mobileFiltersOpen ? "bg-lightprimary text-primary border-primary" : ""}`}
           >
             <Icon icon="solar:tuning-2-linear" width={18} height={18} />
+            {activeFilterCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 rounded-full bg-primary text-white text-[10px] flex items-center justify-center">
+                {activeFilterCount}
+              </span>
+            )}
           </button>
         </div>
 
         {mobileFiltersOpen && (
-          <div className="flex flex-col gap-2">
-            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-              <SelectTrigger>
-                <SelectValue placeholder="All statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                {statuses.map((s) => (
-                  <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={methodFilter} onValueChange={(v) => { setMethodFilter(v); setPage(1); }}>
-              <SelectTrigger>
-                <SelectValue placeholder="All methods" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All methods</SelectItem>
-                {methods.map((m) => (
-                  <SelectItem key={m} value={m} className="capitalize">{m.replace('_', ' ')}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="rounded-2xl bg-white dark:bg-darkgray p-4 shadow-xs flex flex-col gap-3">
+            <PaymentFilters value={filters} onChange={updateFilters} today={TODAY} className="grid-cols-1 sm:grid-cols-2" />
+            {activeFilterCount > 0 && (
+              <Button variant="outline" size="sm" onClick={clearFilters} className="text-error">
+                Clear filters ({activeFilterCount})
+              </Button>
+            )}
           </div>
         )}
 
-        <div className="rounded-2xl bg-lightprimary p-4 shadow-xs flex items-center gap-3">
-          <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center shrink-0">
-            <Icon icon="solar:wallet-bold-duotone" width={24} height={24} className="text-white" />
-          </div>
-          <div>
-            <p className="text-xs text-darklink">Total Payments</p>
-            <p className="text-xl font-bold text-dark dark:text-white">{payments?.total ?? 0}</p>
-          </div>
-        </div>
+        {summaryCards}
+
+        {exportMenu && <div className="flex [&>button]:flex-1">{exportMenu}</div>}
 
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setReceiptDialogOpen(true)} className="flex-1 flex items-center justify-center gap-1.5">
