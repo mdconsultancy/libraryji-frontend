@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getToken } from "@/lib/api";
+import { getToken, hasSessionHint, refreshTokens } from "@/lib/api";
 
 /**
  * The marketing homepage below is a real Server Component so search engines
@@ -18,6 +18,14 @@ export default function HomeAuthRedirect() {
   useEffect(() => {
     if (getToken()) {
       router.replace("/dashboard");
+      return;
+    }
+    // Restore a cookie-backed session (the refresh token is HttpOnly, so
+    // the only way to know it's still valid is to try it).
+    if (hasSessionHint()) {
+      refreshTokens().then((tokens) => {
+        if (tokens) router.replace("/dashboard");
+      });
     }
   }, [router]);
 

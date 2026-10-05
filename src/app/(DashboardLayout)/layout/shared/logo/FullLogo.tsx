@@ -13,7 +13,10 @@ import { useBranding } from "@/context/BrandingContext";
  * Do not hardcode a different logo per panel; every sidebar/header (Super
  * Admin, Admin, Staff) renders through this one component.
  */
-const FullLogo = () => {
+const DEFAULT_SIZE = "h-10 w-auto max-w-40";
+
+/** `className` overrides the default size (e.g. the bigger marketing-site header logo). */
+const FullLogo = ({ className = DEFAULT_SIZE }: { className?: string }) => {
   const { logoUrl, siteName, isLoading } = useBranding();
   const [dynamicFailed, setDynamicFailed] = useState(false);
 
@@ -27,7 +30,7 @@ const FullLogo = () => {
           src={logoUrl}
           alt={siteName}
           height={40}
-          className="h-10 w-auto max-w-40 object-contain"
+          className={`${className} object-contain`}
           onError={() => setDynamicFailed(true)}
         />
       </Link>
@@ -43,7 +46,7 @@ const FullLogo = () => {
         alt={siteName}
         width={135}
         height={40}
-        className="h-10 w-auto max-w-40 object-contain"
+        className={`${className} object-contain`}
         priority
       />
     </Link>

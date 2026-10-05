@@ -20,7 +20,7 @@ export default function FileUploadField({
   value,
   onChange,
   existingUrl,
-  accept = ".jpg,.jpeg,.png,.webp,.svg",
+  accept = ".jpg,.jpeg,.png,.webp",
   maxSizeMb = 4,
   uploading = false,
   id,

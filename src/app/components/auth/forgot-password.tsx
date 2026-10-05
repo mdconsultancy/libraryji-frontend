@@ -146,7 +146,8 @@ export const ForgotPassword = () => {
           {step === 'code' && (
             <>
               <p className='text-sm text-charcoal text-center mb-6'>
-                Enter the 6-digit code we sent to <span className='font-medium'>{email}</span>.
+                If an account exists for <span className='font-medium'>{email}</span>, we&apos;ve emailed it a 6-digit code — enter it below.
+                Staff accounts receive instructions to contact their library admin instead.
               </p>
               <form onSubmit={handleContinueWithCode} className='flex flex-col gap-4'>
                 <Input

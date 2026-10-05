@@ -13,7 +13,7 @@ export default function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-white/80 backdrop-blur-md dark:border-darkborder dark:bg-dark/80">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
-        <FullLogo />
+        <FullLogo className="h-12 w-auto max-w-48 sm:h-14 sm:max-w-56" />
         <nav className="hidden items-center gap-6 md:flex">
           {NAV_LINKS.map((link) => (
             <a

@@ -601,7 +601,13 @@ export default function PlatformSettingsPage() {
                           id={`${group.key}_${field.key}`}
                           value={(value as string) ?? ""}
                           onChange={(v) => updateField(group.key, field.key, v)}
-                          placeholder="Enter value"
+                          // Secrets are write-only: the API never returns them,
+                          // and leaving this blank keeps the stored value.
+                          placeholder={
+                            allSettings[group.key]?.[`${field.key}_is_set`]
+                              ? "Saved — leave blank to keep current value"
+                              : "Enter value"
+                          }
                           autoComplete="off"
                         />
                       </div>

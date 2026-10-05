@@ -423,7 +423,7 @@ export default function StaffPage() {
                   onChange={setPhoto}
                   existingUrl={existingPhotoUrl}
                   maxSizeMb={1}
-                  acceptedExtensions={["jpg", "jpeg", "png", "webp", "svg"]}
+                  acceptedExtensions={["jpg", "jpeg", "png", "webp"]}
                 />
                 {fieldError("photo") && <p className="text-xs text-error">{fieldError("photo")}</p>}
               </div>
@@ -522,7 +522,7 @@ export default function StaffPage() {
                   onChange={setIdProofFile}
                   existingUrl={existingIdProofUrl}
                   maxSizeMb={1}
-                  acceptedExtensions={["jpg", "jpeg", "png", "webp", "svg"]}
+                  acceptedExtensions={["jpg", "jpeg", "png", "webp"]}
                 />
                 {fieldError("id_proof") && <p className="text-xs text-error">{fieldError("id_proof")}</p>}
               </div>

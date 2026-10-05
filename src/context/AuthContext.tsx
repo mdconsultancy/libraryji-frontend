@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react'
 import { mutate as globalMutate } from 'swr'
-import { api, getToken, getRefreshToken, setTokens, SUBSCRIPTION_EXPIRED_EVENT, type TokenPair } from '@/lib/api'
+import { api, getToken, hasSessionHint, setTokens, SUBSCRIPTION_EXPIRED_EVENT, type TokenPair } from '@/lib/api'
 import type { User } from '@/types'
 
 // SWR's cache is a single app-lifetime store keyed only by API path (see lib/swr.ts),
@@ -67,7 +67,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loggingOut, setLoggingOut] = useState(false)
 
   const refreshMe = useCallback(async () => {
-    if (!getToken()) {
+    // No in-memory token and no sign of a cookie session: definitely signed out.
+    // Otherwise /auth/me below restores the session via the HttpOnly refresh cookie.
+    if (!getToken() && !hasSessionHint()) {
       setUser(null)
       setLoading(false)
       return
@@ -183,9 +185,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // instead of only after the network round-trip below resolves.
     setLoggingOut(true)
     try {
-      // Revokes this refresh token server-side — without this, the pair
-      // would keep working (via silent refresh) until it naturally expires.
-      await api.post('/auth/logout', { refresh_token: getRefreshToken() })
+      // Revokes the refresh token (sent as the HttpOnly cookie) server-side
+      // and clears the cookie.
+      await api.post('/auth/logout')
     } catch {
       // ignore network errors on logout, still clear local state
     }

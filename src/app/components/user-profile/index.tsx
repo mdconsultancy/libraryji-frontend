@@ -19,7 +19,7 @@ import PasswordInput from "@/components/form/PasswordInput";
 import ImageUploadField from "@/components/form/ImageUploadField";
 import Avatar from "@/components/shared/Avatar";
 import { useAuth } from "@/context/AuthContext";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, setTokens } from "@/lib/api";
 import { WHATSAPP_LANGUAGE_ORDER, WHATSAPP_LANGUAGE_LABELS, normalizeWhatsAppLanguages } from "@/lib/whatsapp";
 import type { User, WhatsAppLanguage } from "@/types";
 
@@ -133,7 +133,13 @@ const UserProfile = () => {
                     await api.put<{ user: User }>("/auth/profile", personalForm);
                 }
             } else if (modalType === "password") {
-                await api.put<{ user: User }>("/auth/profile", passwordForm);
+                // A password change signs out every other session; the API
+                // returns a fresh token pair so this one stays signed in.
+                // (the new refresh token arrives as an HttpOnly cookie).
+                const res = await api.put<{ user: User; access_token?: string }>("/auth/profile", passwordForm);
+                if (res.access_token) {
+                    setTokens({ access_token: res.access_token });
+                }
             } else if (modalType === "payment") {
                 await api.put<{ user: User }>("/auth/profile", paymentForm);
             } else if (modalType === "idproof") {
@@ -336,7 +342,7 @@ const UserProfile = () => {
                                     onChange={setPhoto}
                                     existingUrl={user.avatar_url}
                                     maxSizeMb={1}
-                                    acceptedExtensions={["jpg", "jpeg", "png", "webp", "svg"]}
+                                    acceptedExtensions={["jpg", "jpeg", "png", "webp"]}
                                 />
                             </div>
                             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -389,7 +395,7 @@ const UserProfile = () => {
                                     onChange={setIdProofFile}
                                     existingUrl={user.id_proof_url}
                                     maxSizeMb={1}
-                                    acceptedExtensions={["jpg", "jpeg", "png", "webp", "svg"]}
+                                    acceptedExtensions={["jpg", "jpeg", "png", "webp"]}
                                 />
                             </div>
                         </div>

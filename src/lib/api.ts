@@ -1,11 +1,26 @@
 // Thin fetch wrapper around the Laravel API (JWT access/refresh bearer auth).
+//
+// Session storage model (security):
+//  - The short-lived ACCESS token (15 min) lives only in memory — never in
+//    localStorage — so it can't be read back after the tab closes.
+//  - The long-lived REFRESH token is never visible to JavaScript at all: the
+//    backend sets it as an HttpOnly, SameSite=Strict cookie scoped to
+//    /api/auth because every request sends `X-Auth-Transport: cookie` (see
+//    backend RefreshTokenCookie middleware). An XSS bug therefore can't steal
+//    a persistent session.
+//  - A non-secret "session hint" flag in localStorage only tells the app
+//    whether it's worth attempting a silent cookie refresh on page load.
 
 import { mutate as swrMutate } from 'swr'
 
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api').replace(/\/+$/, '')
 const STORAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '')
-const ACCESS_TOKEN_KEY = 'libraryji_access_token'
-const REFRESH_TOKEN_KEY = 'libraryji_refresh_token'
+const SESSION_HINT_KEY = 'libraryji_session'
+// Pre-cookie builds kept both tokens here — read once to migrate, then wiped.
+const LEGACY_ACCESS_TOKEN_KEY = 'libraryji_access_token'
+const LEGACY_REFRESH_TOKEN_KEY = 'libraryji_refresh_token'
+
+const AUTH_HEADERS: Record<string, string> = { 'X-Auth-Transport': 'cookie' }
 
 export class ApiError extends Error {
   status: number
@@ -21,29 +36,44 @@ export class ApiError extends Error {
 
 export interface TokenPair {
   access_token: string
-  refresh_token: string
+  /** Only ever present for non-browser clients; the web app gets an HttpOnly cookie. */
+  refresh_token?: string
+}
+
+let accessToken: string | null = null
+
+function safeStorage(): Storage | null {
+  try {
+    return typeof window === 'undefined' ? null : window.localStorage
+  } catch {
+    return null
+  }
 }
 
 export function getToken(): string | null {
-  if (typeof window === 'undefined') return null
-  return localStorage.getItem(ACCESS_TOKEN_KEY)
+  return accessToken
 }
 
+/** True when this browser had a signed-in session that may be restorable via the refresh cookie. */
+export function hasSessionHint(): boolean {
+  const storage = safeStorage()
+  return !!storage && (storage.getItem(SESSION_HINT_KEY) === '1' || !!storage.getItem(LEGACY_REFRESH_TOKEN_KEY))
+}
+
+/** Kept for API compatibility — the refresh token is never readable by JS any more. */
 export function getRefreshToken(): string | null {
-  if (typeof window === 'undefined') return null
-  return localStorage.getItem(REFRESH_TOKEN_KEY)
+  return null
 }
 
-/** Called after login/register/refresh (both tokens), or with `null` to clear on logout/expiry. */
+/** Called after login/register/refresh, or with `null` to clear on logout/expiry. */
 export function setTokens(tokens: TokenPair | null) {
-  if (typeof window === 'undefined') return
-  if (tokens) {
-    localStorage.setItem(ACCESS_TOKEN_KEY, tokens.access_token)
-    localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh_token)
-  } else {
-    localStorage.removeItem(ACCESS_TOKEN_KEY)
-    localStorage.removeItem(REFRESH_TOKEN_KEY)
-  }
+  const storage = safeStorage()
+  accessToken = tokens?.access_token ?? null
+  if (!storage) return
+  storage.removeItem(LEGACY_ACCESS_TOKEN_KEY)
+  storage.removeItem(LEGACY_REFRESH_TOKEN_KEY)
+  if (tokens) storage.setItem(SESSION_HINT_KEY, '1')
+  else storage.removeItem(SESSION_HINT_KEY)
 }
 
 /**
@@ -82,21 +112,36 @@ function buildUrl(path: string, params?: RequestOptions['params']): string {
 // Shared across concurrent 401s so a burst of requests triggers one refresh, not one each.
 let refreshPromise: Promise<TokenPair | null> | null = null
 
-async function refreshTokens(): Promise<TokenPair | null> {
-  const refreshToken = getRefreshToken()
-  if (!refreshToken) return null
+async function doRefresh(): Promise<TokenPair | null> {
+  const storage = safeStorage()
+  // One-time migration of a pre-cookie session: hand the old refresh token
+  // to the server once (it answers with the cookie), then forget it.
+  const legacy = storage?.getItem(LEGACY_REFRESH_TOKEN_KEY)
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...AUTH_HEADERS },
+      body: JSON.stringify(legacy ? { refresh_token: legacy } : {}),
+    })
+    return res.ok ? ((await res.json()) as TokenPair) : null
+  } catch {
+    return null
+  }
+}
+
+export async function refreshTokens(): Promise<TokenPair | null> {
+  if (!hasSessionHint()) return null
 
   if (!refreshPromise) {
-    refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ refresh_token: refreshToken }),
+    // Serialise refreshes across tabs: each refresh rotates the cookie, so a
+    // second tab must wait for the first tab's new cookie before using it.
+    const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined
+    const run = (): Promise<TokenPair | null> =>
+      locks ? locks.request('libraryji-refresh', async () => await doRefresh()).then((t) => t ?? null) : doRefresh()
+    refreshPromise = run().finally(() => {
+      refreshPromise = null
     })
-      .then(async (res) => (res.ok ? ((await res.json()) as TokenPair) : null))
-      .catch(() => null)
-      .finally(() => {
-        refreshPromise = null
-      })
   }
 
   const tokens = await refreshPromise
@@ -106,6 +151,12 @@ async function refreshTokens(): Promise<TokenPair | null> {
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   let { method = 'GET', body, params } = options
+
+  // Fresh page load: no in-memory access token yet, but a cookie session may exist.
+  if (!accessToken && !options._isRetry && hasSessionHint() && !path.startsWith('/auth/')) {
+    await refreshTokens()
+  }
+
   const token = getToken()
   const isFormData = body instanceof FormData
 
@@ -117,6 +168,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
   const headers: Record<string, string> = {
     Accept: 'application/json',
+    ...AUTH_HEADERS,
   }
   if (!isFormData) headers['Content-Type'] = 'application/json'
   if (token) headers['Authorization'] = `Bearer ${token}`
@@ -124,6 +176,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const response = await fetch(buildUrl(path, params), {
     method,
     headers,
+    // Needed so the browser stores/sends the HttpOnly refresh cookie on /auth/*.
+    credentials: 'include',
     body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
   })
 
@@ -214,11 +268,19 @@ export function invalidatePayments() {
  * the Bearer token, so the file has to be fetched as a blob first.
  */
 export async function downloadFile(path: string, params: RequestOptions['params'], filename: string): Promise<void> {
-  const token = getToken()
-  const headers: Record<string, string> = {}
-  if (token) headers['Authorization'] = `Bearer ${token}`
+  if (!accessToken) await refreshTokens()
 
-  const response = await fetch(buildUrl(path, params), { headers })
+  const send = () => {
+    const headers: Record<string, string> = { ...AUTH_HEADERS }
+    const token = getToken()
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    return fetch(buildUrl(path, params), { headers, credentials: 'include' })
+  }
+
+  let response = await send()
+  if (response.status === 401 && (await refreshTokens())) {
+    response = await send()
+  }
   if (!response.ok) {
     throw new ApiError(`Download failed with status ${response.status}`, response.status)
   }
