@@ -13,6 +13,8 @@ interface PasswordInputProps {
   autoComplete?: string;
   showStrength?: boolean;
   readOnly?: boolean;
+  /** When set, opening the eye on an empty field fetches the saved value through this. */
+  onReveal?: () => Promise<string | null>;
 }
 
 function strengthOf(password: string): { score: number; label: string; color: string } {
@@ -38,9 +40,26 @@ export default function PasswordInput({
   autoComplete = "new-password",
   showStrength = false,
   readOnly = false,
+  onReveal,
 }: PasswordInputProps) {
   const [visible, setVisible] = useState(false);
+  const [revealing, setRevealing] = useState(false);
   const strength = strengthOf(value);
+
+  const toggle = async () => {
+    // A saved secret is never sent to the browser up front — fetch it on
+    // demand the first time the eye is opened on an empty field.
+    if (!visible && !value && onReveal) {
+      setRevealing(true);
+      try {
+        const revealed = await onReveal();
+        if (revealed) onChange(revealed);
+      } finally {
+        setRevealing(false);
+      }
+    }
+    setVisible((v) => !v);
+  };
 
   return (
     <div>
@@ -58,12 +77,13 @@ export default function PasswordInput({
         />
         <button
           type="button"
-          onClick={() => setVisible((v) => !v)}
+          onClick={toggle}
+          disabled={revealing}
           className="absolute right-3 top-1/2 -translate-y-1/2 text-darklink hover:text-primary"
           tabIndex={-1}
           aria-label={visible ? "Hide password" : "Show password"}
         >
-          <Icon icon={visible ? "tabler:eye-off" : "tabler:eye"} width={18} height={18} />
+          <Icon icon={revealing ? "tabler:loader-2" : visible ? "tabler:eye-off" : "tabler:eye"} width={18} height={18} className={revealing ? "animate-spin" : undefined} />
         </button>
       </div>
       {showStrength && value && (

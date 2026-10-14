@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { currencies } from "@/data/currencies";
 import { storageUrl } from "@/lib/api";
 import { openRazorpayCheckout } from "@/lib/razorpay";
+import { openCashfreeCheckout } from "@/lib/cashfree";
 import { FormSkeleton } from "@/components/shared/skeletons";
 
 const BCrumb = [{ to: "/dashboard", title: "Home" }, { title: "Platform Settings" }];
@@ -33,6 +34,7 @@ interface FieldConfig {
   key: string;
   label: string;
   type: FieldType;
+  section?: string;
   options?: { value: string; label: string }[];
 }
 
@@ -85,24 +87,24 @@ const GROUPS: { key: string; label: string; description?: string; fields: FieldC
           { value: "yearly", label: "Yearly" },
         ],
       },
-      { key: "razorpay_enabled", label: "Razorpay Enabled", type: "boolean" },
-      { key: "razorpay_key_id", label: "Razorpay Key ID", type: "text" },
-      { key: "razorpay_key_secret", label: "Razorpay Key Secret", type: "password" },
-      { key: "razorpay_webhook_secret", label: "Razorpay Webhook Secret", type: "password" },
-      { key: "cashfree_enabled", label: "Cashfree Enabled", type: "boolean" },
+      { key: "razorpay_enabled", section: "razorpay", label: "Razorpay Enabled", type: "boolean" },
+      { key: "razorpay_key_id", section: "razorpay", label: "Razorpay Key ID", type: "text" },
+      { key: "razorpay_key_secret", section: "razorpay", label: "Razorpay Key Secret", type: "password" },
+      { key: "razorpay_webhook_secret", section: "razorpay", label: "Razorpay Webhook Secret", type: "password" },
+      { key: "cashfree_enabled", section: "cashfree", label: "Cashfree Enabled", type: "boolean" },
       {
-        key: "cashfree_mode", label: "Cashfree Mode", type: "select",
+        key: "cashfree_mode", section: "cashfree", label: "Cashfree Mode", type: "select",
         options: [
           { value: "test", label: "Test / Sandbox" },
           { value: "production", label: "Production (Live)" },
         ],
       },
-      { key: "cashfree_app_id", label: "Cashfree App ID", type: "text" },
-      { key: "cashfree_secret_key", label: "Cashfree Secret Key", type: "password" },
-      { key: "cashfree_webhook_secret", label: "Cashfree Webhook Secret", type: "password" },
-      { key: "stripe_enabled", label: "Stripe Enabled", type: "boolean" },
-      { key: "stripe_publishable_key", label: "Stripe Publishable Key", type: "text" },
-      { key: "stripe_secret_key", label: "Stripe Secret Key", type: "password" },
+      { key: "cashfree_app_id", section: "cashfree", label: "Cashfree App ID", type: "text" },
+      { key: "cashfree_secret_key", section: "cashfree", label: "Cashfree Secret Key", type: "password" },
+      { key: "cashfree_webhook_secret", section: "cashfree", label: "Cashfree Webhook Secret", type: "password" },
+      { key: "stripe_enabled", section: "stripe", label: "Stripe Enabled", type: "boolean" },
+      { key: "stripe_publishable_key", section: "stripe", label: "Stripe Publishable Key", type: "text" },
+      { key: "stripe_secret_key", section: "stripe", label: "Stripe Secret Key", type: "password" },
     ],
   },
   {
@@ -246,6 +248,8 @@ export default function PlatformSettingsPage() {
   const [testAmount, setTestAmount] = useState("1");
   const [testRazorpayStatus, setTestRazorpayStatus] = useState<string | null>(null);
   const [testingRazorpay, setTestingRazorpay] = useState(false);
+  const [testCashfreeStatus, setTestCashfreeStatus] = useState<string | null>(null);
+  const [testingCashfree, setTestingCashfree] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [uploadingAsset, setUploadingAsset] = useState<"logo" | "favicon" | null>(null);
   const [testGoogleStatus, setTestGoogleStatus] = useState<{ ok: boolean; message: string } | null>(null);
@@ -438,47 +442,8 @@ export default function PlatformSettingsPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <>
-        <BreadcrumbComp title="Platform Settings" items={BCrumb} />
-        <FormSkeleton tabs={6} fields={8} />
-      </>
-    );
-  }
-
-  if (loadError) {
-    return (
-      <>
-        <BreadcrumbComp title="Platform Settings" items={BCrumb} />
-        <CardBox className="p-6 bg-background border-none rounded-xl shadow-xs text-center">
-          <p className="text-sm text-error mb-4">{loadError}</p>
-          <Button variant="outline" onClick={loadSettings}>
-            Retry
-          </Button>
-        </CardBox>
-      </>
-    );
-  }
-
-  return (
-    <>
-      <BreadcrumbComp title="Platform Settings" items={BCrumb} />
-
-      <CardBox className="p-6 bg-background border-none rounded-xl shadow-xs">
-        <Tabs defaultValue="general">
-          <TabsList className="flex-wrap h-auto">
-            {GROUPS.map((g) => (
-              <TabsTrigger key={g.key} value={g.key}>{g.label}</TabsTrigger>
-            ))}
-          </TabsList>
-
-          {GROUPS.map((group) => (
-            <TabsContent key={group.key} value={group.key}>
-              <form onSubmit={(e) => handleSave(e, group.key)} className="grid grid-cols-1 gap-4 lg:grid-cols-2 mt-4">
-                {group.description && <p className="text-sm text-darklink lg:col-span-2">{group.description}</p>}
-                {savedGroup === group.key && <p className="text-sm text-success lg:col-span-2">Settings saved.</p>}
-                {group.fields.map((field) => {
+  const renderFields = (group: (typeof GROUPS)[number], fields: FieldConfig[]) =>
+    fields.map((field) => {
                   const value = allSettings[group.key]?.[field.key];
 
                   if (field.type === "boolean") {
@@ -609,6 +574,11 @@ export default function PlatformSettingsPage() {
                               : "Enter value"
                           }
                           autoComplete="off"
+                          onReveal={
+                            group.key === "payment" && allSettings.payment?.[`${field.key}_is_set`]
+                              ? () => revealPaymentSecret(field.key)
+                              : undefined
+                          }
                         />
                       </div>
                     );
@@ -625,7 +595,217 @@ export default function PlatformSettingsPage() {
                       />
                     </div>
                   );
-                })}
+    });
+
+  const revealPaymentSecret = async (key: string): Promise<string | null> => {
+    try {
+      const res = await api.get<{ value: string }>(`/super-admin/settings/payment/reveal/${key}`);
+      return res.value || null;
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Unable to show the saved value.");
+      return null;
+    }
+  };
+
+  const handleTestCashfree = async () => {
+    setTestCashfreeStatus(null);
+    setTestingCashfree(true);
+    try {
+      const order = await api.post<{
+        mode: "sandbox" | "production";
+        is_live: boolean;
+        order_id: string;
+        payment_session_id: string;
+      }>("/super-admin/settings/payment/test-cashfree", { amount: Number(testAmount) });
+
+      if (order.is_live) {
+        const proceed = window.confirm(
+          "These are LIVE Cashfree credentials — this test will attempt a REAL payment and REAL money can be charged. Continue?"
+        );
+        if (!proceed) return;
+      }
+
+      const result = await openCashfreeCheckout(order.payment_session_id, order.mode);
+
+      // The popup's own result is only a hint — the server asks Cashfree
+      // directly whether the order was really paid.
+      const check = await api.post<{ status: string; paid: boolean }>(
+        "/super-admin/settings/payment/verify-cashfree",
+        { order_id: order.order_id }
+      );
+      if (check.paid) {
+        setTestCashfreeStatus(`Payment successful — Order ID: ${order.order_id}`);
+        toast.success("Cashfree is connected and working — test payment completed.");
+      } else {
+        const reason = result.error?.message ? ` (${result.error.message})` : "";
+        setTestCashfreeStatus(`Payment not completed — order status: ${check.status}${reason}`);
+      }
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Failed to test Cashfree connection.";
+      setTestCashfreeStatus(message);
+      toast.error(message);
+    } finally {
+      setTestingCashfree(false);
+    }
+  };
+
+  const renderTestPanel = (opts: {
+    id: string;
+    title: string;
+    hint: string;
+    status: string | null;
+    busy: boolean;
+    onTest: () => void;
+  }) => (
+    <div className="flex flex-col gap-2 border-t border-border pt-4 mt-2 lg:col-span-2">
+      <Label htmlFor={opts.id}>{opts.title}</Label>
+      <div className="flex gap-2">
+        <Input
+          id={opts.id}
+          type="number"
+          min={1}
+          step="0.01"
+          placeholder="Amount"
+          value={testAmount}
+          onChange={(e) => setTestAmount(e.target.value)}
+          className="max-w-40"
+        />
+        <Button type="button" variant="outline" onClick={opts.onTest} disabled={!testAmount || opts.busy}>
+          {opts.busy ? "Testing..." : "Send Test"}
+        </Button>
+      </div>
+      <p className="text-xs text-gray-500">{opts.hint}</p>
+      {opts.status && <p className="text-sm text-darklink">{opts.status}</p>}
+    </div>
+  );
+
+  const renderWebhookUrl = (path: string, events: string) => {
+    const url = `${(process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").replace(/\/+$/, "")}${path}`;
+    return (
+      <div className="flex flex-col gap-2 lg:col-span-2">
+        <Label>Webhook URL</Label>
+        <div className="flex gap-2">
+          <Input readOnly value={url} className="bg-muted" />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(url);
+                toast.success("Webhook URL copied.");
+              } catch {
+                toast.error("Unable to copy to clipboard.");
+              }
+            }}
+          >
+            <Icon icon="tabler:copy" width={18} height={18} />
+          </Button>
+        </div>
+        <p className="text-xs text-gray-500">Paste this in the gateway dashboard under Webhooks. Events: {events}.</p>
+      </div>
+    );
+  };
+
+  const renderPaymentTabs = (group: (typeof GROUPS)[number]) => (
+    <Tabs defaultValue="billing" className="lg:col-span-2">
+      <TabsList className="flex-wrap h-auto">
+        <TabsTrigger value="billing">Billing</TabsTrigger>
+        <TabsTrigger value="razorpay">Razorpay</TabsTrigger>
+        <TabsTrigger value="cashfree">Cashfree</TabsTrigger>
+        <TabsTrigger value="stripe">Stripe</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="billing">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 mt-4">
+          {renderFields(group, group.fields.filter((f) => !f.section))}
+          <p className="text-xs text-gray-500 lg:col-span-2">
+            {currencies.find((c) => c.code === allSettings.payment?.currency)?.name}
+          </p>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="razorpay">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 mt-4">
+          {renderFields(group, group.fields.filter((f) => f.section === "razorpay"))}
+          {renderWebhookUrl("/webhooks/razorpay", "payment.captured, payment.authorized, order.paid")}
+          {renderTestPanel({
+            id: "test_razorpay_amount",
+            title: "Test Razorpay Connection",
+            hint: "Opens the actual Razorpay payment popup for this amount so you can see it work end-to-end. With test keys (rzp_test_...) no real money moves; with live keys this is a real charge. Save your keys first.",
+            status: testRazorpayStatus,
+            busy: testingRazorpay,
+            onTest: handleTestRazorpay,
+          })}
+        </div>
+      </TabsContent>
+
+      <TabsContent value="cashfree">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 mt-4">
+          {renderFields(group, group.fields.filter((f) => f.section === "cashfree"))}
+          {renderWebhookUrl("/webhooks/cashfree", "Payment Success, Payment Failed, Payment User Dropped, Refund Status")}
+          {renderTestPanel({
+            id: "test_cashfree_amount",
+            title: "Test Cashfree Connection",
+            hint: "Opens the actual Cashfree payment popup for this amount. In Test / Sandbox mode no real money moves; in Production (Live) mode this is a real charge. Save your App ID and Secret Key first.",
+            status: testCashfreeStatus,
+            busy: testingCashfree,
+            onTest: handleTestCashfree,
+          })}
+        </div>
+      </TabsContent>
+
+      <TabsContent value="stripe">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 mt-4">
+          {renderFields(group, group.fields.filter((f) => f.section === "stripe"))}
+          <p className="text-xs text-gray-500 border-t border-border pt-4 mt-2 lg:col-span-2">
+            Stripe checkout is not built yet, so there is no payment test for it.
+          </p>
+        </div>
+      </TabsContent>
+    </Tabs>
+  );
+
+  if (loading) {
+    return (
+      <>
+        <BreadcrumbComp title="Platform Settings" items={BCrumb} />
+        <FormSkeleton tabs={6} fields={8} />
+      </>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <>
+        <BreadcrumbComp title="Platform Settings" items={BCrumb} />
+        <CardBox className="p-6 bg-background border-none rounded-xl shadow-xs text-center">
+          <p className="text-sm text-error mb-4">{loadError}</p>
+          <Button variant="outline" onClick={loadSettings}>
+            Retry
+          </Button>
+        </CardBox>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <BreadcrumbComp title="Platform Settings" items={BCrumb} />
+
+      <CardBox className="p-6 bg-background border-none rounded-xl shadow-xs">
+        <Tabs defaultValue="general">
+          <TabsList className="flex-wrap h-auto">
+            {GROUPS.map((g) => (
+              <TabsTrigger key={g.key} value={g.key}>{g.label}</TabsTrigger>
+            ))}
+          </TabsList>
+
+          {GROUPS.map((group) => (
+            <TabsContent key={group.key} value={group.key}>
+              <form onSubmit={(e) => handleSave(e, group.key)} className="grid grid-cols-1 gap-4 lg:grid-cols-2 mt-4">
+                {group.description && <p className="text-sm text-darklink lg:col-span-2">{group.description}</p>}
+                {savedGroup === group.key && <p className="text-sm text-success lg:col-span-2">Settings saved.</p>}
+                {group.key === "payment" ? renderPaymentTabs(group) : renderFields(group, group.fields)}
 
                 {group.key === "smtp" && (
                   <div className="flex flex-col gap-2 lg:col-span-2 border-t border-border pt-4 mt-2">
@@ -638,38 +818,6 @@ export default function PlatformSettingsPage() {
                     </div>
                     {testEmailStatus && <p className="text-sm text-darklink">{testEmailStatus}</p>}
                   </div>
-                )}
-
-                {group.key === "payment" && (
-                  <div className="flex flex-col gap-2 lg:col-span-2 border-t border-border pt-4 mt-2">
-                    <Label htmlFor="test_razorpay_amount">Test Razorpay Connection</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="test_razorpay_amount"
-                        type="number"
-                        min={1}
-                        step="0.01"
-                        placeholder="Amount"
-                        value={testAmount}
-                        onChange={(e) => setTestAmount(e.target.value)}
-                        className="max-w-40"
-                      />
-                      <Button type="button" variant="outline" onClick={handleTestRazorpay} disabled={!testAmount || testingRazorpay}>
-                        {testingRazorpay ? "Testing..." : "Send Test"}
-                      </Button>
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      Opens the actual Razorpay payment popup for this amount so you can see it work end-to-end. With
-                      test keys (rzp_test_...) no real money moves; with live keys this is a real charge.
-                    </p>
-                    {testRazorpayStatus && <p className="text-sm text-darklink">{testRazorpayStatus}</p>}
-                  </div>
-                )}
-
-                {group.key === "payment" && (
-                  <p className="text-xs text-gray-500 lg:col-span-2">
-                    {currencies.find((c) => c.code === allSettings.payment?.currency)?.name}
-                  </p>
                 )}
 
                 {group.key === "oauth" && (
