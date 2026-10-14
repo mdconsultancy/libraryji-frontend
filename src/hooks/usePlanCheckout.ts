@@ -5,13 +5,19 @@ import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { api, ApiError } from "@/lib/api";
 import { openRazorpayCheckout } from "@/lib/razorpay";
+import { openCashfreeCheckout } from "@/lib/cashfree";
 import type { SubscriptionPlan } from "@/types";
 
 interface OrderResponse {
+  gateway: "razorpay" | "cashfree";
   order_id: string;
   amount: number;
   currency: string;
-  key_id: string;
+  // Razorpay only
+  key_id?: string;
+  // Cashfree only
+  payment_session_id?: string;
+  mode?: "sandbox" | "production";
   plan: SubscriptionPlan;
 }
 
@@ -33,9 +39,38 @@ export function usePlanCheckout(onActivated?: () => void) {
         subscription_plan_id: plan.id,
       });
 
+      if (order.gateway === "cashfree") {
+        try {
+          await openCashfreeCheckout(order.payment_session_id!, order.mode ?? "production");
+          // The popup result is only a hint — the server asks Cashfree whether
+          // the order was really paid before activating anything.
+          const result = await api.post<{ tenant: { library_code: string | null } }>("/admin/select-plan/verify", {
+            subscription_plan_id: plan.id,
+            cashfree_order_id: order.order_id,
+          });
+          await refreshMe();
+          const code = result.tenant?.library_code;
+          toast.success(
+            code
+              ? `Payment successful! Your library is now active. Your Library Code is ${code} — you'll need it to log in.`
+              : "Payment successful! Your library is now active."
+          );
+          onActivated?.();
+        } catch (err) {
+          toast.error(
+            err instanceof ApiError
+              ? err.message
+              : "We couldn't confirm your payment. If money was deducted, it will be activated automatically shortly or contact support."
+          );
+        } finally {
+          setPayingId(null);
+        }
+        return;
+      }
+
       await openRazorpayCheckout(
         {
-          key: order.key_id,
+          key: order.key_id!,
           amount: order.amount,
           currency: order.currency,
           order_id: order.order_id,
