@@ -11,10 +11,10 @@ const USEFUL_LINKS = [
   { href: "#faq", label: "FAQ" },
 ];
 
-// TODO: once the Android/iOS apps are actually published, point these at
-// the real Play Store / App Store listing URLs.
+// Play Store listing is live; the App Store link is still a placeholder until the iOS app ships.
 const APP_STORE_URL = "/auth/register";
-const PLAY_STORE_URL = "/auth/register";
+const PLAY_STORE_URL =
+  "https://play.google.com/store/apps/details?id=com.libraryji.app&pcampaignid=web_share";
 
 const HELP_LINKS = [
   { href: "/contact-us", label: "Contact Us" },
@@ -107,7 +107,7 @@ export default function SiteFooter() {
           <div className="col-span-2 lg:col-span-1">
             <h4 className="text-sm font-semibold text-white">Get The App</h4>
             <div className="mt-4 flex flex-row flex-wrap gap-3 lg:flex-col">
-              <a href={PLAY_STORE_URL} className="w-fit transition-opacity hover:opacity-80">
+              <a href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer" className="w-fit transition-opacity hover:opacity-80">
                 <Image
                   src="/images/logos/footer-playstore-.png"
                   alt="Get it on Google Play"

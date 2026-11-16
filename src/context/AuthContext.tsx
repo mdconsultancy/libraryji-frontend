@@ -53,6 +53,7 @@ interface AuthContextValue {
   loginWithGoogle: (credential: string) => Promise<User>
   loginStaffWithGoogle: (credential: string, libraryCode: string) => Promise<User>
   verifyTwoFactor: (userId: number, code: string) => Promise<User>
+  completeOtpLogin: (response: { user: User } & TokenPair) => Promise<User>
   resendTwoFactor: (userId: number) => Promise<void>
   register: (payload: RegisterPayload) => Promise<User>
   logout: () => Promise<void>
@@ -164,6 +165,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return user
   }, [])
 
+  // Mobile-number OTP sign-in / sign-up: the OTP endpoints return the same
+  // { user, access_token, refresh_token } shape as a normal login.
+  const completeOtpLogin = useCallback(async (response: { user: User } & TokenPair): Promise<User> => {
+    const { user, ...tokens } = response
+    await clearSwrCache()
+    setTokens(tokens)
+    setUser(user)
+    return user
+  }, [])
+
   const resendTwoFactor = useCallback(async (userId: number) => {
     await api.post('/auth/2fa/resend', { user_id: userId })
   }, [])
@@ -201,7 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, loggingOut, login, loginWithGoogle, loginStaffWithGoogle, verifyTwoFactor, resendTwoFactor, register, logout, refreshMe }}
+      value={{ user, loading, loggingOut, login, loginWithGoogle, loginStaffWithGoogle, verifyTwoFactor, completeOtpLogin, resendTwoFactor, register, logout, refreshMe }}
     >
       {children}
     </AuthContext.Provider>

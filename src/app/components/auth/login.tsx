@@ -15,11 +15,22 @@ import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
 import AuthImagePanel from './AuthImagePanel'
 import GoogleLoginButton from './GoogleLoginButton'
+import MobileOtpLogin from './MobileOtpLogin'
+import { useBranding } from '@/context/BrandingContext'
 import RedirectIfAuthenticated from './RedirectIfAuthenticated'
 
 export const Login = () => {
   const { login, verifyTwoFactor, resendTwoFactor } = useAuth()
   const router = useRouter()
+  const { otpChannels, googleLoginEnabled, googleClientId, isLoading: brandingLoading } = useBranding()
+  // Which sign-in methods Platform Settings -> Auth has switched on. When
+  // mobile OTP and/or Google is on, only those are shown (both if both);
+  // email + password is the fallback when neither is on, and stays reachable
+  // through a small link so existing admins/Super Admin can never be locked out.
+  const showOtp = otpChannels.length > 0
+  const showGoogle = googleLoginEnabled && !!googleClientId
+  const [useEmail, setUseEmail] = useState(false)
+  const showEmailForm = !brandingLoading && (useEmail || (!showOtp && !showGoogle))
   const [loginType, setLoginType] = useState<'admin' | 'staff'>('admin')
   const [libraryCode, setLibraryCode] = useState('')
   const [email, setEmail] = useState('')
@@ -167,6 +178,40 @@ export const Login = () => {
         <div className='w-full lg:w-[40%] flex justify-center items-center px-3 py-10'>
         <div className='w-full max-w-[450px] mx-auto'>
           <CardBox className='p-4 sm:p-6'>
+            {brandingLoading ? (
+              <div className='flex flex-col gap-4'>
+                <div className='h-10 animate-pulse rounded-md bg-lightprimary' />
+                <div className='h-10 animate-pulse rounded-md bg-lightprimary' />
+              </div>
+            ) : !showEmailForm ? (
+              <div>
+                <div className='flex justify-center mb-4'>
+                  <FullLogo />
+                </div>
+                <p className='text-sm text-charcoal text-center mb-6'>
+                  {showOtp ? 'Sign in or sign up with your mobile number' : 'Sign in to your library dashboard'}
+                </p>
+                {error && <div className='mb-4 rounded-md bg-lighterror px-3 py-2 text-sm text-error'>{error}</div>}
+                {showOtp && <MobileOtpLogin onSuccess={() => router.push('/dashboard')} />}
+                {showGoogle && (
+                  <div className={showOtp ? 'mt-6' : ''}>
+                    <GoogleLoginButton
+                      variant='login'
+                      mode='admin'
+                      onSuccess={() => router.push('/dashboard')}
+                      onError={(message) => setError(message)}
+                    />
+                  </div>
+                )}
+                <button
+                  type='button'
+                  onClick={() => setUseEmail(true)}
+                  className='mt-6 w-full text-center text-sm font-medium text-link dark:text-darklink hover:text-primary'
+                >
+                  Sign in with email &amp; password
+                </button>
+              </div>
+            ) : (
             <form onSubmit={handleSubmit}>
               <div className='flex justify-center mb-4'>
                 <FullLogo />
@@ -281,7 +326,17 @@ export const Login = () => {
                   Create an account
                 </Link>
               </div>
+              {(showOtp || showGoogle) && (
+                <button
+                  type='button'
+                  onClick={() => setUseEmail(false)}
+                  className='mt-4 w-full text-center text-sm font-medium text-link dark:text-darklink hover:text-primary'
+                >
+                  Back to mobile / Google sign-in
+                </button>
+              )}
             </form>
+            )}
           </CardBox>
           <PolicyLinks />
         </div>

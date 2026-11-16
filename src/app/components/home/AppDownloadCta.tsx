@@ -4,9 +4,9 @@ import { Icon } from "@iconify/react";
 import Reveal from "./Reveal";
 import MockupFrame from "./MockupFrame";
 
-// TODO: once the Android/iOS apps are actually published, point these at
-// the real Play Store / App Store listing URLs.
-const PLAY_STORE_URL = "/auth/register";
+// Play Store listing is live; the App Store link is still a placeholder until the iOS app ships.
+const PLAY_STORE_URL =
+  "https://play.google.com/store/apps/details?id=com.libraryji.app&pcampaignid=web_share";
 const APP_STORE_URL = "/auth/register";
 
 export default function AppDownloadCta() {
@@ -26,6 +26,8 @@ export default function AppDownloadCta() {
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
               <a
                 href={PLAY_STORE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-dark transition-transform hover:-translate-y-0.5"
               >
                 <Icon icon="solar:smartphone-bold" width={20} height={20} className="text-success" />

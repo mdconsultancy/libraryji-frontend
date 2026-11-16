@@ -13,6 +13,7 @@ interface ThemeBranding {
   google_login_enabled?: boolean
   google_client_id?: string | null
   meta_pixel_id?: string | null
+  otp_channels?: ('sms' | 'whatsapp')[]
 }
 
 interface BrandingContextValue {
@@ -29,6 +30,8 @@ interface BrandingContextValue {
   googleClientId: string | null
   /** Numeric Meta Pixel ID from Platform Settings -> Meta, or null when the pixel is off. */
   metaPixelId: string | null
+  /** Mobile-number OTP channels switched on in Platform Settings -> Auth ([] = OTP login off). */
+  otpChannels: ('sms' | 'whatsapp')[]
 }
 
 /** Only accept values that are safe to write straight into a CSS custom
@@ -44,6 +47,7 @@ const defaults: BrandingContextValue = {
   googleLoginEnabled: true,
   googleClientId: null,
   metaPixelId: null,
+  otpChannels: [],
 }
 
 const BrandingContext = createContext<BrandingContextValue>(defaults)
@@ -72,6 +76,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     // showing the button.
     googleLoginEnabled: data?.google_login_enabled !== false,
     googleClientId: data?.google_client_id || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || null,
+    otpChannels: data?.otp_channels ?? [],
     metaPixelId: data?.meta_pixel_id && /^\d{6,20}$/.test(data.meta_pixel_id) ? data.meta_pixel_id : null,
   }
 

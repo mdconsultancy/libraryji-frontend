@@ -41,13 +41,24 @@ export function usePlanCheckout(onActivated?: () => void) {
 
       if (order.gateway === "cashfree") {
         try {
-          await openCashfreeCheckout(order.payment_session_id!, order.mode ?? "production");
+          const checkoutResult = await openCashfreeCheckout(order.payment_session_id!, order.mode ?? "production");
+          const dismissed = !!checkoutResult?.error && !checkoutResult?.paymentDetails;
           // The popup result is only a hint — the server asks Cashfree whether
           // the order was really paid before activating anything.
-          const result = await api.post<{ tenant: { library_code: string | null } }>("/admin/select-plan/verify", {
-            subscription_plan_id: plan.id,
-            cashfree_order_id: order.order_id,
-          });
+          let result: { tenant: { library_code: string | null } };
+          try {
+            result = await api.post<{ tenant: { library_code: string | null } }>("/admin/select-plan/verify", {
+              subscription_plan_id: plan.id,
+              cashfree_order_id: order.order_id,
+            });
+          } catch (verifyErr) {
+            // Closed the checkout without paying — not an error worth a scary toast.
+            if (dismissed) {
+              toast.info("Payment was not completed.");
+              return;
+            }
+            throw verifyErr;
+          }
           await refreshMe();
           const code = result.tenant?.library_code;
           toast.success(

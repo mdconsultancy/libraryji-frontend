@@ -207,7 +207,7 @@ const GROUPS: { key: string; label: string; description?: string; fields: FieldC
   },
   {
     key: "oauth",
-    label: "OAuth Settings",
+    label: "Auth Settings",
     fields: [
       { key: "google_login_enabled", label: "Google Login Enabled", type: "boolean" },
       { key: "google_client_id", label: "Google Client ID", type: "text" },
@@ -232,6 +232,19 @@ const GROUPS: { key: string; label: string; description?: string; fields: FieldC
       { key: "meta_pixel_id", label: "Meta Pixel ID", type: "text" },
     ],
   },
+  {
+    key: "msg91",
+    label: "MSG91 OTP",
+    fields: [
+      { key: "msg91_authkey", section: "auth", label: "MSG91 Auth Key", type: "password" },
+      { key: "msg91_sms_enabled", section: "sms", label: "OTP on SMS", type: "boolean" },
+      { key: "msg91_sms_widget_id", section: "sms", label: "SMS Widget ID", type: "text" },
+      { key: "msg91_sms_token", section: "sms", label: "SMS Token", type: "password" },
+      { key: "msg91_whatsapp_enabled", section: "whatsapp", label: "OTP on WhatsApp", type: "boolean" },
+      { key: "msg91_whatsapp_widget_id", section: "whatsapp", label: "WhatsApp Widget ID", type: "text" },
+      { key: "msg91_whatsapp_token", section: "whatsapp", label: "WhatsApp Token", type: "password" },
+    ],
+  },
 ];
 
 type SettingsValue = Record<string, unknown>;
@@ -254,6 +267,14 @@ export default function PlatformSettingsPage() {
   const [uploadingAsset, setUploadingAsset] = useState<"logo" | "favicon" | null>(null);
   const [testGoogleStatus, setTestGoogleStatus] = useState<{ ok: boolean; message: string } | null>(null);
   const [testingGoogle, setTestingGoogle] = useState(false);
+  const [otpTest, setOtpTest] = useState<{ mobile: string; channel: "sms" | "whatsapp"; reqId: string | null; otp: string }>({
+    mobile: "",
+    channel: "sms",
+    reqId: null,
+    otp: "",
+  });
+  const [otpTestStatus, setOtpTestStatus] = useState<{ ok: boolean; message: string } | null>(null);
+  const [otpTestBusy, setOtpTestBusy] = useState(false);
 
   const loadSettings = () => {
     setLoading(true);
@@ -318,6 +339,8 @@ export default function PlatformSettingsPage() {
     setSavedGroup(null);
     try {
       await saveGroup(group, allSettings[group] || {});
+      // The Auth tab also holds the mobile-number (MSG91) OTP login settings.
+      if (group === "oauth") await saveGroup("msg91", allSettings.msg91 || {});
       setSavedGroup(group);
       toast.success("Settings saved.");
     } catch (err) {
@@ -575,8 +598,8 @@ export default function PlatformSettingsPage() {
                           }
                           autoComplete="off"
                           onReveal={
-                            group.key === "payment" && allSettings.payment?.[`${field.key}_is_set`]
-                              ? () => revealPaymentSecret(field.key)
+                            (group.key === "payment" || group.key === "msg91") && allSettings[group.key]?.[`${field.key}_is_set`]
+                              ? () => revealSecret(group.key, field.key)
                               : undefined
                           }
                         />
@@ -597,9 +620,9 @@ export default function PlatformSettingsPage() {
                   );
     });
 
-  const revealPaymentSecret = async (key: string): Promise<string | null> => {
+  const revealSecret = async (group: string, key: string): Promise<string | null> => {
     try {
-      const res = await api.get<{ value: string }>(`/super-admin/settings/payment/reveal/${key}`);
+      const res = await api.get<{ value: string }>(`/super-admin/settings/${group}/reveal/${key}`);
       return res.value || null;
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Unable to show the saved value.");
@@ -706,6 +729,158 @@ export default function PlatformSettingsPage() {
     );
   };
 
+  // Test OTP uses the values typed in the form (saved or not); blank secrets
+  // fall back to the saved ones on the server.
+  const otpTestCredentials = () => {
+    const s = allSettings.msg91 || {};
+    return {
+      mobile: otpTest.mobile,
+      channel: otpTest.channel,
+      authkey: (s.msg91_authkey as string) || undefined,
+      widget_id: (s[`msg91_${otpTest.channel}_widget_id`] as string) || undefined,
+      token: (s[`msg91_${otpTest.channel}_token`] as string) || undefined,
+    };
+  };
+
+  const handleOtpTestSend = async () => {
+    setOtpTestBusy(true);
+    setOtpTestStatus(null);
+    try {
+      const res = await api.post<{ req_id: string; message: string }>("/super-admin/settings/msg91/test-send", otpTestCredentials());
+      setOtpTest((prev) => ({ ...prev, reqId: res.req_id, otp: "" }));
+      setOtpTestStatus({ ok: true, message: res.message });
+    } catch (err) {
+      setOtpTestStatus({ ok: false, message: err instanceof ApiError ? err.message : "Unable to send the test OTP." });
+    } finally {
+      setOtpTestBusy(false);
+    }
+  };
+
+  const handleOtpTestVerify = async () => {
+    if (!otpTest.reqId) return;
+    setOtpTestBusy(true);
+    setOtpTestStatus(null);
+    try {
+      const res = await api.post<{ message: string }>("/super-admin/settings/msg91/test-verify", {
+        ...otpTestCredentials(),
+        req_id: otpTest.reqId,
+        otp: otpTest.otp,
+      });
+      setOtpTestStatus({ ok: true, message: res.message });
+      setOtpTest((prev) => ({ ...prev, reqId: null, otp: "" }));
+      toast.success("MSG91 OTP test passed.");
+    } catch (err) {
+      setOtpTestStatus({ ok: false, message: err instanceof ApiError ? err.message : "OTP verification failed." });
+    } finally {
+      setOtpTestBusy(false);
+    }
+  };
+
+  const renderMsg91 = (group: (typeof GROUPS)[number]) => {
+    const section = (name: string) => group.fields.filter((f) => f.section === name);
+    const channelBlock = (name: "sms" | "whatsapp", hint: string) => {
+      const [toggle, ...rest] = section(name);
+      return (
+        <div className="flex flex-col gap-3 lg:col-span-2">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <Label htmlFor={`msg91_${toggle.key}`} className="text-sm font-semibold">{toggle.label}</Label>
+              <p className="text-xs text-gray-500">{hint}</p>
+            </div>
+            <Switch
+              id={`msg91_${toggle.key}`}
+              checked={allSettings.msg91?.[toggle.key] === true}
+              onCheckedChange={(v) => updateField("msg91", toggle.key, v)}
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-4 rounded-lg bg-muted p-4 lg:grid-cols-2">{renderFields(group, rest)}</div>
+        </div>
+      );
+    };
+
+    return (
+      <>
+        <div className="flex gap-2 rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm text-darklink lg:col-span-2">
+          <Icon icon="tabler:info-circle" width={18} height={18} className="mt-0.5 shrink-0 text-primary" />
+          <p>
+            Everyone — Super Admin, Admin and Staff — signs in or signs up with their mobile number on the website and in the mobile app. Turn a channel on below to show it on the login page; if Google login is also on, both are shown.
+            Create <b>one OTP widget per channel</b> in MSG91 → OTP → Widgets (turn on <b>Mobile Integration</b> for
+            each) and copy its Widget ID and Token here.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-1 lg:col-span-2">
+          {renderFields(group, section("auth"))}
+          <p className="text-xs text-gray-500">MSG91 → Authkey. Used by the server to confirm each OTP login — never shown to app users.</p>
+        </div>
+
+        {channelBlock("sms", 'Show "Get OTP on SMS" on the app login screen.')}
+        {channelBlock("whatsapp", 'Show "Get OTP on WhatsApp" on the app login screen.')}
+
+        <div className="flex flex-col gap-3 rounded-lg bg-muted p-4 lg:col-span-2">
+          <p className="text-sm font-semibold">Test OTP</p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="msg91_test_mobile">Mobile Number</Label>
+              <Input
+                id="msg91_test_mobile"
+                inputMode="numeric"
+                placeholder="10-digit number"
+                value={otpTest.mobile}
+                onChange={(e) => setOtpTest((p) => ({ ...p, mobile: e.target.value.replace(/\D/g, "").slice(0, 10), reqId: null }))}
+                className="bg-background sm:w-48"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="msg91_test_channel">Channel</Label>
+              <Select
+                value={otpTest.channel}
+                onValueChange={(v) => setOtpTest((p) => ({ ...p, channel: v as "sms" | "whatsapp", reqId: null }))}
+              >
+                <SelectTrigger id="msg91_test_channel" className="bg-background sm:w-36">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sms">SMS</SelectItem>
+                  <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button type="button" onClick={handleOtpTestSend} disabled={otpTest.mobile.length !== 10 || otpTestBusy}>
+              {otpTestBusy && !otpTest.reqId ? "Sending..." : otpTest.reqId ? "Resend Test OTP" : "Send Test OTP"}
+            </Button>
+          </div>
+
+          {otpTest.reqId && (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="msg91_test_otp">OTP Received</Label>
+                <Input
+                  id="msg91_test_otp"
+                  inputMode="numeric"
+                  placeholder="Enter OTP"
+                  value={otpTest.otp}
+                  onChange={(e) => setOtpTest((p) => ({ ...p, otp: e.target.value.replace(/\D/g, "").slice(0, 8) }))}
+                  className="bg-background sm:w-48"
+                />
+              </div>
+              <Button type="button" variant="outline" onClick={handleOtpTestVerify} disabled={otpTest.otp.length < 4 || otpTestBusy}>
+                {otpTestBusy ? "Verifying..." : "Verify OTP"}
+              </Button>
+            </div>
+          )}
+
+          <p className="text-xs text-gray-500">
+            Uses the values typed above, even before saving. A real message is sent and billed by MSG91.
+          </p>
+          {otpTestStatus && (
+            <p className={`text-sm ${otpTestStatus.ok ? "text-success" : "text-error"}`}>{otpTestStatus.message}</p>
+          )}
+        </div>
+      </>
+    );
+  };
+
   const renderPaymentTabs = (group: (typeof GROUPS)[number]) => (
     <Tabs defaultValue="billing" className="lg:col-span-2">
       <TabsList className="flex-wrap h-auto">
@@ -795,17 +970,21 @@ export default function PlatformSettingsPage() {
       <CardBox className="p-6 bg-background border-none rounded-xl shadow-xs">
         <Tabs defaultValue="general">
           <TabsList className="flex-wrap h-auto">
-            {GROUPS.map((g) => (
+            {GROUPS.filter((g) => g.key !== "msg91").map((g) => (
               <TabsTrigger key={g.key} value={g.key}>{g.label}</TabsTrigger>
             ))}
           </TabsList>
 
-          {GROUPS.map((group) => (
+          {GROUPS.filter((g) => g.key !== "msg91").map((group) => (
             <TabsContent key={group.key} value={group.key}>
               <form onSubmit={(e) => handleSave(e, group.key)} className="grid grid-cols-1 gap-4 lg:grid-cols-2 mt-4">
                 {group.description && <p className="text-sm text-darklink lg:col-span-2">{group.description}</p>}
                 {savedGroup === group.key && <p className="text-sm text-success lg:col-span-2">Settings saved.</p>}
-                {group.key === "payment" ? renderPaymentTabs(group) : renderFields(group, group.fields)}
+                {group.key === "payment"
+                  ? renderPaymentTabs(group)
+                  : group.key === "msg91"
+                  ? renderMsg91(group)
+                  : renderFields(group, group.fields)}
 
                 {group.key === "smtp" && (
                   <div className="flex flex-col gap-2 lg:col-span-2 border-t border-border pt-4 mt-2">
@@ -880,6 +1059,13 @@ export default function PlatformSettingsPage() {
                         {testGoogleStatus.message}
                       </p>
                     )}
+                  </div>
+                )}
+
+                {group.key === "oauth" && (
+                  <div className="grid grid-cols-1 gap-4 lg:col-span-2 lg:grid-cols-2 border-t border-border pt-4 mt-2">
+                    <h3 className="text-base font-semibold lg:col-span-2">SMS / OTP Login (Mobile Number)</h3>
+                    {renderMsg91(GROUPS.find((g) => g.key === "msg91")!)}
                   </div>
                 )}
 
